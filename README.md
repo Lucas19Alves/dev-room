@@ -19,7 +19,7 @@ Tenha tudo o que precisa para organizar seu dia de trabalho em um só lugar: not
 
 ## 🖥️ Acesse em
 
-![DevRoom](https://dev-room-three.vercel.app/)
+[DevRoom](https://dev-room-three.vercel.app/)
 
 ## 🚀 Instalação
 
