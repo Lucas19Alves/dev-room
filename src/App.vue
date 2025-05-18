@@ -19,7 +19,6 @@ const NOME_KEY = 'dev-room-nome'
 const THEME_KEY = 'dev-room-theme'
 const nome = ref('')
 
-
 function getUserInfo() {
   const novoNome = prompt('Digite seu nome:', nome.value)
   if (novoNome !== null && novoNome.trim() !== '') {
@@ -27,7 +26,6 @@ function getUserInfo() {
     localStorage.setItem(NOME_KEY, nome.value)
   }
 }
-
 
 const currentTheme = ref('theme-default')
 function applyTheme(theme) {
@@ -37,7 +35,6 @@ function applyTheme(theme) {
 }
 
 onMounted(() => {
-
   const salvo = localStorage.getItem(NOME_KEY)
   if (salvo && salvo.trim() !== '') {
     nome.value = salvo
@@ -101,7 +98,7 @@ const windowComponents = {
 let zIndexCounter = 10
 const openWindows = reactive([])
 
-const mobileActiveTab = ref('Timer') // ou qualquer componente inicial
+const mobileActiveTab = ref('Timer')
 
 const mobileTabs = [
   { type: 'Timer', label: 'Timer', icon: 'fa-solid fa-stopwatch' },
@@ -128,6 +125,7 @@ function openWindow(type) {
   if (openWindows.some(w => w.type === type)) {
     const win = openWindows.find(w => w.type === type)
     bringToFront(win.id)
+    if (win.minimized) win.minimized = false
     return
   }
   const titleMap = {
@@ -160,7 +158,6 @@ function openWindow(type) {
   }
   const { width, height } = defaultSizes[type] || { width: 340, height: 220 }
 
-  // Centralizar na área do conteúdo
   let x = 0, y = 0
   const container = document.getElementById('roomContent')
   if (container) {
@@ -168,7 +165,6 @@ function openWindow(type) {
     x = (rect.width - width) / 2
     y = (rect.height - height) / 2
   } else {
-    // fallback para centralizar na tela
     x = (window.innerWidth - width) / 2
     y = (window.innerHeight - height) / 2
   }
@@ -181,7 +177,8 @@ function openWindow(type) {
     zIndex: ++zIndexCounter,
     title: titleMap[type],
     width,
-    height
+    height,
+    minimized: false
   })
 }
 
@@ -210,6 +207,15 @@ function bringToFront(id) {
   zIndexCounter++
   const win = openWindows.find(w => w.id === id)
   if (win) win.zIndex = zIndexCounter
+}
+
+function minimizeWindow(id) {
+  const win = openWindows.find(w => w.id === id)
+  if (win) win.minimized = true
+}
+function restoreWindow(id) {
+  const win = openWindows.find(w => w.id === id)
+  if (win) win.minimized = false
 }
 
 const showInstallPrompt = ref(false)
@@ -243,12 +249,14 @@ onMounted(() => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
 })
+
+const showPixModal = ref(false)
 </script>
 
 <template>
   <SpeedInsights />
   <div class="h-screen text-gray-100 relative overflow-hidden" :style="{ background: 'var(--bg-main)', color: 'var(--text-main)' }">
-    <!-- Botão de menu fixo no topo -->
+
     <button
       v-if="isMobile"
       @click="mobileMenuOpen = true"
@@ -257,7 +265,7 @@ onMounted(() => {
       <font-awesome-icon icon="fa-solid fa-bars" class="text-2xl text-blue-300" />
     </button>
 
-    <!-- Drawer lateral -->
+
     <transition name="fade">
       <div
         v-if="mobileMenuOpen"
@@ -293,18 +301,53 @@ onMounted(() => {
     </transition>
 
     <div v-if="isMobile" class="flex flex-col h-screen">
-      <!-- Conteúdo da aba ativa -->
+
       <div class="flex-1 overflow-auto">
         <component :is="windowComponents[mobileActiveTab]" />
       </div>
-      
+
+      <nav
+        class="fixed bottom-0 left-0 w-full z-40 flex items-center justify-center py-2"
+        :style="{
+          background: 'var(--bg-panel)',
+          borderTop: '1px solid var(--accent)',
+          boxShadow: '0 -2px 8px 0 rgb(0 0 0 / 0.10)'
+        }"
+      >
+        <button
+          class="flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-xs shadow transition"
+          :style="{
+            background: 'var(--accent)',
+            color: 'var(--text-main)',
+            border: '1px solid var(--accent)',
+            opacity: 0.85
+          }"
+          @click="showPixModal = true"
+          title="Me apoie"
+        >
+          <font-awesome-icon icon="fa-solid fa-heart" class="text-base" />
+          Me apoie
+        </button>
+      </nav>
     </div>
+
     <div v-else>
       <div id="statusBar" class="bg-gray-800 text-blue-200 p-4 flex flex-row justify-between items-center shadow"
         :style="{ background: 'var(--bg-panel)' }">
         <div>
-          <font-awesome-icon icon="fa-solid fa-user" class="text-blue-300 hover:text-blue-500 cursor-pointer"
-            @click="getUserInfo" />
+          <button
+            class="font-bold px-4 py-2 rounded-full shadow flex items-center gap-2 transition"
+            :style="{
+              background: 'var(--accent)',
+              color: 'var(--text-main)',
+              border: '2px solid var(--accent)'
+            }"
+            @click="showPixModal = true"
+            title="Me apoie"
+          >
+            <font-awesome-icon icon="fa-solid fa-heart" class="text-xl" />
+            Me apoie
+          </button>
         </div>
         <div>
           <h1>Olá, dev <span class="text-blue-400 font-semibold">{{ nome }}!</span></h1>
@@ -319,10 +362,21 @@ onMounted(() => {
 
       <div id="roomContent" class="relative w-full h-[calc(100vh-200px)]">
         <template v-for="win in openWindows" :key="win.id">
-          <Window :title="win.title" :x="win.x" :y="win.y" :zIndex="win.zIndex" :width="win.width" :height="win.height"
-            :containerSelector="'#roomContent'" @close="closeWindow(win.id)"
+          <Window
+            :title="win.title"
+            :x="win.x"
+            :y="win.y"
+            :zIndex="win.zIndex"
+            :width="win.width"
+            :height="win.height"
+            :containerSelector="'#roomContent'"
+            :minimized="win.minimized"
+            @close="closeWindow(win.id)"
             @update:position="pos => updateWindowPosition(win.id, pos)"
-            @update:size="size => updateWindowSize(win.id, size)" @bringToFront="bringToFront(win.id)">
+            @update:size="size => updateWindowSize(win.id, size)"
+            @bringToFront="bringToFront(win.id)"
+            @minimize="minimizeWindow(win.id)"
+          >
             <component :is="win.type === 'Themes' ? Themes : windowComponents[win.type]"
               v-bind="win.type === 'Themes' ? { setTheme: applyTheme, currentTheme } : {}" />
           </Window>
@@ -337,65 +391,84 @@ onMounted(() => {
           borderColor: 'var(--accent)'
         }">
         <div class="flex flex-wrap gap-3 justify-center items-center w-full max-w-6xl">
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('Timer')">
-            <font-awesome-icon icon="fa-solid fa-stopwatch" class="text-blue-400 text-2xl hover:text-blue-200" />
-            <span class="dock-tooltip group-hover:opacity-100">{{ 'Timer' }}</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('MusicPlayer')">
-            <font-awesome-icon icon="fa-solid fa-music" class="text-green-400 text-2xl hover:text-green-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Player de Música</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('TodoList')">
-            <font-awesome-icon icon="fa-solid fa-list-check" class="text-yellow-400 text-2xl hover:text-yellow-200" />
-            <span class="dock-tooltip group-hover:opacity-100">To-Do List</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('Docs')">
-            <font-awesome-icon icon="fa-solid fa-book" class="text-pink-400 text-2xl hover:text-pink-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Documentação</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('QuickNotes')">
-            <font-awesome-icon icon="fa-solid fa-sticky-note" class="text-orange-400 text-2xl hover:text-orange-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Notas Rápidas</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('CodeSnippets')">
-            <font-awesome-icon icon="fa-solid fa-code" class="text-purple-400 text-2xl hover:text-purple-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Snippets de Código</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative"
-            @click="openWindow('DeployChecklist')">
-            <font-awesome-icon icon="fa-solid fa-rocket" class="text-teal-400 text-2xl hover:text-teal-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Checklist de Deploy</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('Pomodoro')">
-            <font-awesome-icon icon="fa-solid fa-clock" class="text-red-400 text-2xl hover:text-red-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Pomodoro</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('Search')">
-            <font-awesome-icon icon="fa-solid fa-magnifying-glass" class="text-cyan-400 text-2xl hover:text-cyan-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Busca</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('Themes')">
-            <font-awesome-icon icon="fa-solid fa-palette" class="text-fuchsia-400 text-2xl hover:text-fuchsia-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Temas</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('WaterReminder')">
-            <font-awesome-icon icon="fa-solid fa-droplet" class="text-sky-400 text-2xl hover:text-sky-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Lembrete de Água</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative"
-            @click="openWindow('FakeDataGenerator')">
-            <font-awesome-icon icon="fa-solid fa-database" class="text-lime-400 text-2xl hover:text-lime-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Gerador de Dados</span>
+          <div
+            v-for="winTab in mobileTabs"
+            :key="winTab.type"
+            class="flex flex-col items-center group cursor-pointer w-16 relative"
+            @click="() => {
+              const win = openWindows.find(w => w.type === winTab.type)
+              if (win) {
+                if (win.minimized) restoreWindow(win.id)
+                else bringToFront(win.id)
+              } else {
+                openWindow(winTab.type)
+              }
+            }"
+          >
+            <font-awesome-icon :icon="winTab.icon"
+              :class="[
+                winTab.type === 'Timer' ? 'text-blue-400 hover:text-blue-200' : '',
+                winTab.type === 'MusicPlayer' ? 'text-green-400 hover:text-green-200' : '',
+                winTab.type === 'TodoList' ? 'text-yellow-400 hover:text-yellow-200' : '',
+                winTab.type === 'Docs' ? 'text-pink-400 hover:text-pink-200' : '',
+                winTab.type === 'QuickNotes' ? 'text-orange-400 hover:text-orange-200' : '',
+                winTab.type === 'CodeSnippets' ? 'text-purple-400 hover:text-purple-200' : '',
+                winTab.type === 'DeployChecklist' ? 'text-teal-400 hover:text-teal-200' : '',
+                winTab.type === 'Pomodoro' ? 'text-red-400 hover:text-red-200' : '',
+                winTab.type === 'Search' ? 'text-cyan-400 hover:text-cyan-200' : '',
+                winTab.type === 'Themes' ? 'text-fuchsia-400 hover:text-fuchsia-200' : '',
+                winTab.type === 'WaterReminder' ? 'text-sky-400 hover:text-sky-200' : '',
+                winTab.type === 'FakeDataGenerator' ? 'text-lime-400 hover:text-lime-200' : ''
+              ]"
+              class="text-2xl"
+            />
+            <span class="dock-tooltip group-hover:opacity-100">{{ winTab.label }}</span>
+            <span
+              v-if="openWindows.find(w => w.type === winTab.type && w.minimized)"
+              class="absolute top-1 right-2 w-2 h-2 rounded-full bg-yellow-400 border border-yellow-700"
+              title="Minimizada"
+            ></span>
           </div>
         </div>
       </div>
+    </div>
 
-      <div v-if="showInstallPrompt"
-        class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-blue-800 text-white px-6 py-3 rounded shadow-lg z-50 flex items-center gap-4">
-        <span>Instale o Dev Room no seu dispositivo para acesso rápido!</span>
-        <button @click="installApp" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold">Instalar</button>
-        <button @click="showInstallPrompt = false" class="ml-2 text-blue-200 hover:text-white">Fechar</button>
+    <div
+      v-if="showPixModal"
+      class="fixed inset-0 z-50 flex items-center justify-center"
+      :style="{ background: 'rgba(0,0,0,0.5)' }"
+      @click.self="showPixModal = false"
+    >
+      <div
+        class="rounded-lg p-6 shadow-xl flex flex-col items-center max-w-xs w-full"
+        :style="{
+          background: 'var(--bg-panel)',
+          color: 'var(--text-main)',
+          border: '2px solid var(--accent)'
+        }"
+      >
+        <h3 class="text-lg font-bold mb-2" :style="{ color: 'var(--accent)' }">Me pague um café ☕</h3>
+        <p class="mb-3 text-center">Apoie o projeto enviando qualquer valor via Pix!</p>
+        <img src="/images/qrcode-pix.png" alt="QR Code Pix" class="w-48 h-48 object-contain mb-3 border rounded bg-white p-2" />
+        <button
+          class="mt-2 px-4 py-2 rounded font-bold transition"
+          :style="{
+            background: 'var(--accent)',
+            color: 'var(--text-main)'
+          }"
+          @click="showPixModal = false"
+        >
+          Fechar
+        </button>
       </div>
+    </div>
+
+    <div
+      v-if="showInstallPrompt"
+      class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-blue-800 text-white px-6 py-3 rounded shadow-lg z-50 flex items-center gap-4">
+      <span>Instale o Dev Room no seu dispositivo para acesso rápido!</span>
+      <button @click="installApp" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold">Instalar</button>
+      <button @click="showInstallPrompt = false" class="ml-2 text-blue-200 hover:text-white">Fechar</button>
     </div>
   </div>
 </template>
@@ -403,7 +476,6 @@ onMounted(() => {
 <style scoped>
 #roomContent {
   padding-bottom: 120px;
-
 }
 
 .dock-tooltip {

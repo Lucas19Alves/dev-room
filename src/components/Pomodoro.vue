@@ -41,8 +41,8 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { playSound, notify } from '../utils/notify'
 
-const FOCUS_TIME = 25 * 60 // 25 minutos
-const BREAK_TIME = 5 * 60  // 5 minutos
+const FOCUS_TIME = 25 * 60
+const BREAK_TIME = 5 * 60
 const POMODORO_STATE_KEY = 'dev-room-pomodoro-state'
 
 const frases = [
@@ -97,7 +97,6 @@ function loadState() {
       const remaining = Math.max(Math.floor((endTimestamp.value - now) / 1000), 0)
       elapsed.value = total - remaining
       if (remaining <= 0) {
-        // Ciclo acabou enquanto estava fechado
         elapsed.value = total
         running.value = false
         endTimestamp.value = null
@@ -105,7 +104,6 @@ function loadState() {
         notify('Novo ciclo do Pomodoro', { body: 'Confira seu pomodoro' })
         nextStage(true)
       } else {
-        // Ainda está rodando, continue automaticamente
         startTimer(true)
       }
     }

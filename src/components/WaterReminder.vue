@@ -165,7 +165,6 @@ onMounted(() => {
     tick()
     updateTimeLeft()
   }, 1000)
-  // Solicita permissão ao abrir o componente
   if ("Notification" in window && Notification.permission !== "granted") {
     Notification.requestPermission()
   }

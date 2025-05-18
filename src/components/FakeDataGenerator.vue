@@ -51,7 +51,6 @@ const loremCount = ref(2)
 const loremWords = ref(0)
 
 function generateCPF() {
-  // Gera CPF válido
   let n = 9, n1 = random(n), n2 = random(n), n3 = random(n), n4 = random(n), n5 = random(n), n6 = random(n), n7 = random(n), n8 = random(n), n9 = random(n)
   let d1 = calcDV([n1, n2, n3, n4, n5, n6, n7, n8, n9], 10)
   let d2 = calcDV([n1, n2, n3, n4, n5, n6, n7, n8, n9, d1], 11)
@@ -65,7 +64,6 @@ function generateCPF() {
 }
 
 function generateCNPJ() {
-  // Gera CNPJ válido
   let n = 9, n1 = random(n), n2 = random(n), n3 = random(n), n4 = random(n), n5 = random(n), n6 = random(n), n7 = random(n), n8 = random(n)
   let n9 = 0, n10 = 0, n11 = 0, n12 = 1
   let d1 = calcDV([n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12], [5,4,3,2,9,8,7,6,5,4,3,2])
@@ -86,7 +84,7 @@ function generate() {
       result.value = faker.person.fullName()
       break
     case 'email':
-      result.value = faker.internet.email()
+      result.value = faker.internet.email().toLowerCase()
       break
     case 'phone':
       result.value = faker.phone.number('(##) #####-####')

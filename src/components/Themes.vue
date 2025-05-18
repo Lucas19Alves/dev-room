@@ -66,6 +66,30 @@ const themes = [
     value: 'theme-nord',
     preview: 'linear-gradient(135deg, #2e3440 60%, #88c0d0 100%)',
     border: '#88c0d0'
+  },
+  {
+    label: 'Monokai',
+    value: 'theme-monokai',
+    preview: 'linear-gradient(135deg, #272822 60%, #f92672 100%)',
+    border: '#f92672'
+  },
+  {
+    label: 'One Dark',
+    value: 'theme-onedark',
+    preview: 'linear-gradient(135deg, #282c34 60%, #61afef 100%)',
+    border: '#61afef'
+  },
+  {
+    label: 'Night Owl',
+    value: 'theme-nightowl',
+    preview: 'linear-gradient(135deg, #011627 60%, #82aaff 100%)',
+    border: '#82aaff'
+  },
+  {
+    label: 'Palenight',
+    value: 'theme-palenight',
+    preview: 'linear-gradient(135deg, #292d3e 60%, #c792ea 100%)',
+    border: '#c792ea'
   }
 ]
 

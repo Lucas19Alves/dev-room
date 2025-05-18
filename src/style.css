@@ -37,8 +37,31 @@
   --text-main: #eceff4;
   --accent: #88c0d0;
 }
+.theme-monokai {
+  --bg-main: #272822;
+  --bg-panel: #383830;
+  --text-main: #f8f8f2;
+  --accent: #f92672;
+}
+.theme-onedark {
+  --bg-main: #282c34;
+  --bg-panel: #21252b;
+  --text-main: #abb2bf;
+  --accent: #61afef;
+}
+.theme-nightowl {
+  --bg-main: #011627;
+  --bg-panel: #15223b;
+  --text-main: #d6deeb;
+  --accent: #82aaff;
+}
+.theme-palenight {
+  --bg-main: #292d3e;
+  --bg-panel: #313244;
+  --text-main: #a6accd;
+  --accent: #c792ea;
+}
 
-/* Aplicação das variáveis */
 body, html {
   background: var(--bg-main);
   color: var(--text-main);

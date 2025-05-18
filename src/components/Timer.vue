@@ -99,14 +99,12 @@ function loadState() {
       const remaining = Math.max(Math.floor((endTimestamp.value - now) / 1000), 0)
       elapsed.value = totalSeconds.value - remaining
       if (remaining <= 0) {
-        // Timer acabou enquanto estava fechado
         elapsed.value = totalSeconds.value
         running.value = false
         endTimestamp.value = null
         playSound('/sounds/notify.mp3')
         notify('Tempo finalizado!', { body: 'Seu timer terminou.' })
       } else {
-        // Timer ainda está rodando, continue automaticamente
         startTimer(true)
       }
     }
@@ -176,7 +174,6 @@ onUnmounted(() => {
   saveState()
 })
 
-// Salva sempre que mudar algo importante
 watch([inputMinutes, inputSeconds, totalSeconds, elapsed, running, endTimestamp], saveState)
 </script>
 

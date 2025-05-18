@@ -48,15 +48,14 @@ const STORAGE_KEY = 'dev-room-quick-notes'
 const newNote = ref('')
 const notes = ref([])
 
-// Cores para os stickies
 const noteColors = [
-  '#FEF3C7', // amarelo claro
+  '#FEF3C7',
   '#FDE68A',
   '#FCD34D',
-  '#FFD6A5', // laranja claro
-  '#E0BBE4', // lilás claro
-  '#B5EAD7', // verde claro
-  '#C7CEEA', // azul claro
+  '#FFD6A5',
+  '#E0BBE4',
+  '#B5EAD7',
+  '#C7CEEA',
 ]
 
 function loadNotes() {

@@ -124,7 +124,7 @@ const shuffle = ref(false)
 const duration = ref(0)
 const currentTime = ref(0)
 const autoplay = ref(false)
-const volume = ref(0.7) // valor inicial do volume
+const volume = ref(0.7)
 
 function play() {
   audio.value.play()
@@ -218,7 +218,6 @@ function setVolume() {
   }
 }
 
-// Auto play ao trocar de música
 watch([currentIndex, autoplay], ([, auto]) => {
   if (auto) {
     setTimeout(() => {
@@ -227,9 +226,8 @@ watch([currentIndex, autoplay], ([, auto]) => {
     }, 100)
   }
 })
-// Atualiza o volume sempre que mudar
+
 watch(volume, () => setVolume())
-// Pausa ao desmontar
 onMounted(() => {
   pause()
   setVolume()

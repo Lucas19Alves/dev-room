@@ -1,5 +1,6 @@
 <template>
   <div
+    v-show="!minimized"
     class="absolute shadow-2xl rounded-lg flex flex-col"
     :style="{
       left: x + 'px',
@@ -12,7 +13,7 @@
     }"
     @mousedown.self="bringToFront"
   >
-    <!-- Barra de título e botões -->
+
     <div
       class="flex justify-between items-center rounded-t cursor-move select-none px-4 py-2 flex-shrink-0"
       :style="{
@@ -22,17 +23,28 @@
       @mousedown.stop.prevent="startDrag"
     >
       <span class="font-semibold">{{ title }}</span>
-      <button
-        @click="$emit('close')"
-        class="text-red-400 hover:text-red-600 text-xl font-bold ml-2"
-        style="background: transparent;"
-      >&times;</button>
+      <div class="flex items-center gap-1 ml-2">
+        <button
+          @click="$emit('minimize')"
+          class="text-yellow-400 hover:text-yellow-600 text-xl font-bold"
+          style="background: transparent;"
+          title="Minimizar"
+        >
+          &minus;
+        </button>
+        <button
+          @click="$emit('close')"
+          class="text-red-400 hover:text-red-600 text-xl font-bold"
+          style="background: transparent;"
+          title="Fechar"
+        >&times;</button>
+      </div>
     </div>
-    <!-- Conteúdo -->
+
     <div class="flex-1 w-full overflow-auto" :style="{ color: 'var(--text-main)' }">
       <slot />
     </div>
-    <!-- Handles de resize -->
+
     <div
       v-for="dir in directions"
       :key="dir"
@@ -52,9 +64,10 @@ const props = defineProps({
   zIndex: Number,
   width: { type: Number, default: 400 },
   height: { type: Number, default: 300 },
-  containerSelector: { type: String, default: null }
+  containerSelector: { type: String, default: null },
+  minimized: { type: Boolean, default: false }
 })
-const emit = defineEmits(['update:position', 'bringToFront', 'close', 'update:size'])
+const emit = defineEmits(['update:position', 'bringToFront', 'close', 'update:size', 'minimize'])
 
 const pos = ref({ x: props.x, y: props.y })
 const size = ref({ width: props.width, height: props.height })
@@ -94,12 +107,10 @@ function onDrag(e) {
   let newX = e.clientX - dragOffset.value.x
   let newY = e.clientY - dragOffset.value.y
 
-  // Limite dentro do container
   if (props.containerSelector) {
     const container = document.querySelector(props.containerSelector)
     if (container) {
       const rect = container.getBoundingClientRect()
-      // Use size.value.width e size.value.height para o tamanho da janela
       newX = Math.max(0, Math.min(newX, rect.width - size.value.width))
       newY = Math.max(0, Math.min(newY, rect.height - size.value.height))
     }
