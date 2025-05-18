@@ -86,7 +86,7 @@ function generate() {
       result.value = faker.person.fullName()
       break
     case 'email':
-      result.value = faker.internet.email()
+      result.value = faker.internet.email().toLowerCase()
       break
     case 'phone':
       result.value = faker.phone.number('(##) #####-####')
