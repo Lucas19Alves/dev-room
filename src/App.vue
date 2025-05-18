@@ -100,19 +100,19 @@ const openWindows = reactive([])
 
 const mobileActiveTab = ref('Timer') // ou qualquer componente inicial
 
-const mobileTabs = [
-  { type: 'Timer', label: 'Timer', icon: 'fa-solid fa-stopwatch' },
-  { type: 'MusicPlayer', label: 'Player de Música', icon: 'fa-solid fa-music' },
-  { type: 'TodoList', label: 'To-Do List', icon: 'fa-solid fa-list-check' },
-  { type: 'Docs', label: 'Documentação', icon: 'fa-solid fa-book' },
-  { type: 'QuickNotes', label: 'Notas Rápidas', icon: 'fa-solid fa-sticky-note' },
-  { type: 'CodeSnippets', label: 'Snippets de Código', icon: 'fa-solid fa-code' },
-  { type: 'DeployChecklist', label: 'Checklist de Deploy', icon: 'fa-solid fa-rocket' },
-  { type: 'Pomodoro', label: 'Pomodoro', icon: 'fa-solid fa-clock' },
-  { type: 'Search', label: 'Busca', icon: 'fa-solid fa-magnifying-glass' },
-  { type: 'Themes', label: 'Temas', icon: 'fa-solid fa-palette' },
-  { type: 'WaterReminder', label: 'Lembrete de Água', icon: 'fa-solid fa-droplet' },
-  { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database' },
+const appTabs = [
+  { type: 'Timer', label: 'Timer', icon: 'fa-solid fa-stopwatch', color: 'blue' },
+  { type: 'MusicPlayer', label: 'Player de Música', icon: 'fa-solid fa-music', color: 'green' },
+  { type: 'TodoList', label: 'To-Do List', icon: 'fa-solid fa-list-check', color: 'yellow' },
+  { type: 'Docs', label: 'Documentação', icon: 'fa-solid fa-book', color: 'pink' },
+  { type: 'QuickNotes', label: 'Notas Rápidas', icon: 'fa-solid fa-sticky-note', color: 'orange' },
+  { type: 'CodeSnippets', label: 'Snippets de Código', icon: 'fa-solid fa-code', color: 'purple' },
+  { type: 'DeployChecklist', label: 'Checklist de Deploy', icon: 'fa-solid fa-rocket', color: 'teal' },
+  { type: 'Pomodoro', label: 'Pomodoro', icon: 'fa-solid fa-clock', color: 'red' },
+  { type: 'Search', label: 'Busca', icon: 'fa-solid fa-magnifying-glass', color: 'cyan' },
+  { type: 'Themes', label: 'Temas', icon: 'fa-solid fa-palette', color: 'fuchsia' },
+  { type: 'WaterReminder', label: 'Lembrete de Água', icon: 'fa-solid fa-droplet', color: 'sky' },
+  { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database', color: 'lime' },
 ]
 
 const mobileMenuOpen = ref(false)
@@ -189,6 +189,15 @@ function closeWindow(id) {
   if (idx !== -1) openWindows.splice(idx, 1)
 }
 
+function toggleWindow(type) {
+  const win = openWindows.find(w => w.type === type)
+  if (win) {
+    closeWindow(win.id)
+  } else {
+    openWindow(type)
+  }
+}
+
 function updateWindowPosition(id, pos) {
   const win = openWindows.find(w => w.id === id)
   if (win) {
@@ -232,14 +241,18 @@ function installApp() {
   }
 }
 
-const isMobile = ref(false)
+function selectMobileTab(tab) {
+  mobileActiveTab.value = tab
+  mobileMenuOpen.value = false
+}
+
+const isMobile = ref(window.innerWidth <= 768)
 
 function checkMobile() {
   isMobile.value = window.innerWidth <= 768
 }
 
 onMounted(() => {
-  checkMobile()
   window.addEventListener('resize', checkMobile)
 })
 </script>
@@ -272,12 +285,9 @@ onMounted(() => {
           </button>
           <div class="flex flex-col gap-3">
             <button
-              v-for="tab in mobileTabs"
+              v-for="tab in appTabs"
               :key="tab.type"
-              @click="
-                mobileActiveTab = tab.type
-                mobileMenuOpen = false
-              "
+              @click="selectMobileTab(tab.type)"
               class="flex items-center gap-3 px-3 py-2 rounded text-lg transition"
               :class="mobileActiveTab === tab.type ? 'bg-blue-800 text-blue-200 font-bold' : 'text-gray-300 hover:bg-gray-800'"
               :style="mobileActiveTab === tab.type ? { background: 'var(--accent)', color: 'var(--text-main)' } : {}"
@@ -352,55 +362,14 @@ onMounted(() => {
         }"
       >
         <div class="flex flex-wrap gap-3 justify-center items-center w-full max-w-6xl">
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('Timer')">
-            <font-awesome-icon icon="fa-solid fa-stopwatch" class="text-blue-400 text-2xl hover:text-blue-200" />
-            <span class="dock-tooltip group-hover:opacity-100">{{ 'Timer' }}</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('MusicPlayer')">
-            <font-awesome-icon icon="fa-solid fa-music" class="text-green-400 text-2xl hover:text-green-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Player de Música</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('TodoList')">
-            <font-awesome-icon icon="fa-solid fa-list-check" class="text-yellow-400 text-2xl hover:text-yellow-200" />
-            <span class="dock-tooltip group-hover:opacity-100">To-Do List</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('Docs')">
-            <font-awesome-icon icon="fa-solid fa-book" class="text-pink-400 text-2xl hover:text-pink-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Documentação</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('QuickNotes')">
-            <font-awesome-icon icon="fa-solid fa-sticky-note" class="text-orange-400 text-2xl hover:text-orange-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Notas Rápidas</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('CodeSnippets')">
-            <font-awesome-icon icon="fa-solid fa-code" class="text-purple-400 text-2xl hover:text-purple-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Snippets de Código</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative"
-            @click="openWindow('DeployChecklist')">
-            <font-awesome-icon icon="fa-solid fa-rocket" class="text-teal-400 text-2xl hover:text-teal-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Checklist de Deploy</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('Pomodoro')">
-            <font-awesome-icon icon="fa-solid fa-clock" class="text-red-400 text-2xl hover:text-red-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Pomodoro</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('Search')">
-            <font-awesome-icon icon="fa-solid fa-magnifying-glass" class="text-cyan-400 text-2xl hover:text-cyan-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Busca</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('Themes')">
-            <font-awesome-icon icon="fa-solid fa-palette" class="text-fuchsia-400 text-2xl hover:text-fuchsia-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Temas</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('WaterReminder')">
-            <font-awesome-icon icon="fa-solid fa-droplet" class="text-sky-400 text-2xl hover:text-sky-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Lembrete de Água</span>
-          </div>
-          <div class="flex flex-col items-center group cursor-pointer w-16 relative"
-            @click="openWindow('FakeDataGenerator')">
-            <font-awesome-icon icon="fa-solid fa-database" class="text-lime-400 text-2xl hover:text-lime-200" />
-            <span class="dock-tooltip group-hover:opacity-100">Gerador de Dados</span>
+          <div
+            class="flex flex-col items-center group cursor-pointer w-16 relative"
+            v-for="app in appTabs"
+            :key="app.type"
+            @click="toggleWindow(app.type)"
+          >
+            <font-awesome-icon :icon="app.icon" class="text-2xl" :class="[`text-${app.color}-400`, `hover:text-${app.color}-200`]" />
+            <span class="dock-tooltip group-hover:opacity-100">{{ app.label }}</span>
           </div>
         </div>
       </div>
