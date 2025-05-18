@@ -73,12 +73,6 @@ src/
   style.css
 ```
 
-## ℹ️ Observações
-
-- O Timer, Pomodoro e Lembrete de Água continuam funcionando mesmo se a janela for fechada e reaberta.
-- Os Snippets de Código podem ser integrados com Gists do GitHub para salvar e importar trechos de código.
-- Todo o progresso e configurações são salvos automaticamente no navegador (localStorage).
-
 ## 📋 Licença
 
 MIT
