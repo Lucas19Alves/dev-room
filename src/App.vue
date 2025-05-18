@@ -13,12 +13,11 @@ import WaterReminder from './components/WaterReminder.vue'
 import Window from './components/Window.vue'
 import FakeDataGenerator from './components/FakeDataGenerator.vue'
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import { SpeedInsights } from '@vercel/speed-insights/vue';
+import { SpeedInsights } from '@vercel/speed-insights/vue'
 
 const NOME_KEY = 'dev-room-nome'
 const THEME_KEY = 'dev-room-theme'
 const nome = ref('')
-
 
 function getUserInfo() {
   const novoNome = prompt('Digite seu nome:', nome.value)
@@ -28,7 +27,6 @@ function getUserInfo() {
   }
 }
 
-
 const currentTheme = ref('theme-default')
 function applyTheme(theme) {
   currentTheme.value = theme
@@ -37,7 +35,6 @@ function applyTheme(theme) {
 }
 
 onMounted(() => {
-
   const salvo = localStorage.getItem(NOME_KEY)
   if (salvo && salvo.trim() !== '') {
     nome.value = salvo
@@ -55,7 +52,7 @@ onMounted(() => {
     now.value = new Date()
   }, 1000)
 
-  if ("Notification" in window && Notification.permission !== "granted") {
+  if ('Notification' in window && Notification.permission !== 'granted') {
     Notification.requestPermission()
   }
 })
@@ -71,7 +68,7 @@ function formatDate(date) {
   return date.toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric'
+    year: 'numeric',
   })
 }
 
@@ -79,7 +76,7 @@ function formatTime(date) {
   return date.toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
+    second: '2-digit',
   })
 }
 
@@ -115,7 +112,7 @@ const mobileTabs = [
   { type: 'Search', label: 'Busca', icon: 'fa-solid fa-magnifying-glass' },
   { type: 'Themes', label: 'Temas', icon: 'fa-solid fa-palette' },
   { type: 'WaterReminder', label: 'Lembrete de Água', icon: 'fa-solid fa-droplet' },
-  { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database' }
+  { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database' },
 ]
 
 const mobileMenuOpen = ref(false)
@@ -142,7 +139,7 @@ function openWindow(type) {
     Search: 'Busca',
     Themes: 'Temas',
     WaterReminder: 'Lembrete de Água',
-    FakeDataGenerator: 'Gerador de Dados Falsos'
+    FakeDataGenerator: 'Gerador de Dados Falsos',
   }
   const defaultSizes = {
     Timer: { width: 320, height: 360 },
@@ -156,12 +153,14 @@ function openWindow(type) {
     Search: { width: 640, height: 120 },
     Themes: { width: 340, height: 560 },
     WaterReminder: { width: 340, height: 400 },
-    FakeDataGenerator: { width: 340, height: 400 }
+    FakeDataGenerator: { width: 340, height: 400 },
   }
   const { width, height } = defaultSizes[type] || { width: 340, height: 220 }
 
   // Centralizar na área do conteúdo
-  let x = 0, y = 0
+  let x = 0
+  let y = 0
+
   const container = document.getElementById('roomContent')
   if (container) {
     const rect = container.getBoundingClientRect()
@@ -181,7 +180,7 @@ function openWindow(type) {
     zIndex: ++zIndexCounter,
     title: titleMap[type],
     width,
-    height
+    height,
   })
 }
 
@@ -216,7 +215,7 @@ const showInstallPrompt = ref(false)
 let deferredPrompt = null
 
 onMounted(() => {
-  window.addEventListener('beforeinstallprompt', (e) => {
+  window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault()
     deferredPrompt = e
     showInstallPrompt.value = true
@@ -259,17 +258,13 @@ onMounted(() => {
 
     <!-- Drawer lateral -->
     <transition name="fade">
-      <div
-        v-if="mobileMenuOpen"
-        class="fixed inset-0 z-40 bg-black/40"
-        @click.self="mobileMenuOpen = false"
-      >
+      <div v-if="mobileMenuOpen" class="fixed inset-0 z-40 bg-black/40" @click.self="mobileMenuOpen = false">
         <nav
           class="absolute left-0 top-0 h-full w-64 shadow-2xl flex flex-col py-8 px-4"
           :style="{
             background: 'var(--bg-panel)',
             color: 'var(--text-main)',
-            borderRight: '2px solid var(--accent)'
+            borderRight: '2px solid var(--accent)',
           }"
         >
           <button @click="mobileMenuOpen = false" class="self-end mb-6 text-gray-400 hover:text-white text-2xl">
@@ -279,7 +274,10 @@ onMounted(() => {
             <button
               v-for="tab in mobileTabs"
               :key="tab.type"
-              @click="mobileActiveTab = tab.type; mobileMenuOpen = false"
+              @click="
+                mobileActiveTab = tab.type
+                mobileMenuOpen = false
+              "
               class="flex items-center gap-3 px-3 py-2 rounded text-lg transition"
               :class="mobileActiveTab === tab.type ? 'bg-blue-800 text-blue-200 font-bold' : 'text-gray-300 hover:bg-gray-800'"
               :style="mobileActiveTab === tab.type ? { background: 'var(--accent)', color: 'var(--text-main)' } : {}"
@@ -297,17 +295,21 @@ onMounted(() => {
       <div class="flex-1 overflow-auto">
         <component :is="windowComponents[mobileActiveTab]" />
       </div>
-      
     </div>
     <div v-else>
-      <div id="statusBar" class="bg-gray-800 text-blue-200 p-4 flex flex-row justify-between items-center shadow"
-        :style="{ background: 'var(--bg-panel)' }">
+      <div
+        id="statusBar"
+        class="bg-gray-800 text-blue-200 p-4 flex flex-row justify-between items-center shadow"
+        :style="{ background: 'var(--bg-panel)' }"
+      >
         <div>
-          <font-awesome-icon icon="fa-solid fa-user" class="text-blue-300 hover:text-blue-500 cursor-pointer"
-            @click="getUserInfo" />
+          <font-awesome-icon icon="fa-solid fa-user" class="text-blue-300 hover:text-blue-500 cursor-pointer" @click="getUserInfo" />
         </div>
         <div>
-          <h1>Olá, dev <span class="text-blue-400 font-semibold">{{ nome }}!</span></h1>
+          <h1>
+            Olá, dev
+            <span class="text-blue-400 font-semibold">{{ nome }}!</span>
+          </h1>
         </div>
         <div class="flex flex-row gap-4 items-center">
           <h1 class="flex flex-row items-center gap-2">
@@ -319,23 +321,36 @@ onMounted(() => {
 
       <div id="roomContent" class="relative w-full h-[calc(100vh-200px)]">
         <template v-for="win in openWindows" :key="win.id">
-          <Window :title="win.title" :x="win.x" :y="win.y" :zIndex="win.zIndex" :width="win.width" :height="win.height"
-            :containerSelector="'#roomContent'" @close="closeWindow(win.id)"
+          <Window
+            :title="win.title"
+            :x="win.x"
+            :y="win.y"
+            :zIndex="win.zIndex"
+            :width="win.width"
+            :height="win.height"
+            :containerSelector="'#roomContent'"
+            @close="closeWindow(win.id)"
             @update:position="pos => updateWindowPosition(win.id, pos)"
-            @update:size="size => updateWindowSize(win.id, size)" @bringToFront="bringToFront(win.id)">
-            <component :is="win.type === 'Themes' ? Themes : windowComponents[win.type]"
-              v-bind="win.type === 'Themes' ? { setTheme: applyTheme, currentTheme } : {}" />
+            @update:size="size => updateWindowSize(win.id, size)"
+            @bringToFront="bringToFront(win.id)"
+          >
+            <component
+              :is="win.type === 'Themes' ? Themes : windowComponents[win.type]"
+              v-bind="win.type === 'Themes' ? { setTheme: applyTheme, currentTheme } : {}"
+            />
           </Window>
         </template>
       </div>
 
-      <div id="dock"
+      <div
+        id="dock"
         class="p-4 flex flex-wrap justify-center items-center rounded-xl shadow-2xl fixed left-1/2 -translate-x-1/2 bottom-6 w-[90vw] max-w-6xl border"
         :style="{
           background: 'var(--bg-panel)',
           color: 'var(--text-main)',
-          borderColor: 'var(--accent)'
-        }">
+          borderColor: 'var(--accent)',
+        }"
+      >
         <div class="flex flex-wrap gap-3 justify-center items-center w-full max-w-6xl">
           <div class="flex flex-col items-center group cursor-pointer w-16 relative" @click="openWindow('Timer')">
             <font-awesome-icon icon="fa-solid fa-stopwatch" class="text-blue-400 text-2xl hover:text-blue-200" />
@@ -390,8 +405,10 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-if="showInstallPrompt"
-        class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-blue-800 text-white px-6 py-3 rounded shadow-lg z-50 flex items-center gap-4">
+      <div
+        v-if="showInstallPrompt"
+        class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-blue-800 text-white px-6 py-3 rounded shadow-lg z-50 flex items-center gap-4"
+      >
         <span>Instale o Dev Room no seu dispositivo para acesso rápido!</span>
         <button @click="installApp" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold">Instalar</button>
         <button @click="showInstallPrompt = false" class="ml-2 text-blue-200 hover:text-white">Fechar</button>
@@ -403,7 +420,6 @@ onMounted(() => {
 <style scoped>
 #roomContent {
   padding-bottom: 120px;
-
 }
 
 .dock-tooltip {
@@ -428,15 +444,19 @@ onMounted(() => {
   opacity: 1;
 }
 
-.fade-enter-active, .fade-leave-active {
+.fade-enter-active,
+.fade-leave-active {
   transition: opacity 0.2s;
 }
-.fade-enter-from, .fade-leave-to {
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
 }
 
 @media (max-width: 768px) {
-  html, body, #app {
+  html,
+  body,
+  #app {
     height: 100%;
     margin: 0;
     padding: 0;
