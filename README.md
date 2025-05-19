@@ -26,7 +26,7 @@ Tenha tudo o que precisa para organizar seu dia de trabalho em um só lugar: not
 ## 🚀 Instalação
 
 ```bash
-git clone https://github.com/seu-usuario/dev-room.git
+git clone https://github.com/Lucas19Alves/dev-room
 cd dev-room
 npm install
 npm run dev
