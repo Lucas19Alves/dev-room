@@ -1,77 +1,59 @@
 <template>
-  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[220px] min-h-[220px]">
-    <h2 class="text-xl font-bold mb-4 text-green-300">Lo-Fi Player</h2>
-    <div class="w-full mb-2 text-center">
-      <span class="font-semibold text-green-200">{{ currentTrack.title }}</span>
-      <div class="text-xs text-gray-400">{{ currentTrack.artist }}</div>
+  <div class="flex flex-col items-center justify-center w-full h-auto p-2 sm:p-4 min-w-[220px] min-h-[320px] max-w-lg mx-auto">
+    <div class="w-full mb-2 text-center min-h-[40px]">
+      <span class="font-semibold text-green-200 block truncate">{{ currentTrack.title }}</span>
+      <div class="text-xs text-gray-400 truncate">{{ currentTrack.artist }}</div>
     </div>
-    <audio
-      ref="audio"
-      :src="currentTrack.src"
-      @ended="onEnded"
-      @timeupdate="onTimeUpdate"
-      @loadedmetadata="onLoadedMetadata"
-      :autoplay="autoplay"
-    ></audio>
-    <div class="w-full flex flex-col items-center mb-2">
+    <div v-if="currentTrack.youtubeId" class="w-full mb-0">
+      <iframe
+        :src="`https://www.youtube.com/embed/${currentTrack.youtubeId}?autoplay=1&controls=1`"
+        frameborder="0"
+        allow="autoplay; encrypted-media"
+        allowfullscreen
+        class="w-full h-48 sm:h-56 rounded"
+      ></iframe>
+    </div>
+    <!-- Botões de navegação -->
+    <div class="flex gap-4 justify-center mt-2 mb-2">
+      <button
+        @click="prevTrack"
+        :disabled="playlist.length <= 1"
+        class="bg-green-800 hover:bg-green-700 text-white px-3 py-1 rounded disabled:opacity-50"
+      >
+        ◀ Anterior
+      </button>
+      <button
+        @click="nextTrack"
+        :disabled="playlist.length <= 1"
+        class="bg-green-800 hover:bg-green-700 text-white px-3 py-1 rounded disabled:opacity-50"
+      >
+        Próxima ▶
+      </button>
+    </div>
+    <form @submit.prevent="addTrack" class="flex gap-2 mb-2 w-full flex-col sm:flex-row">
       <input
-        type="range"
-        min="0"
-        :max="duration"
-        step="0.1"
-        v-model="currentTime"
-        @input="seek"
-        class="w-full accent-green-400"
+        v-model="newUrl"
+        type="url"
+        placeholder="Cole o link do YouTube aqui"
+        class="flex-1 px-2 py-1 rounded bg-green-950 text-green-100 border border-green-700"
+        required
       />
-      <div class="flex justify-between w-full text-xs text-gray-400 mt-1">
-        <span>{{ formatTime(currentTime) }}</span>
-        <span>{{ formatTime(duration) }}</span>
-      </div>
-    </div>
-    <div class="flex items-center gap-2 w-full mb-2">
-      <font-awesome-icon icon="fa-solid fa-volume-low" class="text-green-400" />
-      <input
-        type="range"
-        min="0"
-        max="1"
-        step="0.01"
-        v-model.number="volume"
-        @input="setVolume"
-        class="flex-1 accent-green-400"
-      />
-      <font-awesome-icon icon="fa-solid fa-volume-high" class="text-green-400" />
-    </div>
-    <div class="flex gap-4 items-center justify-center mt-2">
-      <button @click="prev" title="Anterior" class="text-green-400 hover:text-green-200 text-xl">
-        <font-awesome-icon icon="fa-solid fa-backward-step" />
-      </button>
-      <button @click="toggleShuffle" :class="shuffle ? 'text-yellow-400' : 'text-gray-400'" title="Aleatório">
-        <font-awesome-icon icon="fa-solid fa-shuffle" />
-      </button>
-      <button @click="togglePlay" class="bg-green-500 hover:bg-green-600 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl shadow">
-        <font-awesome-icon :icon="playing ? 'fa-solid fa-pause' : 'fa-solid fa-play'" />
-      </button>
-      <button @click="toggleRepeat" :class="repeat ? 'text-yellow-400' : 'text-gray-400'" title="Repetir">
-        <font-awesome-icon icon="fa-solid fa-repeat" />
-      </button>
-      <button @click="next" title="Próxima" class="text-green-400 hover:text-green-200 text-xl">
-        <font-awesome-icon icon="fa-solid fa-forward-step" />
-      </button>
-    </div>
+      <button type="submit" class="bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded w-full sm:w-auto">Adicionar</button>
+    </form>
     <div class="mt-4 w-full flex-1 flex flex-col">
-      <div class="text-xs text-gray-400 mb-1">Playlist Lo-Fi</div>
-      <ul class="max-h-[120px] overflow-y-auto flex-1">
+      <div class="text-xs text-gray-400 mb-1">Playlist YouTube</div>
+      <ul class="max-h-[180px] overflow-y-auto flex-1">
         <li
           v-for="(track, idx) in playlist"
-          :key="track.src"
+          :key="track.youtubeId"
           @click="selectTrack(idx)"
           :class="[
             'cursor-pointer px-2 py-1 rounded transition flex items-center gap-2',
             idx === currentIndex ? 'bg-green-900/60 text-green-200 font-semibold' : 'hover:bg-green-800/40'
           ]"
         >
-          <font-awesome-icon v-if="idx === currentIndex" icon="fa-solid fa-volume-high" />
-          {{ track.title }} <span class="text-xs text-gray-400">- {{ track.artist }}</span>
+          <font-awesome-icon v-if="idx === currentIndex" icon="fa-brands fa-youtube" class="text-red-500" />
+          <span class="truncate">{{ track.title }}</span>
         </li>
       </ul>
     </div>
@@ -79,173 +61,64 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 
-const playlist = [
-  {
-    title: 'Cruising',
-    artist: 'Aisake, Dosi',
-    src: 'musics/Aisake, Dosi - Cruising [NCS Release].mp3'
-  },
-  {
-    title: 'apart',
-    artist: 'Sumu',
-    src: 'musics/sumu - apart [NCS Release].mp3'
-  },
-  {
-    title: 'Rainy Lofi CIty',
-    artist:'Kaveesha Senanayake',
-    src: 'musics/rainy-lofi-city-lofi-music-332746.mp3'
-  },
-  {
-    title: 'Coffee Lofi',
-    artist: 'Kaveesha Senanayake',
-    src: 'musics/coffee-lofi-chill-lofi-music-332738.mp3'
-  },
-  {
-    title: 'Spring Lofi Vibes',
-    artist: 'Kaveesha Senanayake',
-    src: 'musics/spring-lofi-vibes-lofi-music-340019.mp3'
-  },
-  {
-    title: 'Sakura Lofi',
-    artist: 'Kaveesha Senanayake',
-    src: 'musics/sakura-lofi-ambient-lofi-music-340018.mp3'
+function extractYoutubeId(url) {
+  // Suporta links do tipo: https://www.youtube.com/watch?v=ID ou https://youtu.be/ID
+  const regExp = /(?:youtube\.com.*(?:\?|&)v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+  const match = url.match(regExp)
+  return match ? match[1] : ''
+}
+
+async function fetchYoutubeTitle(youtubeId) {
+  // Utiliza o endpoint oEmbed do YouTube para obter o título do vídeo
+  try {
+    const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${youtubeId}&format=json`)
+    if (!res.ok) throw new Error('Erro ao buscar título')
+    const data = await res.json()
+    return data.title
+  } catch {
+    return 'Vídeo do YouTube'
   }
-]
+}
+
+const playlist = ref([
+  {
+    title: 'Lofi hip hop radio - beats to relax/study to',
+    artist: '',
+    youtubeId: 'jfKfPfyJRdk'
+  }
+])
 
 const currentIndex = ref(0)
-const currentTrack = computed(() => playlist[currentIndex.value])
-const audio = ref(null)
-const playing = ref(false)
-const repeat = ref(false)
-const shuffle = ref(false)
-const duration = ref(0)
-const currentTime = ref(0)
-const autoplay = ref(false)
-const volume = ref(0.7)
+const currentTrack = computed(() => playlist.value[currentIndex.value] || {})
 
-function play() {
-  if (audio.value) {
-    audio.value.play()
-    playing.value = true
-  }
+const newUrl = ref('')
+
+async function addTrack() {
+  const id = extractYoutubeId(newUrl.value)
+  if (!id) return
+  const title = await fetchYoutubeTitle(id)
+  playlist.value.push({
+    title,
+    artist: '',
+    youtubeId: id
+  })
+  newUrl.value = ''
 }
-function pause() {
-  if (audio.value) {
-    audio.value.pause()
-    playing.value = false
-  }
-}
-function togglePlay() {
-  if (playing.value) {
-    pause()
-  } else {
-    play()
-  }
-}
-function prev() {
-  if (audio.value.currentTime > 2) {
-    audio.value.currentTime = 0
-    currentTime.value = 0
-    return
-  }
-  if (shuffle.value) {
-    playRandom()
-    return
-  }
-  currentIndex.value = (currentIndex.value - 1 + playlist.length) % playlist.length
-  autoplay.value = true
-}
-function next() {
-  if (shuffle.value) {
-    playRandom()
-    return
-  }
-  if (currentIndex.value === playlist.length - 1) {
-    if (repeat.value) {
-      currentIndex.value = 0
-      autoplay.value = true
-    } else {
-      pause()
-    }
-  } else {
-    currentIndex.value = (currentIndex.value + 1) % playlist.length
-    autoplay.value = true
-  }
-}
-function playRandom() {
-  let nextIdx
-  do {
-    nextIdx = Math.floor(Math.random() * playlist.length)
-  } while (nextIdx === currentIndex.value && playlist.length > 1)
-  currentIndex.value = nextIdx
-  autoplay.value = true
-}
-function toggleRepeat() {
-  repeat.value = !repeat.value
-}
-function toggleShuffle() {
-  shuffle.value = !shuffle.value
-}
+
 function selectTrack(idx) {
   currentIndex.value = idx
-  autoplay.value = true
-}
-function onEnded() {
-  if (repeat.value) {
-    audio.value.currentTime = 0
-    play()
-  } else {
-    next()
-  }
-}
-function onTimeUpdate() {
-  if (audio.value) {
-    currentTime.value = audio.value.currentTime
-  }
-}
-function onLoadedMetadata() {
-  if (audio.value) {
-    duration.value = audio.value.duration
-  }
-}
-function seek() {
-  if (audio.value) {
-    audio.value.currentTime = currentTime.value
-  }
-}
-function formatTime(sec) {
-  if (!sec || isNaN(sec)) return "00:00"
-  const m = Math.floor(sec / 60)
-  const s = Math.floor(sec % 60)
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-}
-function setVolume() {
-  if (audio.value) {
-    audio.value.volume = volume.value
-  }
 }
 
-watch([currentIndex, autoplay], ([, auto]) => {
-  if (auto) {
-    setTimeout(() => {
-      play()
-      autoplay.value = false
-    }, 100)
-  }
-})
+function nextTrack() {
+  if (playlist.value.length === 0) return
+  currentIndex.value = (currentIndex.value + 1) % playlist.value.length
+}
 
-watch(volume, () => setVolume())
-onMounted(() => {
-  pause()
-  setVolume()
-  window.addEventListener('devroom-music-pause', pause)
-  window.addEventListener('devroom-music-resume', play)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('devroom-music-pause', pause)
-  window.removeEventListener('devroom-music-resume', play)
-})
+function prevTrack() {
+  if (playlist.value.length === 0) return
+  currentIndex.value =
+    (currentIndex.value - 1 + playlist.value.length) % playlist.value.length
+}
 </script>

@@ -189,7 +189,7 @@ function openWindow(type) {
   }
   const defaultSizes = {
     Timer: { width: 320, height: 360 },
-    MusicPlayer: { width: 340, height: 520 },
+    MusicPlayer: { width: 480, height: 550 },
     TodoList: { width: 340, height: 540 },
     Docs: { width: 480, height: 500 },
     QuickNotes: { width: 620, height: 600 },
