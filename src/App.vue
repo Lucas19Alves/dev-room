@@ -202,18 +202,23 @@ function openWindow(type) {
     FakeDataGenerator: { width: 340, height: 400 },
     Config: { width: 340, height: 400 }
   }
-  const { width, height } = defaultSizes[type] || { width: 340, height: 220 }
+  let { width, height } = defaultSizes[type] || { width: 340, height: 220 }
 
   let x = 0, y = 0
   const container = document.getElementById('roomContent')
+  let maxWidth = window.innerWidth
+  let maxHeight = window.innerHeight
   if (container) {
     const rect = container.getBoundingClientRect()
-    x = (rect.width - width) / 2
-    y = (rect.height - height) / 2
-  } else {
-    x = (window.innerWidth - width) / 2
-    y = (window.innerHeight - height) / 2
+    maxWidth = rect.width
+    maxHeight = rect.height
   }
+  // Ajusta o tamanho para nunca ultrapassar o container
+  width = Math.min(width, maxWidth - 16) // 16px de margem opcional
+  height = Math.min(height, maxHeight - 16)
+
+  x = (maxWidth - width) / 2
+  y = (maxHeight - height) / 2
 
   openWindows.push({
     id: Date.now() + Math.random(),
