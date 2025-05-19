@@ -11,7 +11,7 @@ import WaterReminder from './components/WaterReminder.vue'
 import Window from './components/Window.vue'
 import FakeDataGenerator from './components/FakeDataGenerator.vue'
 import Config from './components/Config.vue'
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
 
 const NOME_KEY = 'dev-room-nome'
@@ -42,6 +42,11 @@ function applyTheme(theme) {
   currentTheme.value = theme
   document.documentElement.className = theme
   localStorage.setItem(THEME_KEY, theme)
+}
+
+function setNome(novoNome) {
+  userName.value = novoNome
+  localStorage.setItem(NOME_KEY, userName.value)
 }
 
 onMounted(() => {
@@ -76,6 +81,22 @@ onMounted(() => {
   
   checkMobile()
   window.addEventListener('resize', checkMobile)
+
+  // Restaurar janelas abertas
+  const savedWindows = localStorage.getItem('dev-room-windows')
+  if (savedWindows) {
+    try {
+      const parsed = JSON.parse(savedWindows)
+      openWindows.splice(0, openWindows.length, ...parsed)
+      // Atualiza zIndexCounter para evitar sobreposição errada
+      if (parsed.length) {
+        zIndexCounter = Math.max(...parsed.map(w => w.zIndex ?? 10), zIndexCounter)
+      }
+    } catch (e) {
+      // Se der erro, limpa o localStorage para evitar travar o app
+      localStorage.removeItem('dev-room-windows')
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -117,6 +138,10 @@ const windowComponents = {
 
 let zIndexCounter = 10
 const openWindows = reactive([])
+
+watch(openWindows, (windows) => {
+  localStorage.setItem('dev-room-windows', JSON.stringify(windows))
+}, { deep: true })
 
 const mobileActiveTab = ref('Timer')
 
@@ -424,7 +449,7 @@ const showPixModal = ref(false)
             @update:size="size => updateWindowSize(win.id, size)" @bringToFront="bringToFront(win.id)"
             @minimize="minimizeWindow(win.id)">
             <component :is="win.type === 'Config' ? Config : windowComponents[win.type]"
-              v-bind="win.type === 'Config' ? { setTheme: applyTheme, currentTheme, nome, setNome } : {}" />
+              v-bind="win.type === 'Config' ? { setTheme: applyTheme, currentTheme, nome: userName, setNome } : {}" />
           </Window>
         </template>
       </div>
@@ -437,16 +462,26 @@ const showPixModal = ref(false)
           borderColor: 'var(--accent)'
         }">
         <div class="flex flex-wrap gap-3 justify-center items-center w-full max-w-6xl">
-          <div v-for="winTab in mobileTabs" :key="winTab.type"
-            class="flex flex-col items-center group cursor-pointer w-16 relative" @click="() => {
+          <div
+            v-for="winTab in mobileTabs"
+            :key="winTab.type"
+            class="flex flex-col items-center group cursor-pointer w-16 relative"
+            @click="() => {
               const win = openWindows.find(w => w.type === winTab.type)
               if (win) {
-                if (win.minimized) restoreWindow(win.id)
-                else bringToFront(win.id)
+                if (win.minimized) {
+                  restoreWindow(win.id)
+                  bringToFront(win.id)
+                } else if (win.zIndex === zIndexCounter) {
+                  minimizeWindow(win.id)
+                } else {
+                  bringToFront(win.id)
+                }
               } else {
                 openWindow(winTab.type)
               }
-            }">
+            }"
+          >
             <font-awesome-icon :icon="winTab.icon" :class="[
               winTab.type === 'Timer' ? 'text-blue-400 hover:text-blue-200' : '',
               winTab.type === 'MusicPlayer' ? 'text-green-400 hover:text-green-200' : '',
@@ -462,9 +497,11 @@ const showPixModal = ref(false)
               winTab.type === 'FakeDataGenerator' ? 'text-lime-400 hover:text-lime-200' : ''
             ]" class="text-2xl" />
             <span class="dock-tooltip group-hover:opacity-100">{{ winTab.label }}</span>
-            <span v-if="openWindows.find(w => w.type === winTab.type && w.minimized)"
+            <span
+              v-if="openWindows.find(w => w.type === winTab.type && w.minimized)"
               class="absolute top-1 right-2 w-2 h-2 rounded-full bg-yellow-400 border border-yellow-700"
-              title="Minimizada"></span>
+              title="Minimizada"
+            ></span>
           </div>
         </div>
       </div>
