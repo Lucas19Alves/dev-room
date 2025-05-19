@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col items-center mt-12 justify-center p-6 min-w-[320px] max-w-[400px] h-[320px]">
+  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[220px] min-h-[220px]">
     <h2 class="text-xl font-bold mb-4 text-green-300">Lo-Fi Player</h2>
     <div class="w-full mb-2 text-center">
       <span class="font-semibold text-green-200">{{ currentTrack.title }}</span>
@@ -28,7 +28,6 @@
         <span>{{ formatTime(duration) }}</span>
       </div>
     </div>
-    <!-- Controle de volume -->
     <div class="flex items-center gap-2 w-full mb-2">
       <font-awesome-icon icon="fa-solid fa-volume-low" class="text-green-400" />
       <input
@@ -59,9 +58,9 @@
         <font-awesome-icon icon="fa-solid fa-forward-step" />
       </button>
     </div>
-    <div class="mt-4 w-full">
+    <div class="mt-4 w-full flex-1 flex flex-col">
       <div class="text-xs text-gray-400 mb-1">Playlist Lo-Fi</div>
-      <ul class="max-h-32 overflow-y-auto">
+      <ul class="max-h-[120px] overflow-y-auto flex-1">
         <li
           v-for="(track, idx) in playlist"
           :key="track.src"

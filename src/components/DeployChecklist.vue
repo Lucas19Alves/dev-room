@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col items-center justify-center mx-auto p-6 min-w-[320px] max-w-[400px] w-full sm:items-start sm:justify-start">
+  <div class="flex flex-col items-center justify-center w-full h-full p-4">
     <h2 class="text-xl font-bold mb-4 text-green-400">Checklist de Deploy</h2>
     <form @submit.prevent="addItem" class="flex gap-2 mb-4 w-full">
       <input
@@ -15,7 +15,7 @@
         +
       </button>
     </form>
-    <ul class="w-full space-y-2 max-h-60 overflow-y-auto">
+    <ul class="w-full space-y-2 flex-1 overflow-y-auto max-h-full min-h-[40px]">
       <li
         v-for="(item, idx) in items"
         :key="item.id"
@@ -35,7 +35,7 @@
       </li>
       <li v-if="items.length === 0" class="text-gray-400 text-center">Nenhum item na checklist.</li>
     </ul>
-    <div class="flex gap-2 mt-6">
+    <div class="flex gap-2 mt-6 flex-wrap">
       <button
         class="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded transition"
         @click="resetChecklist"

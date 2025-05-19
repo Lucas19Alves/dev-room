@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col items-center justify-center mx-auto p-6 min-w-[320px] max-w-[400px] w-full sm:items-start sm:justify-start">
+  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[220px] min-h-[220px]">
     <h2 class="text-xl font-bold mb-4 text-sky-400">Lembrete de Beber Água</h2>
     <form @submit.prevent="saveInterval" class="flex justify-center gap-2 mb-4 w-full">
       <label class="text-sm flex items-center gap-2">
@@ -38,9 +38,9 @@
         /> ml
       </div>
     </div>
-    <div class="w-full mt-4">
+    <div class="w-full mt-4 flex-1 flex flex-col">
       <div class="text-xs text-gray-400 mb-1">Histórico de hoje</div>
-      <ul class="max-h-32 overflow-y-auto text-sm">
+      <ul class="max-h-32 overflow-y-auto text-sm flex-1">
         <li v-for="(item, idx) in todayHistory" :key="idx" class="flex justify-between border-b border-gray-700 py-1">
           <span>{{ formatTime(item.time) }}</span>
           <span>{{ item.amount }}ml</span>

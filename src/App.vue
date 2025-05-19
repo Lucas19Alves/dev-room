@@ -196,7 +196,7 @@ function openWindow(type) {
     CodeSnippets: { width: 600, height: 680 },
     DeployChecklist: { width: 340, height: 520 },
     Pomodoro: { width: 400, height: 420 },
-    Search: { width: 640, height: 120 },
+    Search: { width: 700, height: 500 },
     Themes: { width: 340, height: 560 },
     WaterReminder: { width: 340, height: 400 },
     FakeDataGenerator: { width: 340, height: 400 },
@@ -431,7 +431,7 @@ const showPixModal = ref(false)
           </button>
         </div>
         <div>
-          <h1>Olá, dev <span class="text-blue-400 font-semibold">{{ userName }}!</span></h1>
+          <h1>Olá, dev <span class="font-semibold" :style="{color: 'var(--name)'}">{{ userName }}!</span></h1>
         </div>
         <div class="flex flex-row gap-4 items-center">
           <h1 class="flex flex-row items-center gap-2">

@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col p-6 min-w-[340px] max-w-[700px] h-[500px]">
+  <div class="flex flex-col w-full h-full p-4">
     <h2 class="text-xl font-bold mb-4 text-fuchsia-400">Snippets de Código</h2>
     <form @submit.prevent="addSnippet" class="flex flex-col sm:flex-row gap-2 mb-4">
       <input
@@ -37,7 +37,7 @@
       placeholder="Buscar por título ou linguagem..."
       class="mb-4 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
     />
-    <div class="overflow-y-auto flex-1">
+    <div class="overflow-y-auto flex-1 w-full min-h-[40px]">
       <div
         v-for="(snippet, idx) in filteredSnippets"
         :key="snippet.id"

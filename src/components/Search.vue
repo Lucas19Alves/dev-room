@@ -1,10 +1,10 @@
 <template>
   <div class="flex flex-col h-full w-full p-4">
-    <form @submit.prevent="searchGoogle" class="flex gap-2 mb-3">
+    <form @submit.prevent="searchBing" class="flex gap-2 mb-3">
       <input
         v-model="query"
         type="text"
-        placeholder="Pesquisar no Google..."
+        placeholder="Pesquisar no Bing..."
         class="flex-1 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
       />
       <button
@@ -14,7 +14,20 @@
         Buscar
       </button>
     </form>
-    
+    <div class="flex-1 w-full overflow-hidden rounded border border-gray-700 flex">
+      <iframe
+        v-if="iframeUrl"
+        :src="iframeUrl"
+        class="w-full h-full flex-1"
+        width="100%"
+        height="100%"
+        referrerpolicy="no-referrer"
+        style="border:0;"
+      ></iframe>
+      <div v-else class="flex items-center justify-center w-full h-full text-gray-400">
+        Digite algo para pesquisar no Bing.
+      </div>
+    </div>
   </div>
 </template>
 
@@ -24,9 +37,9 @@ import { ref } from 'vue'
 const query = ref('')
 const iframeUrl = ref('')
 
-function searchGoogle() {
+function searchBing() {
   if (query.value.trim() !== '') {
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(query.value)}`, '_blank')
+    iframeUrl.value = `https://www.bing.com/search?q=${encodeURIComponent(query.value)}`
   }
 }
 </script>

@@ -1,7 +1,6 @@
 <template>
-  <div class="flex flex-col items-center justify-center mx-auto p-6 min-w-[320px] max-w-[400px] w-full sm:items-start sm:justify-start">
+  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[220px] min-h-[220px]">
     <h2 class="text-xl font-bold mb-4 text-red-400">Pomodoro</h2>
-    <!-- Configuração dos tempos -->
     <form @submit.prevent="saveConfig" class="flex gap-2 mb-4 items-end">
       <div>
         <label class="block text-xs text-gray-400 mb-1">Foco (min)</label>
@@ -16,13 +15,13 @@
     <div class="mb-2 text-lg text-gray-300">
       {{ isBreak ? 'Pausa' : 'Foco' }}
     </div>
-    <div class="text-5xl font-mono mb-4 text-red-300 select-none">
+    <div class="text-5xl font-mono mb-4 text-red-300 select-none break-words w-full text-center">
       {{ formattedTime }}
     </div>
     <div class="mb-4 text-sm text-gray-400 italic text-center">
       "{{ fraseMotivacional }}"
     </div>
-    <div class="flex gap-2 mb-2">
+    <div class="flex gap-2 mb-2 flex-wrap justify-center w-full">
       <button
         class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition"
         @click="toggleTimer"

@@ -1,7 +1,7 @@
 <template>
-  <div class="flex flex-col items-center justify-center p-6 min-w-[260px]">
+  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[180px] min-h-[180px]">
     <h2 class="text-xl font-bold mb-4 text-yellow-300">To-Do List</h2>
-    <form @submit.prevent="addTask" class="flex flex-row gap-2 mb-4">
+    <form @submit.prevent="addTask" class="flex flex-row gap-2 mb-4 w-full">
       <input
         v-model="newTask"
         type="text"
@@ -15,7 +15,7 @@
         Adicionar
       </button>
     </form>
-    <ul class="w-full space-y-2 max-h-60 overflow-y-auto">
+    <ul class="w-full space-y-2 flex-1 overflow-y-auto max-h-full min-h-[40px]">
       <li
         v-for="(task, idx) in tasks"
         :key="task.id"

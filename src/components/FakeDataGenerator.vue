@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col items-center justify-center mx-auto p-6 min-w-[320px] max-w-[400px] w-full sm:items-start sm:justify-start">
+  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[220px] min-h-[220px]">
     <h2 class="text-xl font-bold mb-4 text-lime-400">Gerador de Dados Fakes</h2>
     <div class="w-full mb-4">
       <label class="block mb-1 text-sm font-semibold text-lime-200">Tipo de dado:</label>
@@ -7,7 +7,7 @@
         <option v-for="type in types" :key="type.value" :value="type.value">{{ type.label }}</option>
       </select>
     </div>
-    <div v-if="selectedType === 'lorem'" class="w-full mb-4 flex gap-2 items-center">
+    <div v-if="selectedType === 'lorem'" class="w-full mb-4 flex gap-2 items-center flex-wrap">
       <label class="text-sm text-gray-300">Parágrafos:</label>
       <input type="number" min="1" max="10" v-model.number="loremCount" class="w-16 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none" />
       <label class="text-sm text-gray-300">Palavras:</label>

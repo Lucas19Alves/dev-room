@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col items-center justify-center p-6 min-w-[260px]">
+  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[180px] min-h-[180px]">
     <h2 class="text-xl font-bold mb-4 text-blue-300">Timer</h2>
     <form @submit.prevent="setTimer" class="flex gap-2 mb-4">
       <input
@@ -26,10 +26,10 @@
         Definir
       </button>
     </form>
-    <div class="text-5xl font-mono mb-6 text-blue-200 select-none">
+    <div class="text-5xl font-mono mb-6 text-blue-200 select-none break-words w-full text-center">
       {{ formattedTime }}
     </div>
-    <div class="flex gap-4">
+    <div class="flex gap-4 flex-wrap justify-center w-full">
       <button
         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
         @click="toggleTimer"

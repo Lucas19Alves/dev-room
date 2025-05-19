@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col p-6 min-w-[320px] max-w-[700px] h-[400px]">
+  <div class="flex flex-col w-full h-full p-4">
     <h2 class="text-xl font-bold mb-4 text-orange-300">Notas Rápidas</h2>
     <form @submit.prevent="addNote" class="flex gap-2 mb-4">
       <input
@@ -15,11 +15,11 @@
         Adicionar
       </button>
     </form>
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full overflow-y-auto max-h-[260px] pr-2">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full overflow-y-auto flex-1 pr-2">
       <div
         v-for="(note, idx) in notes"
         :key="note.id"
-        class="relative bg-yellow-100 rounded-lg shadow p-3 min-h-[100px] flex flex-col"
+        class="relative bg-yellow-100 rounded-lg shadow p-3 min-h-[80px] flex flex-col"
         :style="{ background: noteColors[idx % noteColors.length] }"
       >
         <textarea
