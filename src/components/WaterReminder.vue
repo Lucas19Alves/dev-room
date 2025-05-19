@@ -15,6 +15,13 @@
       <button type="submit" class="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1 rounded transition">
         Salvar
       </button>
+      <button
+        type="button"
+        class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded transition ml-2"
+        @click="toggleReminder"
+      >
+        {{ running ? 'Parar' : 'Iniciar' }}
+      </button>
     </form>
     <div class="mb-4 w-full flex flex-col items-center">
       <div class="text-sm text-gray-400 mb-2">
@@ -55,7 +62,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { playSound } from '../utils/notify'
 
 function notify(title, options = {}) {
@@ -87,6 +94,7 @@ const amount = ref(200) // ml
 const timer = ref(null)
 const timeLeft = ref(interval.value * 60)
 const history = ref([])
+const running = ref(true)
 
 function loadSettings() {
   const savedInterval = localStorage.getItem(STORAGE_KEY)
@@ -97,7 +105,7 @@ function loadSettings() {
 
 function saveInterval() {
   localStorage.setItem(STORAGE_KEY, interval.value)
-  resetTimer() // Só reinicia o timer ao salvar o novo intervalo
+  resetTimer()
 }
 
 function registerDrink() {
@@ -118,6 +126,7 @@ function resetTimer() {
 }
 
 function tick() {
+  if (!running.value) return
   if (timeLeft.value > 0) {
     timeLeft.value--
   } else {
@@ -134,6 +143,13 @@ function updateTimeLeft() {
     timeLeft.value = Math.floor((next - now) / 1000)
   } else {
     timeLeft.value = 0
+  }
+}
+
+function toggleReminder() {
+  running.value = !running.value
+  if (running.value) {
+    resetTimer()
   }
 }
 
@@ -162,12 +178,17 @@ onMounted(() => {
   loadSettings()
   updateTimeLeft()
   timer.value = setInterval(() => {
-    tick()
-    updateTimeLeft()
+    if (running.value) {
+      tick()
+      updateTimeLeft()
+    }
   }, 1000)
   if ("Notification" in window && Notification.permission !== "granted") {
     Notification.requestPermission()
   }
 })
 
+onBeforeUnmount(() => {
+  if (timer.value) clearInterval(timer.value)
+})
 </script>

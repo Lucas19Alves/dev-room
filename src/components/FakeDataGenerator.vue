@@ -87,7 +87,11 @@ function generate() {
       result.value = faker.internet.email().toLowerCase()
       break
     case 'phone':
-      result.value = faker.phone.number('(##) #####-####')
+      // Telefone brasileiro: (11) 91234-5678
+      const ddd = faker.number.int({ min: 11, max: 99 })
+      const prefixo = faker.number.int({ min: 90000, max: 99999 })
+      const sufixo = faker.number.int({ min: 1000, max: 9999 })
+      result.value = `(${ddd}) ${prefixo}-${sufixo}`
       break
     case 'cpf':
       result.value = generateCPF()
@@ -99,16 +103,33 @@ function generate() {
       result.value = faker.date.birthdate({ min: 1950, max: 2005, mode: 'year' }).toLocaleDateString('pt-BR')
       break
     case 'address':
-      result.value = `${faker.location.streetAddress()}, ${faker.location.city()} - ${faker.location.state({ abbreviated: true })}, ${faker.location.zipCode()}`
+      // Endereço brasileiro
+      const estados = [
+        { sigla: 'SP', nome: 'São Paulo' }, { sigla: 'RJ', nome: 'Rio de Janeiro' },
+        { sigla: 'MG', nome: 'Minas Gerais' }, { sigla: 'RS', nome: 'Rio Grande do Sul' },
+        { sigla: 'PR', nome: 'Paraná' }, { sigla: 'SC', nome: 'Santa Catarina' },
+        { sigla: 'BA', nome: 'Bahia' }, { sigla: 'PE', nome: 'Pernambuco' },
+        { sigla: 'CE', nome: 'Ceará' }, { sigla: 'GO', nome: 'Goiás' }
+      ]
+      const estado = faker.helpers.arrayElement(estados)
+      const cidade = faker.location.city()
+      const rua = faker.location.street()
+      const numero = faker.number.int({ min: 1, max: 9999 })
+      const bairro = faker.location.secondaryAddress()
+      const cep = `${faker.number.int({ min: 10000, max: 99999 })}-${faker.number.int({ min: 100, max: 999 })}`
+      result.value = `${rua}, ${numero} - ${bairro}, ${cidade} - ${estado.sigla}, ${cep}`
       break
     case 'city':
       result.value = faker.location.city()
       break
     case 'state':
-      result.value = faker.location.state()
+      // Estado brasileiro (sigla)
+      const estadosBR = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
+      result.value = faker.helpers.arrayElement(estadosBR)
       break
     case 'zip':
-      result.value = faker.location.zipCode()
+      // CEP brasileiro
+      result.value = `${faker.number.int({ min: 10000, max: 99999 })}-${faker.number.int({ min: 100, max: 999 })}`
       break
     case 'lorem':
       if (loremWords.value > 0) {
