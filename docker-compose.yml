@@ -1,0 +1,10 @@
+services:
+  vue-app:
+    build: .
+    ports:
+      - "5173:80"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
