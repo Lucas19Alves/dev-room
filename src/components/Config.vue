@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col gap-6 w-full max-w-md mx-auto">
     <!-- Seção: Usuário -->
-    <section class="bg-gray-800 rounded-lg p-4 flex flex-col gap-2 border" :style="{ borderColor: 'var(--accent)' }">
+    <section class="rounded-lg p-4 flex flex-col gap-2" :style="{ borderColor: 'var(--accent)' }">
       <h2 class="text-lg font-bold mb-2" :style="{ color: 'var(--text-main)' }">
         <font-awesome-icon icon="fa-solid fa-user-gear" class="mr-2" />
         Perfil
@@ -25,7 +25,7 @@
     </section>
 
     <!-- Seção: Tema -->
-    <section class="bg-gray-800 rounded-lg p-4 flex flex-col gap-2 border" :style="{ borderColor: 'var(--accent)' }">
+    <section class="rounded-lg p-4 flex flex-col gap-2">
       <h2 class="text-lg font-bold mb-2" :style="{ color: 'var(--text-main)' }">
         <font-awesome-icon icon="fa-solid fa-palette" class="mr-2" />
         Tema
@@ -59,7 +59,7 @@
     </section>
 
     <!-- Seção: Documentação -->
-    <section class="bg-gray-800 rounded-lg p-4 flex flex-col gap-2 border" :style="{ borderColor: 'var(--accent)' }">
+    <section class="rounded-lg p-4 flex flex-col gap-2">
       <h2 class="text-lg font-bold mb-2" :style="{ color: 'var(--text-main)' }">
         <font-awesome-icon icon="fa-solid fa-book" class="mr-2" />
         Documentação
