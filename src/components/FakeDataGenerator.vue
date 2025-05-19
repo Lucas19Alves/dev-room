@@ -1,35 +1,44 @@
 <template>
-  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[220px] min-h-[220px]">
-    <h2 class="text-xl font-bold mb-4 text-lime-400">Gerador de Dados Fakes</h2>
-    <div class="w-full mb-4">
-      <label class="block mb-1 text-sm font-semibold text-lime-200">Tipo de dado:</label>
-      <select v-model="selectedType" class="w-full px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none">
-        <option v-for="type in types" :key="type.value" :value="type.value">{{ type.label }}</option>
+  <!-- Container principal do gerador -->
+  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[220px] min-h-[220px]" id="fakedata-main">
+    <!-- Título -->
+    <h2 class="text-xl font-bold mb-4 text-lime-400" id="fakedata-title">Gerador de Dados Fakes</h2>
+    <!-- Seleção do tipo de dado -->
+    <div class="w-full mb-4" id="fakedata-type-group">
+      <label class="block mb-1 text-sm font-semibold text-lime-200" id="fakedata-type-label">Tipo de dado:</label>
+      <select v-model="selectedType" class="w-full px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none" id="fakedata-type-select">
+        <option v-for="type in types" :key="type.value" :value="type.value" :id="`fakedata-type-option-${type.value}`">{{ type.label }}</option>
       </select>
     </div>
-    <div v-if="selectedType === 'lorem'" class="w-full mb-4 flex gap-2 items-center flex-wrap">
-      <label class="text-sm text-gray-300">Parágrafos:</label>
-      <input type="number" min="1" max="10" v-model.number="loremCount" class="w-16 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none" />
-      <label class="text-sm text-gray-300">Palavras:</label>
-      <input type="number" min="1" max="100" v-model.number="loremWords" class="w-16 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none" />
+    <!-- Parâmetros para Lorem Ipsum -->
+    <div v-if="selectedType === 'lorem'" class="w-full mb-4 flex gap-2 items-center flex-wrap" id="fakedata-lorem-group">
+      <label class="text-sm text-gray-300" id="fakedata-lorem-paragraphs-label">Parágrafos:</label>
+      <input type="number" min="1" max="10" v-model.number="loremCount" class="w-16 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none" id="fakedata-lorem-paragraphs-input" />
+      <label class="text-sm text-gray-300" id="fakedata-lorem-words-label">Palavras:</label>
+      <input type="number" min="1" max="100" v-model.number="loremWords" class="w-16 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none" id="fakedata-lorem-words-input" />
     </div>
-    <button @click="generate" class="bg-lime-600 hover:bg-lime-700 text-white px-4 py-2 rounded font-bold mb-4 transition w-full">
+    <!-- Botão para gerar dado -->
+    <button @click="generate" class="bg-lime-600 hover:bg-lime-700 text-white px-4 py-2 rounded font-bold mb-4 transition w-full" id="fakedata-generate-btn">
       Gerar
     </button>
-    <div v-if="result" class="w-full bg-gray-900 rounded p-3 mb-2 font-mono text-sm text-lime-100 break-words relative">
-      <button @click="copyResult" class="absolute top-2 right-2 text-lime-300 hover:text-lime-100" title="Copiar">
+    <!-- Resultado gerado -->
+    <div v-if="result" class="w-full bg-gray-900 rounded p-3 mb-2 font-mono text-sm text-lime-100 break-words relative" id="fakedata-result">
+      <button @click="copyResult" class="absolute top-2 right-2 text-lime-300 hover:text-lime-100" title="Copiar" id="fakedata-copy-btn">
         <font-awesome-icon icon="fa-solid fa-copy" />
       </button>
-      <pre class="whitespace-pre-wrap">{{ result }}</pre>
+      <pre class="whitespace-pre-wrap" id="fakedata-result-text">{{ result }}</pre>
     </div>
-    <div v-if="copied" class="text-green-400 text-xs mt-1">Copiado!</div>
+    <!-- Mensagem de copiado -->
+    <div v-if="copied" class="text-green-400 text-xs mt-1" id="fakedata-copied-msg">Copiado!</div>
   </div>
 </template>
 
 <script setup>
+// Importações e estados reativos principais
 import { ref } from 'vue'
 import { faker } from '@faker-js/faker'
 
+// Tipos de dados disponíveis
 const types = [
   { value: 'name', label: 'Nome completo' },
   { value: 'email', label: 'E-mail' },
@@ -50,6 +59,7 @@ const copied = ref(false)
 const loremCount = ref(2)
 const loremWords = ref(0)
 
+// Gera um CPF válido
 function generateCPF() {
   let n = 9, n1 = random(n), n2 = random(n), n3 = random(n), n4 = random(n), n5 = random(n), n6 = random(n), n7 = random(n), n8 = random(n), n9 = random(n)
   let d1 = calcDV([n1, n2, n3, n4, n5, n6, n7, n8, n9], 10)
@@ -63,6 +73,7 @@ function generateCPF() {
   }
 }
 
+// Gera um CNPJ válido
 function generateCNPJ() {
   let n = 9, n1 = random(n), n2 = random(n), n3 = random(n), n4 = random(n), n5 = random(n), n6 = random(n), n7 = random(n), n8 = random(n)
   let n9 = 0, n10 = 0, n11 = 0, n12 = 1
@@ -77,6 +88,7 @@ function generateCNPJ() {
   }
 }
 
+// Gera o dado fake conforme o tipo selecionado
 function generate() {
   copied.value = false
   switch (selectedType.value) {
@@ -143,6 +155,7 @@ function generate() {
   }
 }
 
+// Copia o resultado para a área de transferência
 function copyResult() {
   navigator.clipboard.writeText(result.value)
   copied.value = true

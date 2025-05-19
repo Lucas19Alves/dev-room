@@ -351,74 +351,88 @@ function deactivatePauseMode() {
 </script>
 
 <template>
+  <!-- Modal de onboarding -->
   <transition name="fade">
-  <div
-    v-if="!onboardingDone"
-    class="fixed inset-0 z-50 flex items-center justify-center"
-    style="background: rgba(0, 0, 0, 0.85); color: white"
-  >
-    <div class="max-w-md w-full bg-gray-900 p-8 rounded-xl shadow-xl text-center border border-blue-500">
-      <div v-if="onboardingStep === 0">
-        <h2 class="text-2xl font-bold mb-4">Bem-vindo ao Dev Room 🚀</h2>
-        <p class="mb-6">Esse é seu espaço digital com ferramentas úteis para programar, se organizar e focar.</p>
-        <button
-          @click="onboardingStep++"
-          class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white font-semibold"
-        >
-          Próximo
-        </button>
-      </div>
-
-      <div v-else-if="onboardingStep === 1">
-        <h2 class="text-xl font-bold mb-4">Qual é o seu nome?</h2>
-        <input
-          v-model="nomeInput"
-          placeholder="Digite seu nome"
-          class="w-full px-4 py-2 rounded bg-gray-800 text-white border border-blue-400 mb-4"
-        />
-        <button
-          :disabled="!nomeInput.trim()"
-          @click="saveName"
-          class="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white font-semibold disabled:opacity-50"
-        >
-          Continuar
-        </button>
-      </div>
-
-      <div v-else-if="onboardingStep === 2">
-        <h2 class="text-xl font-bold mb-4">Tudo pronto, {{ userName }}!</h2>
-        <p class="mb-4">Use os widgets no dock abaixo para abrir ferramentas como Pomodoro, Notas e muito mais.</p>
-        <button
-          @click="endOnboarding"
-          class="cursor-pointer bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white font-semibold"
-          aria-label="Começar a usar o Dev Room"
-        >
-          Começar
-        </button>
+    <div
+      v-if="!onboardingDone"
+      class="fixed inset-0 z-50 flex items-center justify-center"
+      style="background: rgba(0, 0, 0, 0.85); color: white"
+      id="onboarding-modal"
+    >
+      <div class="max-w-md w-full bg-gray-900 p-8 rounded-xl shadow-xl text-center border border-blue-500" id="onboarding-content">
+        <!-- Passo 0 do onboarding -->
+        <div v-if="onboardingStep === 0" id="onboarding-step-0">
+          <h2 class="text-2xl font-bold mb-4">Bem-vindo ao Dev Room 🚀</h2>
+          <p class="mb-6">Esse é seu espaço digital com ferramentas úteis para programar, se organizar e focar.</p>
+          <button
+            @click="onboardingStep++"
+            class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white font-semibold"
+            id="onboarding-next-btn"
+          >
+            Próximo
+          </button>
+        </div>
+        <!-- Passo 1 do onboarding -->
+        <div v-else-if="onboardingStep === 1" id="onboarding-step-1">
+          <h2 class="text-xl font-bold mb-4">Qual é o seu nome?</h2>
+          <input
+            v-model="nomeInput"
+            placeholder="Digite seu nome"
+            class="w-full px-4 py-2 rounded bg-gray-800 text-white border border-blue-400 mb-4"
+            id="onboarding-name-input"
+          />
+          <button
+            :disabled="!nomeInput.trim()"
+            @click="saveName"
+            class="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white font-semibold disabled:opacity-50"
+            id="onboarding-continue-btn"
+          >
+            Continuar
+          </button>
+        </div>
+        <!-- Passo 2 do onboarding -->
+        <div v-else-if="onboardingStep === 2" id="onboarding-step-2">
+          <h2 class="text-xl font-bold mb-4">Tudo pronto, {{ userName }}!</h2>
+          <p class="mb-4">Use os widgets no dock abaixo para abrir ferramentas como Pomodoro, Notas e muito mais.</p>
+          <button
+            @click="endOnboarding"
+            class="cursor-pointer bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white font-semibold"
+            aria-label="Começar a usar o Dev Room"
+            id="onboarding-finish-btn"
+          >
+            Começar
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-</transition>
+  </transition>
 
   <SpeedInsights />
-  <div class="h-screen text-gray-100 relative overflow-hidden"
-    :style="{ background: 'var(--bg-main)', color: 'var(--text-main)' }">
 
+  <!-- Container principal do app -->
+  <div class="h-screen text-gray-100 relative overflow-hidden"
+    :style="{ background: 'var(--bg-main)', color: 'var(--text-main)' }"
+    id="main-app"
+  >
+
+    <!-- Botão para abrir menu mobile -->
     <button
       v-if="isMobile"
       @click="mobileMenuOpen = true"
       class="cursor-pointer fixed top-4 left-4 z-50 bg-gray-900/80 rounded-full p-3 shadow-lg border border-gray-700"
       aria-label="Abrir menu"
+      id="mobile-menu-open-btn"
     >
       <font-awesome-icon icon="fa-solid fa-bars" class="text-2xl text-blue-300" />
     </button>
 
-
+    <!-- Menu lateral mobile -->
     <transition name="fade">
       <div
         v-if="mobileMenuOpen"
         class="fixed inset-0 z-40 bg-black/40"
         @click.self="mobileMenuOpen = false"
+        id="mobile-menu-overlay"
       >
         <nav
           class="absolute left-0 top-0 h-full w-64 shadow-2xl flex flex-col py-8 px-4"
@@ -428,16 +442,21 @@ function deactivatePauseMode() {
             color: 'var(--text-main)',
             borderRight: '2px solid var(--accent)'
           }"
+          id="mobile-menu"
         >
-          <button @click="mobileMenuOpen = false" class="self-end mb-6 text-gray-400 hover:text-white text-2xl">
+          <!-- Botão para fechar menu mobile -->
+          <button @click="mobileMenuOpen = false" class="self-end mb-6 text-gray-400 hover:text-white text-2xl" id="mobile-menu-close-btn">
             <font-awesome-icon icon="fa-solid fa-xmark" />
           </button>
-          <div class="flex flex-col gap-3">
+          <!-- Abas do menu mobile -->
+          <div class="flex flex-col gap-3" id="mobile-menu-tabs">
             <button v-for="tab in mobileTabs" :key="tab.type"
               @click="mobileActiveTab = tab.type; mobileMenuOpen = false"
               class="cursor-pointer flex items-center gap-3 px-3 py-2 rounded text-lg transition"
               :class="mobileActiveTab === tab.type ? 'bg-blue-800 text-blue-200 font-bold' : 'text-gray-300 hover:bg-gray-800'"
-              :style="mobileActiveTab === tab.type ? { background: 'var(--accent)', color: 'var(--text-main)' } : {}">
+              :style="mobileActiveTab === tab.type ? { background: 'var(--accent)', color: 'var(--text-main)' } : {}"
+              :id="`mobile-menu-tab-${tab.type}`"
+            >
               <font-awesome-icon :icon="tab.icon" class="text-xl" />
               <span>{{ tab.label }}</span>
             </button>
@@ -446,12 +465,13 @@ function deactivatePauseMode() {
       </div>
     </transition>
 
-    <div v-if="isMobile" class="flex flex-col h-screen">
-
-      <div class="flex-1 overflow-auto">
+    <!-- Conteúdo principal mobile -->
+    <div v-if="isMobile" class="flex flex-col h-screen" id="mobile-main">
+      <div class="flex-1 overflow-auto" id="mobile-content">
         <component :is="windowComponents[mobileActiveTab]" />
       </div>
 
+      <!-- Dock mobile -->
       <nav
         class="fixed bottom-0 left-0 w-full z-40 flex items-center justify-center py-2"
         aria-label="Dock"
@@ -460,7 +480,9 @@ function deactivatePauseMode() {
           borderTop: '1px solid var(--accent)',
           boxShadow: '0 -2px 8px 0 rgb(0 0 0 / 0.10)'
         }"
+        id="mobile-dock"
       >
+        <!-- Botão de apoio mobile -->
         <button
           class="cursor-pointer flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-xs shadow transition"
           :style="{
@@ -471,6 +493,7 @@ function deactivatePauseMode() {
           }"
           @click="showPixModal = true"
           title="Me apoie"
+          id="mobile-dock-support-btn"
         >
           <font-awesome-icon icon="fa-solid fa-heart" class="text-base" />
           Me apoie
@@ -478,25 +501,30 @@ function deactivatePauseMode() {
       </nav>
     </div>
 
+    <!-- Conteúdo principal desktop -->
     <div v-else>
+      <!-- Barra de status superior -->
       <div id="statusBar" class="bg-gray-800 text-blue-200 p-4 flex flex-row justify-between items-center shadow"
         :style="{ background: 'var(--bg-panel)' }">
-        <div>
+        <div id="support-btn-container">
+          <!-- Botão de apoio desktop -->
           <button
             class="cursor-pointer font-bold px-4 py-2 rounded-full shadow flex items-center gap-2 transition"
             :style="{
               background: 'var(--accent)',
               color: 'var(--text-main)',
               border: '2px solid var(--accent)'
-            }" @click="showPixModal = true" title="Me apoie">
+            }" @click="showPixModal = true" title="Me apoie"
+            id="support-btn"
+          >
             <font-awesome-icon icon="fa-solid fa-heart" class="text-xl" />
             Me apoie
           </button>
         </div>
-        <div>
+        <div id="status-bar-user">
           <h1>Olá, dev <span class="font-semibold" :style="{color: 'var(--name)'}">{{ userName }}!</span></h1>
         </div>
-        <div class="flex flex-row gap-4 items-center">
+        <div class="flex flex-row gap-4 items-center" id="status-bar-clock">
           <h1 class="flex flex-row items-center gap-2">
             {{ formatTime(now) }}
             <font-awesome-icon icon="fa-solid fa-clock" class="text-blue-300" />
@@ -504,6 +532,7 @@ function deactivatePauseMode() {
         </div>
       </div>
 
+      <!-- Área das janelas abertas -->
       <div id="roomContent" class="relative w-full h-[calc(100vh-200px)]">
         <template v-for="win in openWindows" :key="win.id">
           <Window :title="win.title" :x="win.x" :y="win.y" :zIndex="win.zIndex" :width="win.width" :height="win.height"
@@ -517,6 +546,7 @@ function deactivatePauseMode() {
         </template>
       </div>
 
+      <!-- Dock desktop -->
       <div id="dock"
         class="p-4 flex flex-wrap justify-center items-center rounded-xl shadow-2xl fixed left-1/2 -translate-x-1/2 bottom-6 w-[90vw] max-w-6xl border"
         :style="{
@@ -524,7 +554,8 @@ function deactivatePauseMode() {
           color: 'var(--text-main)',
           borderColor: 'var(--accent)'
         }">
-        <div class="flex flex-wrap gap-3 justify-center items-center w-full max-w-6xl">
+        <div class="flex flex-wrap gap-3 justify-center items-center w-full max-w-6xl" id="desktop-dock-icons">
+          <!-- Ícones do dock desktop -->
           <div
             v-for="winTab in mobileTabs"
             :key="winTab.type"
@@ -544,6 +575,7 @@ function deactivatePauseMode() {
                 openWindow(winTab.type)
               }
             }"
+            :id="`desktop-dock-icon-${winTab.type}`"
           >
             <font-awesome-icon :icon="winTab.icon" :class="[
               winTab.type === 'Timer' ? 'text-blue-400 hover:text-blue-200' : '',
@@ -564,6 +596,7 @@ function deactivatePauseMode() {
               v-if="openWindows.find(w => w.type === winTab.type && w.minimized)"
               class="absolute top-1 right-2 w-2 h-2 rounded-full bg-yellow-400 border border-yellow-700"
               title="Minimizada"
+              :id="`desktop-dock-icon-minimized-${winTab.type}`"
             ></span>
           </div>
         </div>
@@ -575,6 +608,7 @@ function deactivatePauseMode() {
       v-if="!isMobile"
       class="fixed left-[calc(5vw-64px)] bottom-6 z-50 flex flex-col items-center"
       style="min-width: 64px;"
+      id="pause-btn-desktop-container"
     >
       <button
         class="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-xs shadow transition border"
@@ -586,6 +620,7 @@ function deactivatePauseMode() {
         }"
         @click="activatePauseMode"
         title="Modo Pausa"
+        id="pause-btn-desktop"
       >
         <font-awesome-icon icon="fa-solid fa-mug-hot" class="text-orange-400 text-xl" />
         Pausa
@@ -597,8 +632,9 @@ function deactivatePauseMode() {
       <div
         v-if="mobileMenuOpen && isMobile"
         class="fixed inset-0 z-50 pointer-events-none"
+        id="pause-btn-mobile-overlay"
       >
-        <div class="absolute left-0 bottom-0 w-64 px-4 pb-8 pointer-events-auto">
+        <div class="absolute left-0 bottom-0 w-64 px-4 pb-8 pointer-events-auto" id="pause-btn-mobile-container">
           <button
             class="w-full flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-base shadow transition border mt-8"
             :style="{
@@ -609,6 +645,7 @@ function deactivatePauseMode() {
             }"
             @click="activatePauseMode"
             title="Modo Pausa"
+            id="pause-btn-mobile"
           >
             <font-awesome-icon icon="fa-solid fa-mug-hot" class="text-orange-400 text-xl" />
             Pausa
@@ -623,20 +660,24 @@ function deactivatePauseMode() {
         v-if="pauseMode"
         class="fixed inset-0 z-[999] flex items-center justify-center"
         style="background: rgba(0,0,0,0.85);"
+        id="pause-modal"
       >
         <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-full animate__animated animate__fadeInDown"
           :style="{ borderColor: 'var(--accent)' }"
+          id="pause-modal-content"
         >
           <font-awesome-icon
             :icon="pauseTips[pauseStep].icon"
             :class="['text-6xl mb-6 animate__animated animate__bounceIn', pauseTips[pauseStep].color]"
+            id="pause-modal-icon"
           />
-          <h2 class="text-2xl font-bold mb-4 text-center animate__animated animate__fadeIn">{{ pauseTips[pauseStep].text }}</h2>
-          <div class="flex gap-2 mt-4">
+          <h2 class="text-2xl font-bold mb-4 text-center animate__animated animate__fadeIn" id="pause-modal-text">{{ pauseTips[pauseStep].text }}</h2>
+          <div class="flex gap-2 mt-4" id="pause-modal-actions">
             <button
               v-if="pauseStep > 0"
               @click="prevPauseTip"
               class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded transition"
+              id="pause-modal-prev-btn"
             >
               <font-awesome-icon icon="fa-solid fa-arrow-left" /> Anterior
             </button>
@@ -644,6 +685,7 @@ function deactivatePauseMode() {
               v-if="pauseStep < pauseTips.length - 1"
               @click="nextPauseTip"
               class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+              id="pause-modal-next-btn"
             >
               Próximo <font-awesome-icon icon="fa-solid fa-arrow-right" />
             </button>
@@ -651,6 +693,7 @@ function deactivatePauseMode() {
               v-if="pauseStep === pauseTips.length - 1"
               @click="deactivatePauseMode"
               class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition font-bold"
+              id="pause-modal-exit-btn"
             >
               Voltar ao trabalho <font-awesome-icon icon="fa-solid fa-play" />
             </button>
@@ -659,13 +702,16 @@ function deactivatePauseMode() {
       </div>
     </transition>
 
+    <!-- Modal de apoio Pix -->
     <div v-if="showPixModal" class="fixed inset-0 z-50 flex items-center justify-center"
-      :style="{ background: 'rgba(0,0,0,0.5)' }" @click.self="showPixModal = false">
+      :style="{ background: 'rgba(0,0,0,0.5)' }" @click.self="showPixModal = false"
+      id="pix-modal-overlay"
+    >
       <div class="rounded-lg p-6 shadow-xl flex flex-col items-center max-w-xs w-full" :style="{
         background: 'var(--bg-panel)',
         color: 'var(--text-main)',
         border: '2px solid var(--accent)'
-      }">
+      }" id="pix-modal-content">
         <h3 class="text-lg font-bold mb-2" :style="{ color: 'var(--accent)' }">Me pague um café ☕</h3>
         <p class="mb-3 text-center">Apoie o projeto enviando qualquer valor via Pix!</p>
         <img src="/images/qrcode-pix.png" alt="QR Code Pix" class="w-48 h-48 object-contain mb-3 border rounded bg-white p-2" />
@@ -676,17 +722,21 @@ function deactivatePauseMode() {
             color: 'var(--text-main)'
           }"
           @click="showPixModal = false"
+          id="pix-modal-close-btn"
         >
           Fechar
         </button>
       </div>
     </div>
 
+    <!-- Modal de instalação PWA -->
     <div v-if="showInstallPrompt"
-      class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-blue-800 text-white px-6 py-3 rounded shadow-lg z-50 flex items-center gap-4">
+      class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-blue-800 text-white px-6 py-3 rounded shadow-lg z-50 flex items-center gap-4"
+      id="install-prompt"
+    >
       <span>Instale o Dev Room no seu dispositivo para acesso rápido!</span>
-      <button @click="installApp" class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold">Instalar</button>
-      <button @click="showInstallPrompt = false" class="cursor-pointer ml-2 text-blue-200 hover:text-white">Fechar</button>
+      <button @click="installApp" class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold" id="install-prompt-install-btn">Instalar</button>
+      <button @click="showInstallPrompt = false" class="cursor-pointer ml-2 text-blue-200 hover:text-white" id="install-prompt-close-btn">Fechar</button>
     </div>
   </div>
 </template>
@@ -740,3 +790,4 @@ function deactivatePauseMode() {
   }
 }
 </style>
+```

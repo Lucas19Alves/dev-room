@@ -1,7 +1,10 @@
 <template>
-  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[180px] min-h-[180px]">
-    <h2 class="text-xl font-bold mb-4 text-blue-300">Timer</h2>
-    <form @submit.prevent="setTimer" class="flex gap-2 mb-4">
+  <!-- Container principal do Timer -->
+  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[180px] min-h-[180px]" id="timer-main">
+    <!-- Título do Timer -->
+    <h2 class="text-xl font-bold mb-4 text-blue-300" id="timer-title">Timer</h2>
+    <!-- Formulário para definir tempo -->
+    <form @submit.prevent="setTimer" class="flex gap-2 mb-4" id="timer-form">
       <input
         type="number"
         min="0"
@@ -9,8 +12,9 @@
         v-model.number="inputMinutes"
         class="w-14 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
         placeholder="min"
+        id="timer-input-minutes"
       />
-      <span class="text-blue-200 font-bold">:</span>
+      <span class="text-blue-200 font-bold" id="timer-separator">:</span>
       <input
         type="number"
         min="0"
@@ -18,22 +22,27 @@
         v-model.number="inputSeconds"
         class="w-14 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
         placeholder="seg"
+        id="timer-input-seconds"
       />
       <button
         type="submit"
         class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition"
+        id="timer-set-btn"
       >
         Definir
       </button>
     </form>
-    <div class="text-5xl font-mono mb-6 text-blue-200 select-none break-words w-full text-center">
+    <!-- Exibição do tempo formatado -->
+    <div class="text-5xl font-mono mb-6 text-blue-200 select-none break-words w-full text-center" id="timer-display">
       {{ formattedTime }}
     </div>
-    <div class="flex gap-4 flex-wrap justify-center w-full">
+    <!-- Botões de controle do Timer -->
+    <div class="flex gap-4 flex-wrap justify-center w-full" id="timer-actions">
       <button
         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
         @click="toggleTimer"
         :disabled="totalSeconds === 0"
+        id="timer-toggle-btn"
       >
         {{ running ? 'Pausar' : (elapsed > 0 ? 'Continuar' : 'Iniciar') }}
       </button>
@@ -41,6 +50,7 @@
         class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded transition"
         @click="resetTimer"
         :disabled="elapsed === 0 && !running"
+        id="timer-reset-btn"
       >
         Resetar
       </button>
@@ -49,6 +59,7 @@
 </template>
 
 <script setup>
+// Importações e estados reativos principais
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { playSound, notify } from '../utils/notify'
 
@@ -62,6 +73,7 @@ const running = ref(false)
 const endTimestamp = ref(null)
 let intervalId = null
 
+// Tempo formatado para exibição (mm:ss)
 const formattedTime = computed(() => {
   const remaining = Math.max(totalSeconds.value - elapsed.value, 0)
   const min = String(Math.floor(remaining / 60)).padStart(2, '0')
@@ -69,6 +81,7 @@ const formattedTime = computed(() => {
   return `${min}:${sec}`
 })
 
+// Salva o estado atual do timer no localStorage
 function saveState() {
   localStorage.setItem(
     TIMER_STATE_KEY,
@@ -83,6 +96,7 @@ function saveState() {
   )
 }
 
+// Carrega o estado salvo do timer
 function loadState() {
   const saved = localStorage.getItem(TIMER_STATE_KEY)
   if (saved) {
@@ -94,6 +108,7 @@ function loadState() {
     running.value = state.running
     endTimestamp.value = state.endTimestamp
 
+    // Se estava rodando, calcula o tempo restante e reinicia
     if (running.value && endTimestamp.value) {
       const now = Date.now()
       const remaining = Math.max(Math.floor((endTimestamp.value - now) / 1000), 0)
@@ -111,6 +126,7 @@ function loadState() {
   }
 }
 
+// Define o tempo do timer
 function setTimer() {
   totalSeconds.value = inputMinutes.value * 60 + inputSeconds.value
   elapsed.value = 0
@@ -120,6 +136,7 @@ function setTimer() {
   saveState()
 }
 
+// Inicia o timer
 function startTimer(fromLoad = false) {
   if ((!running.value || fromLoad) && totalSeconds.value > 0) {
     running.value = true
@@ -144,12 +161,14 @@ function startTimer(fromLoad = false) {
   }
 }
 
+// Pausa o timer
 function pauseTimer() {
   running.value = false
   clearInterval(intervalId)
   saveState()
 }
 
+// Reseta o timer
 function resetTimer() {
   pauseTimer()
   elapsed.value = 0
@@ -157,6 +176,7 @@ function resetTimer() {
   saveState()
 }
 
+// Alterna entre iniciar e pausar o timer
 function toggleTimer() {
   if (running.value) {
     pauseTimer()
@@ -165,6 +185,7 @@ function toggleTimer() {
   }
 }
 
+// Ciclo de vida: monta e desmonta o componente
 onMounted(() => {
   loadState()
   window.addEventListener('devroom-pause-all', pauseTimer)
@@ -182,6 +203,7 @@ onUnmounted(() => {
   })
 })
 
+// Observa mudanças para salvar o estado automaticamente
 watch([inputMinutes, inputSeconds, totalSeconds, elapsed, running, endTimestamp], saveState)
 </script>
 
