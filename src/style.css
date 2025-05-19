@@ -6,63 +6,83 @@
   --bg-panel: #222b3a;
   --text-main: #f1f5f9;
   --accent: #2563eb;
+  --name: #2563eb;
 }
+
 .theme-dark {
   --bg-main: #111827;
   --bg-panel: #23272f;
   --text-main: #e5e7eb;
   --accent: #374151;
+  --name: #2563eb;
 }
+
 .theme-solarized {
   --bg-main: #002b36;
   --bg-panel: #073642;
   --text-main: #fdf6e3;
   --accent: #b58900;
+  --name: #b58900;
 }
+
 .theme-dracula {
   --bg-main: #282a36;
   --bg-panel: #44475a;
   --text-main: #f8f8f2;
-  --accent: #bd93f9;
+  --accent: #ff79c6;
+  --name: #ff79c6;
 }
+
 .theme-gruvbox {
   --bg-main: #282828;
   --bg-panel: #3c3836;
-  --text-main: #ebdbb2;
+  --text-main: #f9f5d7;
   --accent: #fabd2f;
+  --name: #fabd2f;
 }
+
 .theme-nord {
   --bg-main: #2e3440;
   --bg-panel: #3b4252;
-  --text-main: #eceff4;
+  --text-main: #e5e9f0;
   --accent: #88c0d0;
+  --name: #88c0d0;
 }
+
 .theme-monokai {
   --bg-main: #272822;
   --bg-panel: #383830;
   --text-main: #f8f8f2;
   --accent: #f92672;
+  --name: #f92672;
 }
+
 .theme-onedark {
   --bg-main: #282c34;
   --bg-panel: #21252b;
-  --text-main: #abb2bf;
+  --text-main: #e6efff;
   --accent: #61afef;
+  --name: #61afef;
 }
+
 .theme-nightowl {
   --bg-main: #011627;
   --bg-panel: #15223b;
-  --text-main: #d6deeb;
+  --text-main: #e3eafc;
   --accent: #82aaff;
+  --name: #82aaff;
 }
+
 .theme-palenight {
   --bg-main: #292d3e;
   --bg-panel: #313244;
-  --text-main: #a6accd;
+  --text-main: #e0e6f8;
   --accent: #c792ea;
+  --name: #c792ea;
 }
 
-body, html {
+body,
+html {
   background: var(--bg-main);
   color: var(--text-main);
   transition: background 0.3s, color 0.3s;

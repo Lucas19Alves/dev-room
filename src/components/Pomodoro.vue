@@ -1,6 +1,18 @@
 <template>
   <div class="flex flex-col items-center justify-center mx-auto p-6 min-w-[320px] max-w-[400px] w-full sm:items-start sm:justify-start">
     <h2 class="text-xl font-bold mb-4 text-red-400">Pomodoro</h2>
+    <!-- Configuração dos tempos -->
+    <form @submit.prevent="saveConfig" class="flex gap-2 mb-4 items-end">
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Foco (min)</label>
+        <input type="number" min="1" max="120" v-model.number="focusInput" class="w-16 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700" />
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Pausa (min)</label>
+        <input type="number" min="1" max="60" v-model.number="breakInput" class="w-16 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700" />
+      </div>
+      <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition text-xs">Salvar</button>
+    </form>
     <div class="mb-2 text-lg text-gray-300">
       {{ isBreak ? 'Pausa' : 'Foco' }}
     </div>
@@ -41,9 +53,8 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { playSound, notify } from '../utils/notify'
 
-const FOCUS_TIME = 25 * 60
-const BREAK_TIME = 5 * 60
 const POMODORO_STATE_KEY = 'dev-room-pomodoro-state'
+const POMODORO_CONFIG_KEY = 'dev-room-pomodoro-config'
 
 const frases = [
   'Foque no agora!',
@@ -54,6 +65,37 @@ const frases = [
 ]
 const fraseMotivacional = frases[Math.floor(Math.random() * frases.length)]
 
+// Configuração editável
+const focusInput = ref(25)
+const breakInput = ref(5)
+const focusTime = ref(25 * 60)
+const breakTime = ref(5 * 60)
+
+function saveConfig() {
+  focusTime.value = focusInput.value * 60
+  breakTime.value = breakInput.value * 60
+  localStorage.setItem(POMODORO_CONFIG_KEY, JSON.stringify({
+    focus: focusInput.value,
+    break: breakInput.value
+  }))
+  // Se estiver pausado, reseta o timer para novo tempo
+  if (!running.value) {
+    elapsed.value = 0
+    endTimestamp.value = null
+  }
+}
+
+function loadConfig() {
+  const saved = localStorage.getItem(POMODORO_CONFIG_KEY)
+  if (saved) {
+    const cfg = JSON.parse(saved)
+    focusInput.value = cfg.focus
+    breakInput.value = cfg.break
+    focusTime.value = cfg.focus * 60
+    breakTime.value = cfg.break * 60
+  }
+}
+
 const elapsed = ref(0)
 const running = ref(false)
 const isBreak = ref(false)
@@ -62,7 +104,7 @@ const endTimestamp = ref(null)
 let intervalId = null
 
 const formattedTime = computed(() => {
-  const total = isBreak.value ? BREAK_TIME : FOCUS_TIME
+  const total = isBreak.value ? breakTime.value : focusTime.value
   const remaining = Math.max(total - elapsed.value, 0)
   const min = String(Math.floor(remaining / 60)).padStart(2, '0')
   const sec = String(remaining % 60).padStart(2, '0')
@@ -91,7 +133,7 @@ function loadState() {
     isBreak.value = state.isBreak
     cycle.value = state.cycle
     endTimestamp.value = state.endTimestamp
-    const total = isBreak.value ? BREAK_TIME : FOCUS_TIME
+    const total = isBreak.value ? breakTime.value : focusTime.value
     if (running.value && endTimestamp.value) {
       const now = Date.now()
       const remaining = Math.max(Math.floor((endTimestamp.value - now) / 1000), 0)
@@ -113,7 +155,7 @@ function loadState() {
 function startTimer(fromLoad = false) {
   if ((!running.value || fromLoad)) {
     running.value = true
-    const total = isBreak.value ? BREAK_TIME : FOCUS_TIME
+    const total = isBreak.value ? breakTime.value : focusTime.value
     if (!fromLoad) {
       endTimestamp.value = Date.now() + (total - elapsed.value) * 1000
     }
@@ -121,7 +163,7 @@ function startTimer(fromLoad = false) {
     clearInterval(intervalId)
     intervalId = setInterval(() => {
       const now = Date.now()
-      const total = isBreak.value ? BREAK_TIME : FOCUS_TIME
+      const total = isBreak.value ? breakTime.value : focusTime.value
       const remaining = Math.max(Math.floor((endTimestamp.value - now) / 1000), 0)
       elapsed.value = total - remaining
       if (remaining <= 0) {
@@ -174,6 +216,7 @@ function skip() {
 }
 
 onMounted(() => {
+  loadConfig()
   loadState()
 })
 

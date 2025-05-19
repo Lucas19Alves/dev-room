@@ -2,29 +2,38 @@
 import Timer from './components/Timer.vue'
 import MusicPlayer from './components/MusicPlayer.vue'
 import TodoList from './components/TodoList.vue'
-import Docs from './components/Docs.vue'
 import QuickNotes from './components/QuickNotes.vue'
 import CodeSnippets from './components/CodeSnippets.vue'
 import DeployChecklist from './components/DeployChecklist.vue'
 import Pomodoro from './components/Pomodoro.vue'
 import Search from './components/Search.vue'
-import Themes from './components/Themes.vue'
 import WaterReminder from './components/WaterReminder.vue'
 import Window from './components/Window.vue'
 import FakeDataGenerator from './components/FakeDataGenerator.vue'
+import Config from './components/Config.vue'
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
 
 const NOME_KEY = 'dev-room-nome'
 const THEME_KEY = 'dev-room-theme'
-const nome = ref('')
+const userName = ref('')
+const nomeInput = ref(userName.value || '')
 
-function getUserInfo() {
-  const novoNome = prompt('Digite seu nome:', nome.value)
-  if (novoNome !== null && novoNome.trim() !== '') {
-    nome.value = novoNome.trim()
-    localStorage.setItem(NOME_KEY, nome.value)
+const onboardingDone = ref(false)
+const onboardingStep = ref(0)
+
+function saveName() {
+  if (nomeInput.value.trim() !== '') {
+    userName.value = nomeInput.value.trim()
+    localStorage.setItem(NOME_KEY, userName.value)
+    onboardingStep.value++
   }
+}
+
+
+function endOnboarding() {
+  onboardingDone.value = true
+  localStorage.setItem('dev-room-onboarding', 'ok')
 }
 
 const currentTheme = ref('theme-default')
@@ -36,10 +45,9 @@ function applyTheme(theme) {
 
 onMounted(() => {
   const salvo = localStorage.getItem(NOME_KEY)
+
   if (salvo && salvo.trim() !== '') {
-    nome.value = salvo
-  } else {
-    getUserInfo()
+    userName.value = salvo
   }
 
   const savedTheme = localStorage.getItem(THEME_KEY)
@@ -48,6 +56,11 @@ onMounted(() => {
   } else {
     applyTheme('theme-default')
   }
+
+  if (localStorage.getItem('dev-room-onboarding') === 'ok') {
+    onboardingDone.value = true
+  }
+
   intervalId = setInterval(() => {
     now.value = new Date()
   }, 1000)
@@ -55,6 +68,15 @@ onMounted(() => {
   if ("Notification" in window && Notification.permission !== "granted") {
     Notification.requestPermission()
   }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault()
+    deferredPrompt = e
+    showInstallPrompt.value = true
+  })
+
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
 })
 
 onUnmounted(() => {
@@ -84,15 +106,14 @@ const windowComponents = {
   Timer,
   MusicPlayer,
   TodoList,
-  Docs,
   QuickNotes,
   CodeSnippets,
   DeployChecklist,
   Pomodoro,
   Search,
-  Themes,
   WaterReminder,
   FakeDataGenerator,
+  Config,
 }
 
 let zIndexCounter = 10
@@ -104,15 +125,14 @@ const mobileTabs = [
   { type: 'Timer', label: 'Timer', icon: 'fa-solid fa-stopwatch' },
   { type: 'MusicPlayer', label: 'Player de Música', icon: 'fa-solid fa-music' },
   { type: 'TodoList', label: 'To-Do List', icon: 'fa-solid fa-list-check' },
-  { type: 'Docs', label: 'Documentação', icon: 'fa-solid fa-book' },
   { type: 'QuickNotes', label: 'Notas Rápidas', icon: 'fa-solid fa-sticky-note' },
   { type: 'CodeSnippets', label: 'Snippets de Código', icon: 'fa-solid fa-code' },
   { type: 'DeployChecklist', label: 'Checklist de Deploy', icon: 'fa-solid fa-rocket' },
   { type: 'Pomodoro', label: 'Pomodoro', icon: 'fa-solid fa-clock' },
   { type: 'Search', label: 'Busca', icon: 'fa-solid fa-magnifying-glass' },
-  { type: 'Themes', label: 'Temas', icon: 'fa-solid fa-palette' },
   { type: 'WaterReminder', label: 'Lembrete de Água', icon: 'fa-solid fa-droplet' },
-  { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database' }
+  { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database' },
+  { type: 'Config', label: 'Configurações', icon: 'fa-solid fa-gear' },
 ]
 
 const mobileMenuOpen = ref(false)
@@ -140,7 +160,8 @@ function openWindow(type) {
     Search: 'Busca',
     Themes: 'Temas',
     WaterReminder: 'Lembrete de Água',
-    FakeDataGenerator: 'Gerador de Dados Falsos'
+    FakeDataGenerator: 'Gerador de Dados Falsos',
+    Config: 'Configurações'
   }
   const defaultSizes = {
     Timer: { width: 320, height: 360 },
@@ -154,7 +175,8 @@ function openWindow(type) {
     Search: { width: 640, height: 120 },
     Themes: { width: 340, height: 560 },
     WaterReminder: { width: 340, height: 400 },
-    FakeDataGenerator: { width: 340, height: 400 }
+    FakeDataGenerator: { width: 340, height: 400 },
+    Config: { width: 340, height: 400 }
   }
   const { width, height } = defaultSizes[type] || { width: 340, height: 220 }
 
@@ -221,14 +243,6 @@ function restoreWindow(id) {
 const showInstallPrompt = ref(false)
 let deferredPrompt = null
 
-onMounted(() => {
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault()
-    deferredPrompt = e
-    showInstallPrompt.value = true
-  })
-})
-
 function installApp() {
   if (deferredPrompt) {
     deferredPrompt.prompt()
@@ -245,53 +259,73 @@ function checkMobile() {
   isMobile.value = window.innerWidth <= 768
 }
 
-onMounted(() => {
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
-})
-
 const showPixModal = ref(false)
 </script>
 
 <template>
-  <SpeedInsights />
-  <div class="h-screen text-gray-100 relative overflow-hidden" :style="{ background: 'var(--bg-main)', color: 'var(--text-main)' }">
+  <transition name="fade">
+    <div v-if="!onboardingDone" class="fixed inset-0 z-50 flex items-center justify-center"
+      style="background: rgba(0, 0, 0, 0.85); color: white">
+      <div class="max-w-md w-full bg-gray-900 p-8 rounded-xl shadow-xl text-center border border-blue-500">
+        <div v-if="onboardingStep === 0">
+          <h2 class="text-2xl font-bold mb-4">Bem-vindo ao Dev Room 🚀</h2>
+          <p class="mb-6">Esse é seu espaço digital com ferramentas úteis para programar, se organizar e focar.</p>
+          <button @click="onboardingStep++"
+            class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white font-semibold">
+            Próximo
+          </button>
+        </div>
 
-    <button
-      v-if="isMobile"
-      @click="mobileMenuOpen = true"
-      class="fixed top-4 left-4 z-50 bg-gray-900/80 rounded-full p-3 shadow-lg border border-gray-700"
-    >
+        <div v-else-if="onboardingStep === 1">
+          <h2 class="text-xl font-bold mb-4">Qual é o seu nome?</h2>
+          <input v-model="nomeInput" placeholder="Digite seu nome"
+            class="w-full px-4 py-2 rounded bg-gray-800 text-white border border-blue-400 mb-4" />
+          <button :disabled="!nomeInput.trim()" @click="saveName"
+            class="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white font-semibold disabled:opacity-50">
+            Continuar
+          </button>
+        </div>
+
+        <div v-else-if="onboardingStep === 2">
+          <h2 class="text-xl font-bold mb-4">Tudo pronto, {{ userName }}!</h2>
+          <p class="mb-4">Use os widgets no dock abaixo para abrir ferramentas como Pomodoro, Notas e muito mais.</p>
+          <button @click="endOnboarding"
+            class="cursor-pointer bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white font-semibold"
+            aria-label="Começar a usar o Dev Room">
+            Começar
+          </button>
+        </div>
+      </div>
+    </div>
+  </transition>
+
+  <SpeedInsights />
+  <div class="h-screen text-gray-100 relative overflow-hidden"
+    :style="{ background: 'var(--bg-main)', color: 'var(--text-main)' }">
+
+    <button v-if="isMobile" @click="mobileMenuOpen = true"
+      class="cursor-pointer fixed top-4 left-4 z-50 bg-gray-900/80 rounded-full p-3 shadow-lg border border-gray-700"
+      aria-label="Abrir menu">
       <font-awesome-icon icon="fa-solid fa-bars" class="text-2xl text-blue-300" />
     </button>
 
 
     <transition name="fade">
-      <div
-        v-if="mobileMenuOpen"
-        class="fixed inset-0 z-40 bg-black/40"
-        @click.self="mobileMenuOpen = false"
-      >
-        <nav
-          class="absolute left-0 top-0 h-full w-64 shadow-2xl flex flex-col py-8 px-4"
-          :style="{
-            background: 'var(--bg-panel)',
-            color: 'var(--text-main)',
-            borderRight: '2px solid var(--accent)'
-          }"
-        >
+      <div v-if="mobileMenuOpen" class="fixed inset-0 z-40 bg-black/40" @click.self="mobileMenuOpen = false">
+        <nav class="absolute left-0 top-0 h-full w-64 shadow-2xl flex flex-col py-8 px-4" aria-label="Menu" :style="{
+          background: 'var(--bg-panel)',
+          color: 'var(--text-main)',
+          borderRight: '2px solid var(--accent)'
+        }">
           <button @click="mobileMenuOpen = false" class="self-end mb-6 text-gray-400 hover:text-white text-2xl">
             <font-awesome-icon icon="fa-solid fa-xmark" />
           </button>
           <div class="flex flex-col gap-3">
-            <button
-              v-for="tab in mobileTabs"
-              :key="tab.type"
+            <button v-for="tab in mobileTabs" :key="tab.type"
               @click="mobileActiveTab = tab.type; mobileMenuOpen = false"
               class="flex items-center gap-3 px-3 py-2 rounded text-lg transition"
               :class="mobileActiveTab === tab.type ? 'bg-blue-800 text-blue-200 font-bold' : 'text-gray-300 hover:bg-gray-800'"
-              :style="mobileActiveTab === tab.type ? { background: 'var(--accent)', color: 'var(--text-main)' } : {}"
-            >
+              :style="mobileActiveTab === tab.type ? { background: 'var(--accent)', color: 'var(--text-main)' } : {}">
               <font-awesome-icon :icon="tab.icon" class="text-xl" />
               <span>{{ tab.label }}</span>
             </button>
@@ -306,25 +340,17 @@ const showPixModal = ref(false)
         <component :is="windowComponents[mobileActiveTab]" />
       </div>
 
-      <nav
-        class="fixed bottom-0 left-0 w-full z-40 flex items-center justify-center py-2"
-        :style="{
-          background: 'var(--bg-panel)',
-          borderTop: '1px solid var(--accent)',
-          boxShadow: '0 -2px 8px 0 rgb(0 0 0 / 0.10)'
-        }"
-      >
-        <button
-          class="flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-xs shadow transition"
-          :style="{
-            background: 'var(--accent)',
-            color: 'var(--text-main)',
-            border: '1px solid var(--accent)',
-            opacity: 0.85
-          }"
-          @click="showPixModal = true"
-          title="Me apoie"
-        >
+      <nav class="fixed bottom-0 left-0 w-full z-40 flex items-center justify-center py-2" :style="{
+        background: 'var(--bg-panel)',
+        borderTop: '1px solid var(--accent)',
+        boxShadow: '0 -2px 8px 0 rgb(0 0 0 / 0.10)'
+      }">
+        <button class="flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-xs shadow transition" :style="{
+          background: 'var(--accent)',
+          color: 'var(--text-main)',
+          border: '1px solid var(--accent)',
+          opacity: 0.85
+        }" @click="showPixModal = true" title="Me apoie">
           <font-awesome-icon icon="fa-solid fa-heart" class="text-base" />
           Me apoie
         </button>
@@ -335,22 +361,18 @@ const showPixModal = ref(false)
       <div id="statusBar" class="bg-gray-800 text-blue-200 p-4 flex flex-row justify-between items-center shadow"
         :style="{ background: 'var(--bg-panel)' }">
         <div>
-          <button
-            class="font-bold px-4 py-2 rounded-full shadow flex items-center gap-2 transition"
+          <button class="cursor-pointer font-bold px-4 py-2 rounded-full shadow flex items-center gap-2 transition"
             :style="{
               background: 'var(--accent)',
               color: 'var(--text-main)',
               border: '2px solid var(--accent)'
-            }"
-            @click="showPixModal = true"
-            title="Me apoie"
-          >
+            }" @click="showPixModal = true" title="Me apoie">
             <font-awesome-icon icon="fa-solid fa-heart" class="text-xl" />
             Me apoie
           </button>
         </div>
         <div>
-          <h1>Olá, dev <span class="text-blue-400 font-semibold">{{ nome }}!</span></h1>
+          <h1>Olá, dev <span class="font-semibold" :style="{ color: 'var(--name)' }">{{ nome }}!</span></h1>
         </div>
         <div class="flex flex-row gap-4 items-center">
           <h1 class="flex flex-row items-center gap-2">
@@ -362,23 +384,13 @@ const showPixModal = ref(false)
 
       <div id="roomContent" class="relative w-full h-[calc(100vh-200px)]">
         <template v-for="win in openWindows" :key="win.id">
-          <Window
-            :title="win.title"
-            :x="win.x"
-            :y="win.y"
-            :zIndex="win.zIndex"
-            :width="win.width"
-            :height="win.height"
-            :containerSelector="'#roomContent'"
-            :minimized="win.minimized"
-            @close="closeWindow(win.id)"
+          <Window :title="win.title" :x="win.x" :y="win.y" :zIndex="win.zIndex" :width="win.width" :height="win.height"
+            :containerSelector="'#roomContent'" :minimized="win.minimized" @close="closeWindow(win.id)"
             @update:position="pos => updateWindowPosition(win.id, pos)"
-            @update:size="size => updateWindowSize(win.id, size)"
-            @bringToFront="bringToFront(win.id)"
-            @minimize="minimizeWindow(win.id)"
-          >
-            <component :is="win.type === 'Themes' ? Themes : windowComponents[win.type]"
-              v-bind="win.type === 'Themes' ? { setTheme: applyTheme, currentTheme } : {}" />
+            @update:size="size => updateWindowSize(win.id, size)" @bringToFront="bringToFront(win.id)"
+            @minimize="minimizeWindow(win.id)">
+            <component :is="win.type === 'Config' ? Config : windowComponents[win.type]"
+              v-bind="win.type === 'Config' ? { setTheme: applyTheme, currentTheme, nome, setNome } : {}" />
           </Window>
         </template>
       </div>
@@ -391,11 +403,8 @@ const showPixModal = ref(false)
           borderColor: 'var(--accent)'
         }">
         <div class="flex flex-wrap gap-3 justify-center items-center w-full max-w-6xl">
-          <div
-            v-for="winTab in mobileTabs"
-            :key="winTab.type"
-            class="flex flex-col items-center group cursor-pointer w-16 relative"
-            @click="() => {
+          <div v-for="winTab in mobileTabs" :key="winTab.type"
+            class="flex flex-col items-center group cursor-pointer w-16 relative" @click="() => {
               const win = openWindows.find(w => w.type === winTab.type)
               if (win) {
                 if (win.minimized) restoreWindow(win.id)
@@ -403,68 +412,51 @@ const showPixModal = ref(false)
               } else {
                 openWindow(winTab.type)
               }
-            }"
-          >
-            <font-awesome-icon :icon="winTab.icon"
-              :class="[
-                winTab.type === 'Timer' ? 'text-blue-400 hover:text-blue-200' : '',
-                winTab.type === 'MusicPlayer' ? 'text-green-400 hover:text-green-200' : '',
-                winTab.type === 'TodoList' ? 'text-yellow-400 hover:text-yellow-200' : '',
-                winTab.type === 'Docs' ? 'text-pink-400 hover:text-pink-200' : '',
-                winTab.type === 'QuickNotes' ? 'text-orange-400 hover:text-orange-200' : '',
-                winTab.type === 'CodeSnippets' ? 'text-purple-400 hover:text-purple-200' : '',
-                winTab.type === 'DeployChecklist' ? 'text-teal-400 hover:text-teal-200' : '',
-                winTab.type === 'Pomodoro' ? 'text-red-400 hover:text-red-200' : '',
-                winTab.type === 'Search' ? 'text-cyan-400 hover:text-cyan-200' : '',
-                winTab.type === 'Themes' ? 'text-fuchsia-400 hover:text-fuchsia-200' : '',
-                winTab.type === 'WaterReminder' ? 'text-sky-400 hover:text-sky-200' : '',
-                winTab.type === 'FakeDataGenerator' ? 'text-lime-400 hover:text-lime-200' : ''
-              ]"
-              class="text-2xl"
-            />
+            }">
+            <font-awesome-icon :icon="winTab.icon" :class="[
+              winTab.type === 'Timer' ? 'text-blue-400 hover:text-blue-200' : '',
+              winTab.type === 'MusicPlayer' ? 'text-green-400 hover:text-green-200' : '',
+              winTab.type === 'TodoList' ? 'text-yellow-400 hover:text-yellow-200' : '',
+              winTab.type === 'Docs' ? 'text-pink-400 hover:text-pink-200' : '',
+              winTab.type === 'QuickNotes' ? 'text-orange-400 hover:text-orange-200' : '',
+              winTab.type === 'CodeSnippets' ? 'text-purple-400 hover:text-purple-200' : '',
+              winTab.type === 'DeployChecklist' ? 'text-teal-400 hover:text-teal-200' : '',
+              winTab.type === 'Pomodoro' ? 'text-red-400 hover:text-red-200' : '',
+              winTab.type === 'Search' ? 'text-cyan-400 hover:text-cyan-200' : '',
+              winTab.type === 'Themes' ? 'text-fuchsia-400 hover:text-fuchsia-200' : '',
+              winTab.type === 'WaterReminder' ? 'text-sky-400 hover:text-sky-200' : '',
+              winTab.type === 'FakeDataGenerator' ? 'text-lime-400 hover:text-lime-200' : ''
+            ]" class="text-2xl" />
             <span class="dock-tooltip group-hover:opacity-100">{{ winTab.label }}</span>
-            <span
-              v-if="openWindows.find(w => w.type === winTab.type && w.minimized)"
+            <span v-if="openWindows.find(w => w.type === winTab.type && w.minimized)"
               class="absolute top-1 right-2 w-2 h-2 rounded-full bg-yellow-400 border border-yellow-700"
-              title="Minimizada"
-            ></span>
+              title="Minimizada"></span>
           </div>
         </div>
       </div>
     </div>
 
-    <div
-      v-if="showPixModal"
-      class="fixed inset-0 z-50 flex items-center justify-center"
-      :style="{ background: 'rgba(0,0,0,0.5)' }"
-      @click.self="showPixModal = false"
-    >
-      <div
-        class="rounded-lg p-6 shadow-xl flex flex-col items-center max-w-xs w-full"
-        :style="{
-          background: 'var(--bg-panel)',
-          color: 'var(--text-main)',
-          border: '2px solid var(--accent)'
-        }"
-      >
+    <div v-if="showPixModal" class="fixed inset-0 z-50 flex items-center justify-center"
+      :style="{ background: 'rgba(0,0,0,0.5)' }" @click.self="showPixModal = false">
+      <div class="rounded-lg p-6 shadow-xl flex flex-col items-center max-w-xs w-full" :style="{
+        background: 'var(--bg-panel)',
+        color: 'var(--text-main)',
+        border: '2px solid var(--accent)'
+      }">
         <h3 class="text-lg font-bold mb-2" :style="{ color: 'var(--accent)' }">Me pague um café ☕</h3>
         <p class="mb-3 text-center">Apoie o projeto enviando qualquer valor via Pix!</p>
-        <img src="/images/qrcode-pix.png" alt="QR Code Pix" class="w-48 h-48 object-contain mb-3 border rounded bg-white p-2" />
-        <button
-          class="mt-2 px-4 py-2 rounded font-bold transition"
-          :style="{
-            background: 'var(--accent)',
-            color: 'var(--text-main)'
-          }"
-          @click="showPixModal = false"
-        >
+        <img src="/images/qrcode-pix.png" alt="QR Code Pix"
+          class="w-48 h-48 object-contain mb-3 border rounded bg-white p-2" />
+        <button class="cursor-pointer mt-2 px-4 py-2 rounded font-bold transition" :style="{
+          background: 'var(--accent)',
+          color: 'var(--text-main)'
+        }" @click="showPixModal = false">
           Fechar
         </button>
       </div>
     </div>
 
-    <div
-      v-if="showInstallPrompt"
+    <div v-if="showInstallPrompt"
       class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-blue-800 text-white px-6 py-3 rounded shadow-lg z-50 flex items-center gap-4">
       <span>Instale o Dev Room no seu dispositivo para acesso rápido!</span>
       <button @click="installApp" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold">Instalar</button>
@@ -500,15 +492,21 @@ const showPixModal = ref(false)
   opacity: 1;
 }
 
-.fade-enter-active, .fade-leave-active {
+.fade-enter-active,
+.fade-leave-active {
   transition: opacity 0.2s;
 }
-.fade-enter-from, .fade-leave-to {
+
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
 }
 
 @media (max-width: 768px) {
-  html, body, #app {
+
+  html,
+  body,
+  #app {
     height: 100%;
     margin: 0;
     padding: 0;
