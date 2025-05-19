@@ -186,9 +186,13 @@ onMounted(() => {
   if ("Notification" in window && Notification.permission !== "granted") {
     Notification.requestPermission()
   }
+  window.addEventListener('devroom-pause-all', () => running.value = false)
+  window.addEventListener('devroom-resume-all', () => running.value = true)
 })
 
 onBeforeUnmount(() => {
   if (timer.value) clearInterval(timer.value)
+  window.removeEventListener('devroom-pause-all', () => running.value = false)
+  window.removeEventListener('devroom-resume-all', () => running.value = true)
 })
 </script>

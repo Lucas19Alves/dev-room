@@ -79,7 +79,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
 const playlist = [
   {
@@ -126,12 +126,16 @@ const autoplay = ref(false)
 const volume = ref(0.7)
 
 function play() {
-  audio.value.play()
-  playing.value = true
+  if (audio.value) {
+    audio.value.play()
+    playing.value = true
+  }
 }
 function pause() {
-  audio.value.pause()
-  playing.value = false
+  if (audio.value) {
+    audio.value.pause()
+    playing.value = false
+  }
 }
 function togglePlay() {
   if (playing.value) {
@@ -197,13 +201,19 @@ function onEnded() {
   }
 }
 function onTimeUpdate() {
-  currentTime.value = audio.value.currentTime
+  if (audio.value) {
+    currentTime.value = audio.value.currentTime
+  }
 }
 function onLoadedMetadata() {
-  duration.value = audio.value.duration
+  if (audio.value) {
+    duration.value = audio.value.duration
+  }
 }
 function seek() {
-  audio.value.currentTime = currentTime.value
+  if (audio.value) {
+    audio.value.currentTime = currentTime.value
+  }
 }
 function formatTime(sec) {
   if (!sec || isNaN(sec)) return "00:00"
@@ -230,5 +240,12 @@ watch(volume, () => setVolume())
 onMounted(() => {
   pause()
   setVolume()
+  window.addEventListener('devroom-music-pause', pause)
+  window.addEventListener('devroom-music-resume', play)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('devroom-music-pause', pause)
+  window.removeEventListener('devroom-music-resume', play)
 })
 </script>

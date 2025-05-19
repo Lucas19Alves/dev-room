@@ -285,6 +285,64 @@ function checkMobile() {
 }
 
 const showPixModal = ref(false)
+
+// Estado do modo pausa
+const pauseMode = ref(false)
+const pauseStep = ref(0)
+const pauseTips = [
+  {
+    icon: 'fa-solid fa-chair',
+    text: 'Ajuste sua postura na cadeira!',
+    color: 'text-blue-400'
+  },
+  {
+    icon: 'fa-solid fa-cookie-bite',
+    text: 'Que tal um lanche rápido?',
+    color: 'text-yellow-400'
+  },
+  {
+    icon: 'fa-solid fa-window-maximize',
+    text: 'Olhe pela janela e respire fundo!',
+    color: 'text-green-400'
+  },
+  {
+    icon: 'fa-solid fa-handshake',
+    text: 'Dê um oi para alguém por perto!',
+    color: 'text-pink-400'
+  },
+  {
+    icon: 'fa-solid fa-face-smile-beam',
+    text: 'Sorria! Você está indo bem!',
+    color: 'text-purple-400'
+  }
+]
+
+// Funções para pausar e retomar
+function activatePauseMode() {
+  pauseMode.value = true
+  pauseStep.value = 0
+  // Pausar alarmes/timers
+  window.dispatchEvent(new CustomEvent('devroom-pause-all'))
+  // Pausar música
+  window.dispatchEvent(new CustomEvent('devroom-music-pause'))
+}
+function nextPauseTip() {
+  if (pauseStep.value < pauseTips.length - 1) {
+    pauseStep.value++
+  }
+}
+function prevPauseTip() {
+  if (pauseStep.value > 0) {
+    pauseStep.value--
+  }
+}
+function deactivatePauseMode() {
+  pauseMode.value = false
+  // Retomar alarmes/timers
+  window.dispatchEvent(new CustomEvent('devroom-resume-all'))
+  // Retomar música
+  window.dispatchEvent(new CustomEvent('devroom-music-resume'))
+}
 </script>
 
 <template>
@@ -506,6 +564,95 @@ const showPixModal = ref(false)
         </div>
       </div>
     </div>
+
+    <!-- Botão modo pausa Desktop -->
+    <div
+      v-if="!isMobile"
+      class="fixed left-[calc(5vw-64px)] bottom-6 z-50 flex flex-col items-center"
+      style="min-width: 64px;"
+    >
+      <button
+        class="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-xs shadow transition border"
+        :style="{
+          background: 'var(--bg-panel)',
+          color: 'var(--text-main)',
+          borderColor: 'var(--accent)',
+          opacity: 0.95
+        }"
+        @click="activatePauseMode"
+        title="Modo Pausa"
+      >
+        <font-awesome-icon icon="fa-solid fa-mug-hot" class="text-orange-400 text-xl" />
+        Pausa
+      </button>
+    </div>
+
+    <!-- Botão modo pausa Mobile (no menu, separado dos itens) -->
+    <transition name="fade">
+      <div
+        v-if="mobileMenuOpen && isMobile"
+        class="fixed inset-0 z-50 pointer-events-none"
+      >
+        <div class="absolute left-0 bottom-0 w-64 px-4 pb-8 pointer-events-auto">
+          <button
+            class="w-full flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-base shadow transition border mt-8"
+            :style="{
+              background: 'var(--bg-panel)',
+              color: 'var(--text-main)',
+              borderColor: 'var(--accent)',
+              opacity: 0.95
+            }"
+            @click="activatePauseMode"
+            title="Modo Pausa"
+          >
+            <font-awesome-icon icon="fa-solid fa-mug-hot" class="text-orange-400 text-xl" />
+            Pausa
+          </button>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Modal do modo pausa -->
+    <transition name="fade">
+      <div
+        v-if="pauseMode"
+        class="fixed inset-0 z-[999] flex items-center justify-center"
+        style="background: rgba(0,0,0,0.85);"
+      >
+        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-full animate__animated animate__fadeInDown"
+          :style="{ borderColor: 'var(--accent)' }"
+        >
+          <font-awesome-icon
+            :icon="pauseTips[pauseStep].icon"
+            :class="['text-6xl mb-6 animate__animated animate__bounceIn', pauseTips[pauseStep].color]"
+          />
+          <h2 class="text-2xl font-bold mb-4 text-center animate__animated animate__fadeIn">{{ pauseTips[pauseStep].text }}</h2>
+          <div class="flex gap-2 mt-4">
+            <button
+              v-if="pauseStep > 0"
+              @click="prevPauseTip"
+              class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded transition"
+            >
+              <font-awesome-icon icon="fa-solid fa-arrow-left" /> Anterior
+            </button>
+            <button
+              v-if="pauseStep < pauseTips.length - 1"
+              @click="nextPauseTip"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+            >
+              Próximo <font-awesome-icon icon="fa-solid fa-arrow-right" />
+            </button>
+            <button
+              v-if="pauseStep === pauseTips.length - 1"
+              @click="deactivatePauseMode"
+              class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition font-bold"
+            >
+              Voltar ao trabalho <font-awesome-icon icon="fa-solid fa-play" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <div v-if="showPixModal" class="fixed inset-0 z-50 flex items-center justify-center"
       :style="{ background: 'rgba(0,0,0,0.5)' }" @click.self="showPixModal = false">

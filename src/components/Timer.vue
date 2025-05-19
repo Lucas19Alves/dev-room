@@ -167,11 +167,19 @@ function toggleTimer() {
 
 onMounted(() => {
   loadState()
+  window.addEventListener('devroom-pause-all', pauseTimer)
+  window.addEventListener('devroom-resume-all', () => {
+    if (running.value) startTimer()
+  })
 })
 
 onUnmounted(() => {
   clearInterval(intervalId)
   saveState()
+  window.removeEventListener('devroom-pause-all', pauseTimer)
+  window.removeEventListener('devroom-resume-all', () => {
+    if (running.value) startTimer()
+  })
 })
 
 watch([inputMinutes, inputSeconds, totalSeconds, elapsed, running, endTimestamp], saveState)
