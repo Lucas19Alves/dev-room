@@ -17,14 +17,25 @@ import { SpeedInsights } from '@vercel/speed-insights/vue';
 
 const NOME_KEY = 'dev-room-nome'
 const THEME_KEY = 'dev-room-theme'
-const nome = ref('')
 
-function getUserInfo() {
-  const novoNome = prompt('Digite seu nome:', nome.value)
-  if (novoNome !== null && novoNome.trim() !== '') {
-    nome.value = novoNome.trim()
-    localStorage.setItem(NOME_KEY, nome.value)
+const userName = ref(localStorage.getItem(NOME_KEY) || '')
+const nomeInput = ref(userName.value || '')
+const onboardingDone = ref(localStorage.getItem('dev-room-onboarding') === 'ok');
+
+const onboardingStep = ref(0)
+const checkedOnboarding = ref(false)
+
+function saveName() {
+  if (nomeInput.value.trim() !== '') {
+    userName.value = nomeInput.value.trim()
+    localStorage.setItem(NOME_KEY, userName.value)
+    onboardingStep.value++
   }
+}
+
+function endOnboarding() {
+  onboardingDone.value = true
+  localStorage.setItem('dev-room-onboarding', 'ok')
 }
 
 const currentTheme = ref('theme-default')
@@ -35,11 +46,12 @@ function applyTheme(theme) {
 }
 
 onMounted(() => {
+  onboardingDone.value = localStorage.getItem('dev-room-onboarding') === 'ok';
+
   const salvo = localStorage.getItem(NOME_KEY)
+
   if (salvo && salvo.trim() !== '') {
-    nome.value = salvo
-  } else {
-    getUserInfo()
+    userName.value = salvo
   }
 
   const savedTheme = localStorage.getItem(THEME_KEY)
@@ -48,6 +60,7 @@ onMounted(() => {
   } else {
     applyTheme('theme-default')
   }
+
   intervalId = setInterval(() => {
     now.value = new Date()
   }, 1000)
@@ -55,6 +68,15 @@ onMounted(() => {
   if ("Notification" in window && Notification.permission !== "granted") {
     Notification.requestPermission()
   }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  deferredPrompt = e
+  showInstallPrompt.value = true
+  })
+  
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
 })
 
 onUnmounted(() => {
@@ -221,13 +243,6 @@ function restoreWindow(id) {
 const showInstallPrompt = ref(false)
 let deferredPrompt = null
 
-onMounted(() => {
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault()
-    deferredPrompt = e
-    showInstallPrompt.value = true
-  })
-})
 
 function installApp() {
   if (deferredPrompt) {
@@ -245,22 +260,67 @@ function checkMobile() {
   isMobile.value = window.innerWidth <= 768
 }
 
-onMounted(() => {
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
-})
-
 const showPixModal = ref(false)
 </script>
 
 <template>
+  <transition name="fade">
+  <div
+    v-if="!onboardingDone"
+    class="fixed inset-0 z-50 flex items-center justify-center"
+    style="background: rgba(0, 0, 0, 0.85); color: white"
+  >
+    <div class="max-w-md w-full bg-gray-900 p-8 rounded-xl shadow-xl text-center border border-blue-500">
+      <div v-if="onboardingStep === 0">
+        <h2 class="text-2xl font-bold mb-4">Bem-vindo ao Dev Room 🚀</h2>
+        <p class="mb-6">Esse é seu espaço digital com ferramentas úteis para programar, se organizar e focar.</p>
+        <button
+          @click="onboardingStep++"
+          class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white font-semibold"
+        >
+          Próximo
+        </button>
+      </div>
+
+      <div v-else-if="onboardingStep === 1">
+        <h2 class="text-xl font-bold mb-4">Qual é o seu nome?</h2>
+        <input
+          v-model="nomeInput"
+          placeholder="Digite seu nome"
+          class="w-full px-4 py-2 rounded bg-gray-800 text-white border border-blue-400 mb-4"
+        />
+        <button
+          :disabled="!nomeInput.trim()"
+          @click="saveName"
+          class="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white font-semibold disabled:opacity-50"
+        >
+          Continuar
+        </button>
+      </div>
+
+      <div v-else-if="onboardingStep === 2">
+        <h2 class="text-xl font-bold mb-4">Tudo pronto, {{ userName }}!</h2>
+        <p class="mb-4">Use os widgets no dock abaixo para abrir ferramentas como Pomodoro, Notas e muito mais.</p>
+        <button
+          @click="endOnboarding"
+          class="cursor-pointer bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white font-semibold"
+          aria-label="Começar a usar o Dev Room"
+        >
+          Começar
+        </button>
+      </div>
+    </div>
+  </div>
+</transition>
+
   <SpeedInsights />
   <div class="h-screen text-gray-100 relative overflow-hidden" :style="{ background: 'var(--bg-main)', color: 'var(--text-main)' }">
 
     <button
       v-if="isMobile"
       @click="mobileMenuOpen = true"
-      class="fixed top-4 left-4 z-50 bg-gray-900/80 rounded-full p-3 shadow-lg border border-gray-700"
+      class="cursor-pointer fixed top-4 left-4 z-50 bg-gray-900/80 rounded-full p-3 shadow-lg border border-gray-700"
+      aria-label="Abrir menu"
     >
       <font-awesome-icon icon="fa-solid fa-bars" class="text-2xl text-blue-300" />
     </button>
@@ -274,6 +334,7 @@ const showPixModal = ref(false)
       >
         <nav
           class="absolute left-0 top-0 h-full w-64 shadow-2xl flex flex-col py-8 px-4"
+          aria-label="Menu"
           :style="{
             background: 'var(--bg-panel)',
             color: 'var(--text-main)',
@@ -288,7 +349,7 @@ const showPixModal = ref(false)
               v-for="tab in mobileTabs"
               :key="tab.type"
               @click="mobileActiveTab = tab.type; mobileMenuOpen = false"
-              class="flex items-center gap-3 px-3 py-2 rounded text-lg transition"
+              class="cursor-pointer flex items-center gap-3 px-3 py-2 rounded text-lg transition"
               :class="mobileActiveTab === tab.type ? 'bg-blue-800 text-blue-200 font-bold' : 'text-gray-300 hover:bg-gray-800'"
               :style="mobileActiveTab === tab.type ? { background: 'var(--accent)', color: 'var(--text-main)' } : {}"
             >
@@ -308,6 +369,7 @@ const showPixModal = ref(false)
 
       <nav
         class="fixed bottom-0 left-0 w-full z-40 flex items-center justify-center py-2"
+        aria-label="Dock"
         :style="{
           background: 'var(--bg-panel)',
           borderTop: '1px solid var(--accent)',
@@ -315,7 +377,7 @@ const showPixModal = ref(false)
         }"
       >
         <button
-          class="flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-xs shadow transition"
+          class="cursor-pointer flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-xs shadow transition"
           :style="{
             background: 'var(--accent)',
             color: 'var(--text-main)',
@@ -336,7 +398,7 @@ const showPixModal = ref(false)
         :style="{ background: 'var(--bg-panel)' }">
         <div>
           <button
-            class="font-bold px-4 py-2 rounded-full shadow flex items-center gap-2 transition"
+            class="cursor-pointer font-bold px-4 py-2 rounded-full shadow flex items-center gap-2 transition"
             :style="{
               background: 'var(--accent)',
               color: 'var(--text-main)',
@@ -350,7 +412,7 @@ const showPixModal = ref(false)
           </button>
         </div>
         <div>
-          <h1>Olá, dev <span class="text-blue-400 font-semibold">{{ nome }}!</span></h1>
+          <h1>Olá, dev <span class="text-blue-400 font-semibold">{{ userName }}!</span></h1>
         </div>
         <div class="flex flex-row gap-4 items-center">
           <h1 class="flex flex-row items-center gap-2">
@@ -451,7 +513,7 @@ const showPixModal = ref(false)
         <p class="mb-3 text-center">Apoie o projeto enviando qualquer valor via Pix!</p>
         <img src="/images/qrcode-pix.png" alt="QR Code Pix" class="w-48 h-48 object-contain mb-3 border rounded bg-white p-2" />
         <button
-          class="mt-2 px-4 py-2 rounded font-bold transition"
+          class="cursor-pointer mt-2 px-4 py-2 rounded font-bold transition"
           :style="{
             background: 'var(--accent)',
             color: 'var(--text-main)'
@@ -467,8 +529,8 @@ const showPixModal = ref(false)
       v-if="showInstallPrompt"
       class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-blue-800 text-white px-6 py-3 rounded shadow-lg z-50 flex items-center gap-4">
       <span>Instale o Dev Room no seu dispositivo para acesso rápido!</span>
-      <button @click="installApp" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold">Instalar</button>
-      <button @click="showInstallPrompt = false" class="ml-2 text-blue-200 hover:text-white">Fechar</button>
+      <button @click="installApp" class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold">Instalar</button>
+      <button @click="showInstallPrompt = false" class="cursor-pointer ml-2 text-blue-200 hover:text-white">Fechar</button>
     </div>
   </div>
 </template>
