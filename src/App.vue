@@ -703,7 +703,7 @@ function deactivatePauseMode() {
     </transition>
 
     <!-- Modal de apoio Pix -->
-    <div v-if="showPixModal" class="fixed inset-0 z-50 flex items-center justify-center"
+    <div v-if="showPixModal" class="z-[999] fixed inset-0 flex items-center justify-center"
       :style="{ background: 'rgba(0,0,0,0.5)' }" @click.self="showPixModal = false"
       id="pix-modal-overlay"
     >
