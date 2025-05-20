@@ -7,6 +7,10 @@
   --text-main: #f1f5f9;
   --accent: #2563eb;
   --name: #2563eb;
+  --window-btn-minimize: #fff;
+  --window-btn-maximize: #fff;
+  --window-btn-restore: #fff;
+  --window-btn-close: #fff;
 }
 
 .theme-dark {
@@ -15,6 +19,10 @@
   --text-main: #e5e7eb;
   --accent: #374151;
   --name: #2563eb;
+  --window-btn-minimize: #fff;
+  --window-btn-maximize: #fff;
+  --window-btn-restore: #fff;
+  --window-btn-close: #fff;
 }
 
 .theme-solarized {
@@ -23,6 +31,10 @@
   --text-main: #fdf6e3;
   --accent: #b58900;
   --name: #b58900;
+  --window-btn-minimize: #fff;
+  --window-btn-maximize: #fff;
+  --window-btn-restore: #fff;
+  --window-btn-close: #fff;
 }
 
 .theme-dracula {
@@ -31,6 +43,10 @@
   --text-main: #f8f8f2;
   --accent: #ff79c6;
   --name: #ff79c6;
+  --window-btn-minimize: #fff;
+  --window-btn-maximize: #fff;
+  --window-btn-restore: #fff;
+  --window-btn-close: #fff;
 }
 
 .theme-gruvbox {
@@ -39,6 +55,10 @@
   --text-main: #f9f5d7;
   --accent: #fabd2f;
   --name: #fabd2f;
+  --window-btn-minimize: #fff;
+  --window-btn-maximize: #fff;
+  --window-btn-restore: #fff;
+  --window-btn-close: #fff;
 }
 
 .theme-nord {
@@ -47,6 +67,10 @@
   --text-main: #e5e9f0;
   --accent: #88c0d0;
   --name: #88c0d0;
+  --window-btn-minimize: #fff;
+  --window-btn-maximize: #fff;
+  --window-btn-restore: #fff;
+  --window-btn-close: #fff;
 }
 
 .theme-monokai {
@@ -55,6 +79,10 @@
   --text-main: #f8f8f2;
   --accent: #f92672;
   --name: #f92672;
+  --window-btn-minimize: #fff;
+  --window-btn-maximize: #fff;
+  --window-btn-restore: #fff;
+  --window-btn-close: #fff;
 }
 
 .theme-onedark {
@@ -63,6 +91,10 @@
   --text-main: #e6efff;
   --accent: #61afef;
   --name: #61afef;
+  --window-btn-minimize: #fff;
+  --window-btn-maximize: #fff;
+  --window-btn-restore: #fff;
+  --window-btn-close: #fff;
 }
 
 .theme-nightowl {
@@ -71,6 +103,10 @@
   --text-main: #e3eafc;
   --accent: #82aaff;
   --name: #82aaff;
+  --window-btn-minimize: #fff;
+  --window-btn-maximize: #fff;
+  --window-btn-restore: #fff;
+  --window-btn-close: #fff;
 }
 
 .theme-palenight {
@@ -79,6 +115,10 @@
   --text-main: #e0e6f8;
   --accent: #c792ea;
   --name: #c792ea;
+  --window-btn-minimize: #fff;
+  --window-btn-maximize: #fff;
+  --window-btn-restore: #fff;
+  --window-btn-close: #fff;
 }
 
 body,

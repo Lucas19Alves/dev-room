@@ -1,13 +1,12 @@
 <template>
-  <!-- Container principal da checklist de deploy -->
   <div class="flex flex-col items-center justify-center w-full h-full p-4" id="deploy-main">
-    <!-- Título -->
     <h2 class="text-xl font-bold mb-4 text-green-400" id="deploy-title">Checklist de Deploy</h2>
     <!-- Formulário para adicionar novo item -->
     <form @submit.prevent="addItem" class="flex gap-2 mb-4 w-full" id="deploy-form">
       <input
         v-model="newItem"
         type="text"
+        autocomplete="off"
         placeholder="Adicionar item..."
         class="flex-1 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
         id="deploy-input"
@@ -16,14 +15,33 @@
         type="submit"
         class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition"
         id="deploy-add-btn"
+        :disabled="newItem.trim() === ''"
       >
-        +
+        <font-awesome-icon icon="fa-solid fa-plus" />
       </button>
     </form>
+    <!-- Filtros -->
+    <div class="flex gap-2 mb-2 w-full justify-end">
+      <button
+        class="px-2 py-1 rounded text-xs font-bold"
+        :class="filter === 'all' ? 'bg-green-700 text-white' : 'bg-gray-700 text-gray-200'"
+        @click="filter = 'all'"
+      >Todos</button>
+      <button
+        class="px-2 py-1 rounded text-xs font-bold"
+        :class="filter === 'open' ? 'bg-green-700 text-white' : 'bg-gray-700 text-gray-200'"
+        @click="filter = 'open'"
+      >Pendentes</button>
+      <button
+        class="px-2 py-1 rounded text-xs font-bold"
+        :class="filter === 'done' ? 'bg-green-700 text-white' : 'bg-gray-700 text-gray-200'"
+        @click="filter = 'done'"
+      >Concluídos</button>
+    </div>
     <!-- Lista de itens da checklist -->
     <ul class="w-full space-y-2 flex-1 overflow-y-auto max-h-full min-h-[40px]" id="deploy-list">
       <li
-        v-for="(item, idx) in items"
+        v-for="(item, idx) in filteredItems"
         :key="item.id"
         class="flex items-center justify-between bg-gray-800 px-3 py-2 rounded deploy-item"
         :id="`deploy-item-${item.id}`"
@@ -36,7 +54,25 @@
             class="deploy-checkbox"
             :id="`deploy-checkbox-${item.id}`"
           />
-          <span :class="{ 'line-through text-gray-400': item.done }" class="flex-1 deploy-text" :id="`deploy-text-${item.id}`">{{ item.text }}</span>
+          <span
+            v-if="editingId !== item.id"
+            :class="{ 'line-through text-gray-400': item.done }"
+            class="flex-1 deploy-text"
+            :id="`deploy-text-${item.id}`"
+            @dblclick="startEdit(item)"
+            title="Clique duplo para editar"
+            style="cursor: pointer;"
+          >{{ item.text }}</span>
+          <input
+            v-else
+            v-model="editText"
+            @keyup.enter="saveEdit(item)"
+            @blur="saveEdit(item)"
+            class="flex-1 px-2 py-1 rounded bg-gray-900 text-gray-100 border border-gray-700 focus:outline-none"
+            ref="editInput"
+            :id="`deploy-edit-input-${item.id}`"
+            autocomplete="off"
+          />
         </label>
         <button
           @click="removeItem(idx)"
@@ -47,8 +83,23 @@
           <font-awesome-icon icon="fa-solid fa-trash" />
         </button>
       </li>
-      <li v-if="items.length === 0" class="text-gray-400 text-center" id="deploy-empty">Nenhum item na checklist.</li>
+      <li v-if="filteredItems.length === 0" class="text-gray-400 text-center" id="deploy-empty">
+        Nenhum item na checklist.
+      </li>
     </ul>
+    <!-- Progresso -->
+    <div class="w-full mt-4">
+      <div class="flex justify-between text-xs mb-1">
+        <span>Progresso</span>
+        <span>{{ doneCount }}/{{ items.length }} concluídos</span>
+      </div>
+      <div class="w-full bg-gray-700 rounded h-2 overflow-hidden">
+        <div
+          class="bg-green-500 h-2 transition-all"
+          :style="{ width: progress + '%' }"
+        ></div>
+      </div>
+    </div>
     <!-- Botões de reset e restaurar padrão -->
     <div class="flex gap-2 mt-6 flex-wrap" id="deploy-actions">
       <button
@@ -66,13 +117,27 @@
       >
         Restaurar padrão
       </button>
+      <button
+        class="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded transition"
+        @click="exportChecklist"
+        :disabled="items.length === 0"
+        id="deploy-export-btn"
+      >
+        Exportar
+      </button>
+      <label
+        class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded transition cursor-pointer"
+        id="deploy-import-btn"
+      >
+        Importar
+        <input type="file" accept=".json" class="hidden" @change="importChecklist" />
+      </label>
     </div>
   </div>
 </template>
 
 <script setup>
-// Importações e estados reativos principais
-import { ref, watch } from 'vue'
+import { ref, watch, computed, nextTick } from 'vue'
 
 const STORAGE_KEY = 'dev-room-deploy-checklist'
 const defaultItems = [
@@ -86,19 +151,23 @@ const defaultItems = [
 
 const newItem = ref('')
 const items = ref([])
+const editingId = ref(null)
+const editText = ref('')
+const filter = ref('all')
 
-// Carrega itens do localStorage ou usa padrão
 function loadItems() {
   const saved = localStorage.getItem(STORAGE_KEY)
-  items.value = saved ? JSON.parse(saved) : defaultItems.map(i => ({ ...i, id: Date.now() + Math.random() }))
+  if (saved) {
+    items.value = JSON.parse(saved)
+  } else {
+    items.value = defaultItems.map(i => ({ ...i, id: Date.now() + Math.random() }))
+  }
 }
 
-// Salva itens no localStorage
 function saveItems() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items.value))
 }
 
-// Adiciona novo item à checklist
 function addItem() {
   if (newItem.value.trim() === '') return
   items.value.push({
@@ -110,25 +179,90 @@ function addItem() {
   saveItems()
 }
 
-// Remove item pelo índice
 function removeItem(idx) {
   items.value.splice(idx, 1)
   saveItems()
 }
 
-// Marca todos como não feitos
 function resetChecklist() {
   items.value.forEach(item => (item.done = false))
   saveItems()
 }
 
-// Restaura checklist padrão
 function restoreDefault() {
   items.value = defaultItems.map(i => ({ ...i, id: Date.now() + Math.random() }))
   saveItems()
 }
 
-// Inicializa e observa mudanças para salvar automaticamente
+function startEdit(item) {
+  editingId.value = item.id
+  editText.value = item.text
+  nextTick(() => {
+    const input = document.getElementById(`deploy-edit-input-${item.id}`)
+    if (input) input.focus()
+  })
+}
+
+function saveEdit(item) {
+  if (editingId.value === item.id) {
+    item.text = editText.value.trim() || item.text
+    editingId.value = null
+    editText.value = ''
+    saveItems()
+  }
+}
+
+function exportChecklist() {
+  const data = JSON.stringify(items.value, null, 2)
+  const blob = new Blob([data], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'deploy-checklist.json'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function importChecklist(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (evt) => {
+    try {
+      const imported = JSON.parse(evt.target.result)
+      if (Array.isArray(imported) && imported.every(i => i.text)) {
+        items.value = imported.map(i => ({
+          ...i,
+          id: i.id || Date.now() + Math.random(),
+          done: !!i.done
+        }))
+        saveItems()
+      } else {
+        alert('Arquivo inválido.')
+      }
+    } catch {
+      alert('Erro ao importar checklist.')
+    }
+  }
+  reader.readAsText(file)
+}
+
+const filteredItems = computed(() => {
+  if (filter.value === 'all') return items.value
+  if (filter.value === 'open') return items.value.filter(i => !i.done)
+  if (filter.value === 'done') return items.value.filter(i => i.done)
+  return items.value
+})
+
+const doneCount = computed(() => items.value.filter(i => i.done).length)
+const progress = computed(() => items.value.length ? Math.round((doneCount.value / items.value.length) * 100) : 0)
+
 loadItems()
 watch(items, saveItems, { deep: true })
 </script>
+
+<style scoped>
+.drag-handle {
+  cursor: move;
+}
+</style>

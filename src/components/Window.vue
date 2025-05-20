@@ -18,55 +18,63 @@
   >
     <!-- Barra superior da janela (header) -->
     <div
-      class="flex justify-between items-center rounded-t cursor-move select-none px-4 py-2 flex-shrink-0 window-header"
+      class="flex justify-between items-center rounded-t cursor-move select-none px-2 py-1 flex-shrink-0 window-header"
       :style="{
         background: 'var(--accent)',
         color: 'var(--text-main)'
       }"
       id="window-header"
     >
-      <span class="font-semibold window-title" id="window-title">{{ title }}</span>
-      <div class="flex items-center gap-1 ml-2 window-actions" id="window-actions">
+      <span class="font-semibold window-title text-sm" id="window-title">{{ title }}</span>
+      <div class="flex items-center gap-0.5 ml-2 window-actions" id="window-actions">
         <!-- Botão minimizar -->
         <button
           @click="$emit('minimize')"
-          class="text-yellow-400 hover:text-yellow-600 text-xl font-bold window-btn-minimize"
-          style="background: transparent;"
-          title="Minimizar"
+          class="window-btn window-btn-minimize"
+          :title="'Minimizar'"
           id="window-btn-minimize"
         >
-          &minus;
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+            <rect x="4" y="10" width="12" height="2" rx="1" fill="currentColor"/>
+          </svg>
         </button>
         <!-- Botão maximizar -->
         <button
           v-if="!maximized"
           @click="maximize"
-          class="text-green-400 hover:text-green-600 text-xl font-bold window-btn-maximize"
-          style="background: transparent;"
-          title="Maximizar"
+          class="window-btn window-btn-maximize"
+          :title="'Maximizar'"
           id="window-btn-maximize"
         >
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="4" y="4" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+            <rect x="4" y="4" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+          </svg>
         </button>
         <!-- Botão restaurar -->
         <button
           v-else
           @click="restore"
-          class="text-blue-400 hover:text-blue-600 text-xl font-bold window-btn-restore"
-          style="background: transparent;"
-          title="Restaurar"
+          class="window-btn window-btn-restore"
+          :title="'Restaurar'"
           id="window-btn-restore"
         >
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="6" y="6" width="10" height="10" stroke="currentColor" stroke-width="2" fill="none"/><rect x="4" y="4" width="10" height="10" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+            <rect x="6" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+            <rect x="4" y="4" width="10" height="10" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+          </svg>
         </button>
         <!-- Botão fechar -->
         <button
           @click="$emit('close')"
-          class="text-red-400 hover:text-red-600 text-xl font-bold window-btn-close"
-          style="background: transparent;"
-          title="Fechar"
+          class="window-btn window-btn-close"
+          :title="'Fechar'"
           id="window-btn-close"
-        >&times;</button>
+        >
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+            <line x1="6" y1="6" x2="14" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="14" y1="6" x2="6" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -202,34 +210,64 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Handles de resize (opcional, caso queira estilizar visualmente) */
-.resize-handle {
-  position: absolute;
+.window-header {
+  min-height: 28px;
+  /* barra mais fina */
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+}
+.window-title {
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+.window-actions {
+  gap: 0.125rem;
+}
+.window-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.3rem;
+  border: none;
   background: transparent;
-  z-index: 10;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  color: var(--window-btn-minimize, #fff);
+  outline: none;
+  cursor: pointer;
+  padding: 0;
 }
-.resize-handle.right {
-  top: 0; right: 0; width: 10px; height: 100%; cursor: ew-resize;
+.window-btn svg {
+  display: block;
+  width: 1rem;
+  height: 1rem;
 }
-.resize-handle.left {
-  top: 0; left: 0; width: 10px; height: 100%; cursor: ew-resize;
+.window-btn-minimize { color: var(--window-btn-minimize, #fff); }
+.window-btn-maximize { color: var(--window-btn-maximize, #fff); }
+.window-btn-restore  { color: var(--window-btn-restore, #fff); }
+.window-btn-close    { color: var(--window-btn-close, #fff); }
+
+.window-btn:hover {
+  background: rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 2px var(--accent, #2563eb);
 }
-.resize-handle.bottom {
-  left: 0; bottom: 0; width: 100%; height: 10px; cursor: ns-resize;
+.window-btn-close:hover {
+  background: rgba(239,68,68,0.15);
+  box-shadow: 0 0 0 2px var(--window-btn-close, #ef4444);
 }
-.resize-handle.top {
-  left: 0; top: 0; width: 100%; height: 10px; cursor: ns-resize;
+.window-btn-maximize:hover {
+  background: rgba(34,197,94,0.12);
+  box-shadow: 0 0 0 2px var(--window-btn-maximize, #22c55e);
 }
-.resize-handle.corner, .resize-handle.bottom-right {
-  right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize;
+.window-btn-minimize:hover {
+  background: rgba(234,179,8,0.12);
+  box-shadow: 0 0 0 2px var(--window-btn-minimize, #eab308);
 }
-.resize-handle.top-left {
-  left: 0; top: 0; width: 18px; height: 18px; cursor: nwse-resize;
-}
-.resize-handle.top-right {
-  right: 0; top: 0; width: 18px; height: 18px; cursor: nesw-resize;
-}
-.resize-handle.bottom-left {
-  left: 0; bottom: 0; width: 18px; height: 18px; cursor: nesw-resize;
+.window-btn-restore:hover {
+  background: rgba(59,130,246,0.12);
+  box-shadow: 0 0 0 2px var(--window-btn-restore, #3b82f6);
 }
 </style>
