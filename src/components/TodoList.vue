@@ -57,7 +57,7 @@
           />
         </label>
         <button
-          @click="removeTask(tasks.value.findIndex(t => t.id === task.id))"
+          @click="removeTaskById(task.id)"
           class="ml-2 text-red-400 hover:text-red-600 transition todo-remove-btn"
           title="Remover"
           :id="`todo-remove-btn-${task.id}`"
@@ -110,6 +110,15 @@ function addTask() {
 function removeTask(idx) {
   tasks.value.splice(idx, 1)
   saveTasks()
+}
+
+// Remove uma tarefa pelo ID
+function removeTaskById(id) {
+  const idx = tasks.value.findIndex(t => t.id === id)
+  if (idx !== -1) {
+    tasks.value.splice(idx, 1)
+    saveTasks()
+  }
 }
 
 // Inicia edição ao dar duplo clique
