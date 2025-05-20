@@ -7,6 +7,7 @@
       <input
         v-model="newTask"
         type="text"
+        autocomplete="off"
         placeholder="Nova tarefa..."
         class="flex-1 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
         id="todo-input"

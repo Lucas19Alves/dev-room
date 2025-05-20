@@ -11,6 +11,7 @@ import WaterReminder from './components/WaterReminder.vue'
 import Window from './components/Window.vue'
 import FakeDataGenerator from './components/FakeDataGenerator.vue'
 import Config from './components/Config.vue'
+import StickyNotes from './components/StickyNotes.vue'
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
 
@@ -406,6 +407,8 @@ function deactivatePauseMode() {
       </div>
     </div>
   </transition>
+
+  <StickyNotes/>
 
   <SpeedInsights />
 
