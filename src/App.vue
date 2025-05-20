@@ -363,7 +363,8 @@ function deactivatePauseMode() {
       <div class="max-w-md w-full bg-gray-900 p-8 rounded-xl shadow-xl text-center border border-blue-500" id="onboarding-content">
         <!-- Passo 0 do onboarding -->
         <div v-if="onboardingStep === 0" id="onboarding-step-0">
-          <h2 class="text-2xl font-bold mb-4">Bem-vindo ao Dev Room 🚀</h2>
+          <font-awesome-icon icon="fa-solid fa-rocket" class="text-4xl mb-4 text-blue-400" />
+          <h2 class="text-2xl font-bold mb-4">Bem-vindo ao Dev Room</h2>
           <p class="mb-6">Esse é seu espaço digital com ferramentas úteis para programar, se organizar e focar.</p>
           <button
             @click="onboardingStep++"
@@ -375,6 +376,7 @@ function deactivatePauseMode() {
         </div>
         <!-- Passo 1 do onboarding -->
         <div v-else-if="onboardingStep === 1" id="onboarding-step-1">
+          <font-awesome-icon icon="fa-solid fa-user" class="text-3xl mb-4 text-green-400" />
           <h2 class="text-xl font-bold mb-4">Qual é o seu nome?</h2>
           <input
             v-model="nomeInput"
@@ -393,6 +395,23 @@ function deactivatePauseMode() {
         </div>
         <!-- Passo 2 do onboarding -->
         <div v-else-if="onboardingStep === 2" id="onboarding-step-2">
+          <font-awesome-icon icon="fa-solid fa-heart" class="text-3xl mb-4 text-pink-400" />
+          <h2 class="text-xl font-bold mb-4">Apoie o Dev Room!</h2>
+          <p class="mb-4">
+            Se você gostar do projeto, considere contribuir clicando no botão <b>Me apoie</b> no canto superior.<br>
+            Assim você ajuda a manter e evoluir essa ferramenta gratuita para todos!
+          </p>
+          <button
+            @click="onboardingStep++"
+            class="cursor-pointer bg-pink-600 hover:bg-pink-700 px-4 py-2 rounded text-white font-semibold"
+            id="onboarding-support-btn"
+          >
+            Próximo
+          </button>
+        </div>
+        <!-- Passo 3 do onboarding -->
+        <div v-else-if="onboardingStep === 3" id="onboarding-step-3">
+          <font-awesome-icon icon="fa-solid fa-th-large" class="text-3xl mb-4 text-purple-400" />
           <h2 class="text-xl font-bold mb-4">Tudo pronto, {{ userName }}!</h2>
           <p class="mb-4">Use os widgets no dock abaixo para abrir ferramentas como Pomodoro, Notas e muito mais.</p>
           <button
