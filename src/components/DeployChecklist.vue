@@ -231,12 +231,26 @@ function importChecklist(e) {
     try {
       const imported = JSON.parse(evt.target.result)
       if (Array.isArray(imported) && imported.every(i => i.text)) {
-        items.value = imported.map(i => ({
-          ...i,
-          id: i.id || Date.now() + Math.random(),
-          done: !!i.done
+        // Garante unicidade de IDs e avisa sobre duplicados
+        const seen = new Set()
+        let duplicatedCount = 0
+        const sanitized = imported.filter(item => {
+          if (seen.has(item.id)) {
+            duplicatedCount++
+            return false // ignora duplicados
+          }
+          seen.add(item.id)
+          return true
+        }).map(item => ({
+          ...item,
+          id: item.id || Date.now() + Math.random(),
+          done: !!item.done
         }))
+        items.value = sanitized
         saveItems()
+        if (duplicatedCount > 0) {
+          showToast(`${duplicatedCount} item(ns) com ID duplicado foram ignorados ao importar.`)
+        }
       } else {
         alert('Arquivo inválido.')
       }
@@ -245,6 +259,27 @@ function importChecklist(e) {
     }
   }
   reader.readAsText(file)
+}
+
+// Adicione esta função simples de toast (ou use sua lib preferida)
+function showToast(msg) {
+  // Exemplo simples, substitua por sua lib de toast se desejar
+  const toast = document.createElement('div')
+  toast.textContent = msg
+  toast.style.position = 'fixed'
+  toast.style.bottom = '32px'
+  toast.style.left = '50%'
+  toast.style.transform = 'translateX(-50%)'
+  toast.style.background = '#222'
+  toast.style.color = '#fff'
+  toast.style.padding = '12px 24px'
+  toast.style.borderRadius = '8px'
+  toast.style.zIndex = 9999
+  toast.style.boxShadow = '0 2px 8px #0006'
+  document.body.appendChild(toast)
+  setTimeout(() => {
+    toast.remove()
+  }, 3500)
 }
 
 const filteredItems = computed(() => {
