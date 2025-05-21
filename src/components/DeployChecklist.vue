@@ -231,13 +231,12 @@ function importChecklist(e) {
     try {
       const imported = JSON.parse(evt.target.result)
       if (Array.isArray(imported) && imported.every(i => i.text)) {
-        // Garante unicidade de IDs e avisa sobre duplicados
         const seen = new Set()
         let duplicatedCount = 0
         const sanitized = imported.filter(item => {
           if (seen.has(item.id)) {
             duplicatedCount++
-            return false // ignora duplicados
+            return false 
           }
           seen.add(item.id)
           return true
@@ -261,9 +260,8 @@ function importChecklist(e) {
   reader.readAsText(file)
 }
 
-// Adicione esta função simples de toast (ou use sua lib preferida)
+
 function showToast(msg) {
-  // Exemplo simples, substitua por sua lib de toast se desejar
   const toast = document.createElement('div')
   toast.textContent = msg
   toast.style.position = 'fixed'
