@@ -9,7 +9,7 @@
         type="number"
         min="0"
         max="99"
-        v-model.number="inputMinutes"
+        v-model.number="timer.inputMinutes"
         class="w-14 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
         placeholder="min"
         id="timer-input-minutes"
@@ -19,7 +19,7 @@
         type="number"
         min="0"
         max="59"
-        v-model.number="inputSeconds"
+        v-model.number="timer.inputSeconds"
         class="w-14 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
         placeholder="seg"
         id="timer-input-seconds"
@@ -41,15 +41,15 @@
       <button
         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
         @click="toggleTimer"
-        :disabled="totalSeconds === 0"
+        :disabled="timer.totalSeconds === 0"
         id="timer-toggle-btn"
       >
-        {{ running ? 'Pausar' : (elapsed > 0 ? 'Continuar' : 'Iniciar') }}
+        {{ timer.running ? 'Pausar' : (timer.elapsed > 0 ? 'Continuar' : 'Iniciar') }}
       </button>
       <button
         class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded transition"
         @click="resetTimer"
-        :disabled="elapsed === 0 && !running"
+        :disabled="timer.elapsed === 0 && !timer.running"
         id="timer-reset-btn"
       >
         Resetar
@@ -59,152 +59,104 @@
 </template>
 
 <script setup>
-// Importações e estados reativos principais
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { playSound, notify } from '../utils/notify'
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
-const TIMER_STATE_KEY = 'dev-room-timer-state'
+// Estado do timer
+const allData = getDevRoomData()
+const timer = ref(allData.timer || {
+  inputMinutes: 0,
+  inputSeconds: 0,
+  totalSeconds: 0,
+  elapsed: 0,
+  running: false,
+  endTimestamp: null
+})
 
-const inputMinutes = ref(0)
-const inputSeconds = ref(0)
-const totalSeconds = ref(0)
-const elapsed = ref(0)
-const running = ref(false)
-const endTimestamp = ref(null)
+// Controle do intervalo do timer
 let intervalId = null
 
-// Tempo formatado para exibição (mm:ss)
+watch(timer, (val) => {
+  const data = getDevRoomData()
+  data.timer = val
+  setDevRoomData(data)
+}, { deep: true })
+
+function syncFromStorage(e) {
+  if (e.key === 'dev-room-data') {
+    const allData = getDevRoomData()
+    timer.value = allData.timer || {
+      inputMinutes: 0,
+      inputSeconds: 0,
+      totalSeconds: 0,
+      elapsed: 0,
+      running: false,
+      endTimestamp: null
+    }
+  }
+}
+onMounted(() => {
+  window.addEventListener('storage', syncFromStorage)
+})
+onUnmounted(() => {
+  window.removeEventListener('storage', syncFromStorage)
+  clearInterval(intervalId)
+})
+
 const formattedTime = computed(() => {
-  const remaining = Math.max(totalSeconds.value - elapsed.value, 0)
+  const remaining = Math.max(timer.value.totalSeconds - timer.value.elapsed, 0)
   const min = String(Math.floor(remaining / 60)).padStart(2, '0')
   const sec = String(remaining % 60).padStart(2, '0')
   return `${min}:${sec}`
 })
 
-// Salva o estado atual do timer no localStorage
-function saveState() {
-  localStorage.setItem(
-    TIMER_STATE_KEY,
-    JSON.stringify({
-      inputMinutes: inputMinutes.value,
-      inputSeconds: inputSeconds.value,
-      totalSeconds: totalSeconds.value,
-      elapsed: elapsed.value,
-      running: running.value,
-      endTimestamp: endTimestamp.value
-    })
-  )
-}
-
-// Carrega o estado salvo do timer
-function loadState() {
-  const saved = localStorage.getItem(TIMER_STATE_KEY)
-  if (saved) {
-    const state = JSON.parse(saved)
-    inputMinutes.value = state.inputMinutes
-    inputSeconds.value = state.inputSeconds
-    totalSeconds.value = state.totalSeconds
-    elapsed.value = state.elapsed
-    running.value = state.running
-    endTimestamp.value = state.endTimestamp
-
-    // Se estava rodando, calcula o tempo restante e reinicia
-    if (running.value && endTimestamp.value) {
-      const now = Date.now()
-      const remaining = Math.max(Math.floor((endTimestamp.value - now) / 1000), 0)
-      elapsed.value = totalSeconds.value - remaining
-      if (remaining <= 0) {
-        elapsed.value = totalSeconds.value
-        running.value = false
-        endTimestamp.value = null
-        playSound('/sounds/notify.mp3')
-        notify('Tempo finalizado!', { body: 'Seu timer terminou.' })
-      } else {
-        startTimer(true)
-      }
-    }
-  }
-}
-
-// Define o tempo do timer
 function setTimer() {
-  totalSeconds.value = inputMinutes.value * 60 + inputSeconds.value
-  elapsed.value = 0
-  running.value = false
-  endTimestamp.value = null
+  timer.value.totalSeconds = timer.value.inputMinutes * 60 + timer.value.inputSeconds
+  timer.value.elapsed = 0
+  timer.value.running = false
+  timer.value.endTimestamp = null
   clearInterval(intervalId)
-  saveState()
 }
 
-// Inicia o timer
-function startTimer(fromLoad = false) {
-  if ((!running.value || fromLoad) && totalSeconds.value > 0) {
-    running.value = true
-    if (!fromLoad) {
-      endTimestamp.value = Date.now() + (totalSeconds.value - elapsed.value) * 1000
-    }
-    saveState()
+function startTimer() {
+  if (!timer.value.running && timer.value.totalSeconds > 0) {
+    timer.value.running = true
+    timer.value.endTimestamp = Date.now() + (timer.value.totalSeconds - timer.value.elapsed) * 1000
     clearInterval(intervalId)
     intervalId = setInterval(() => {
       const now = Date.now()
-      const remaining = Math.max(Math.floor((endTimestamp.value - now) / 1000), 0)
-      elapsed.value = totalSeconds.value - remaining
+      const remaining = Math.max(Math.floor((timer.value.endTimestamp - now) / 1000), 0)
+      timer.value.elapsed = timer.value.totalSeconds - remaining
       if (remaining <= 0) {
         playSound('/sounds/notify.mp3')
         notify('Tempo finalizado!', { body: 'Seu timer terminou.' })
         pauseTimer()
-        elapsed.value = totalSeconds.value
-        endTimestamp.value = null
-        saveState()
+        timer.value.elapsed = timer.value.totalSeconds
+        timer.value.endTimestamp = null
       }
     }, 1000)
   }
 }
 
-// Pausa o timer
 function pauseTimer() {
-  running.value = false
+  timer.value.running = false
   clearInterval(intervalId)
-  saveState()
 }
 
-// Reseta o timer
 function resetTimer() {
   pauseTimer()
-  elapsed.value = 0
-  endTimestamp.value = null
-  saveState()
+  timer.value.elapsed = 0
+  timer.value.endTimestamp = null
 }
 
-// Alterna entre iniciar e pausar o timer
 function toggleTimer() {
-  if (running.value) {
+  if (timer.value.running) {
     pauseTimer()
   } else {
     startTimer()
   }
 }
-
-// Ciclo de vida: monta e desmonta o componente
-onMounted(() => {
-  loadState()
-  window.addEventListener('devroom-pause-all', pauseTimer)
-  window.addEventListener('devroom-resume-all', () => {
-    if (running.value) startTimer()
-  })
-})
-
-onUnmounted(() => {
-  clearInterval(intervalId)
-  saveState()
-  window.removeEventListener('devroom-pause-all', pauseTimer)
-  window.removeEventListener('devroom-resume-all', () => {
-    if (running.value) startTimer()
-  })
-})
-
-// Observa mudanças para salvar o estado automaticamente
-watch([inputMinutes, inputSeconds, totalSeconds, elapsed, running, endTimestamp], saveState)
 </script>
 
 <style scoped>

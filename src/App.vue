@@ -12,8 +12,13 @@ import Window from './components/Window.vue'
 import FakeDataGenerator from './components/FakeDataGenerator.vue'
 import Config from './components/Config.vue'
 import StickyNotes from './components/StickyNotes.vue'
-import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import ChatGPTApi from './components/ChatGPTApi.vue'
+import { ref, reactive, onMounted, onUnmounted, watch, watchEffect } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
+import { inject } from "@vercel/analytics"
+import { Octokit } from '@octokit/rest';
+import { ensureRepo, saveDataToRepo, loadDataFromRepo } from './utils/githubSync';
+import { getDevRoomData, setDevRoomData } from './utils/storage';
 
 const NOME_KEY = 'dev-room-nome'
 const THEME_KEY = 'dev-room-theme'
@@ -21,10 +26,11 @@ const THEME_KEY = 'dev-room-theme'
 const userName = ref(localStorage.getItem(NOME_KEY) || '')
 const nomeInput = ref(userName.value || '')
 const onboardingDone = ref(localStorage.getItem('dev-room-onboarding') === 'ok');
-
 const onboardingStep = ref(0)
 const checkedOnboarding = ref(false)
+const firstLoginModal = ref(localStorage.getItem('dev-room-first-login') !== 'ok' && localStorage.getItem('dev-room-first-login') !== 'skip')
 
+// Salva nome do usuário e avança onboarding
 function saveName() {
   if (nomeInput.value.trim() !== '') {
     userName.value = nomeInput.value.trim()
@@ -33,6 +39,7 @@ function saveName() {
   }
 }
 
+// Finaliza onboarding
 function endOnboarding() {
   onboardingDone.value = true
   localStorage.setItem('dev-room-onboarding', 'ok')
@@ -50,11 +57,35 @@ function setNome(novoNome) {
   localStorage.setItem(NOME_KEY, userName.value)
 }
 
+function skipFirstLogin() {
+  firstLoginModal.value = false
+  localStorage.setItem('dev-room-first-login', 'skip')
+}
+
+let zIndexCounter = 10
+const openWindows = reactive([])
+
+// Salva estado principal do app no localStorage e dev-room-data
+function saveAppState() {
+  const data = getDevRoomData()
+  data.nome = userName.value
+  data.tema = currentTheme.value
+  data.windows = JSON.parse(JSON.stringify(openWindows))
+  setDevRoomData(data)
+  localStorage.setItem(NOME_KEY, userName.value)
+  localStorage.setItem(THEME_KEY, currentTheme.value)
+  localStorage.setItem('dev-room-windows', JSON.stringify(openWindows))
+}
+
+// Observa mudanças e salva estado
+watch(userName, saveAppState)
+watch(currentTheme, saveAppState)
+watch(openWindows, saveAppState, { deep: true })
+
 onMounted(() => {
   onboardingDone.value = localStorage.getItem('dev-room-onboarding') === 'ok';
 
   const salvo = localStorage.getItem(NOME_KEY)
-
   if (salvo && salvo.trim() !== '') {
     userName.value = salvo
   }
@@ -75,9 +106,9 @@ onMounted(() => {
   }
 
   window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault()
-  deferredPrompt = e
-  showInstallPrompt.value = true
+    e.preventDefault()
+    deferredPrompt = e
+    showInstallPrompt.value = true
   })
   
   checkMobile()
@@ -89,13 +120,34 @@ onMounted(() => {
     try {
       const parsed = JSON.parse(savedWindows)
       openWindows.splice(0, openWindows.length, ...parsed)
-      // Atualiza zIndexCounter para evitar sobreposição errada
       if (parsed.length) {
         zIndexCounter = Math.max(...parsed.map(w => w.zIndex ?? 10), zIndexCounter)
       }
     } catch (e) {
-      // Se der erro, limpa o localStorage para evitar travar o app
       localStorage.removeItem('dev-room-windows')
+    }
+  }
+
+  const token = localStorage.getItem('github_token')
+  if (token) {
+    githubToken.value = token
+    fetchGitHubUserName().then(loadDataFromRepoAndSet)
+  } else {
+    handleGitHubCallback()
+  }
+
+  if (githubToken.value) {
+    firstLoginModal.value = false
+    localStorage.setItem('dev-room-first-login', 'ok')
+  }
+
+  const allData = getDevRoomData()
+  if (allData.nome) userName.value = allData.nome
+  if (allData.tema) applyTheme(allData.tema)
+  if (allData.windows && Array.isArray(allData.windows)) {
+    openWindows.splice(0, openWindows.length, ...allData.windows)
+    if (allData.windows.length) {
+      zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
     }
   }
 })
@@ -123,6 +175,7 @@ function formatTime(date) {
   })
 }
 
+// Mapeamento dos componentes das janelas
 const windowComponents = {
   Timer,
   MusicPlayer,
@@ -135,10 +188,8 @@ const windowComponents = {
   WaterReminder,
   FakeDataGenerator,
   Config,
+  ChatGPTApi,
 }
-
-let zIndexCounter = 10
-const openWindows = reactive([])
 
 watch(openWindows, (windows) => {
   localStorage.setItem('dev-room-windows', JSON.stringify(windows))
@@ -158,10 +209,12 @@ const mobileTabs = [
   { type: 'WaterReminder', label: 'Lembrete de Água', icon: 'fa-solid fa-droplet' },
   { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database' },
   { type: 'Config', label: 'Configurações', icon: 'fa-solid fa-gear' },
+  { type: 'ChatGPTApi', label: 'IA (ChatGPT)', icon: 'fa-solid fa-robot' },
 ]
 
 const mobileMenuOpen = ref(false)
 
+// Abre uma janela (desktop) ou ativa aba (mobile)
 function openWindow(type) {
   if (isMobile.value) {
     mobileActiveTab.value = type
@@ -186,7 +239,9 @@ function openWindow(type) {
     Themes: 'Temas',
     WaterReminder: 'Lembrete de Água',
     FakeDataGenerator: 'Gerador de Dados Falsos',
-    Config: 'Configurações'
+    Config: 'Configurações',
+    ChatGPTApi: 'ChatGPT API',
+    StackOverflow: 'Stack Overflow',
   }
   const defaultSizes = {
     Timer: { width: 320, height: 360 },
@@ -201,7 +256,9 @@ function openWindow(type) {
     Themes: { width: 340, height: 560 },
     WaterReminder: { width: 340, height: 400 },
     FakeDataGenerator: { width: 340, height: 400 },
-    Config: { width: 340, height: 400 }
+    Config: { width: 340, height: 400 },
+    ChatGPTApi: { width: 600, height: 600 },
+    StackOverflow: { width: 600, height: 600 },
   }
   let { width, height } = defaultSizes[type] || { width: 340, height: 220 }
 
@@ -214,8 +271,7 @@ function openWindow(type) {
     maxWidth = rect.width
     maxHeight = rect.height
   }
-  // Ajusta o tamanho para nunca ultrapassar o container
-  width = Math.min(width, maxWidth - 16) // 16px de margem opcional
+  width = Math.min(width, maxWidth - 16)
   height = Math.min(height, maxHeight - 16)
 
   x = (maxWidth - width) / 2
@@ -234,11 +290,13 @@ function openWindow(type) {
   })
 }
 
+// Fecha uma janela pelo id
 function closeWindow(id) {
   const idx = openWindows.findIndex(w => w.id === id)
   if (idx !== -1) openWindows.splice(idx, 1)
 }
 
+// Atualiza posição da janela
 function updateWindowPosition(id, pos) {
   const win = openWindows.find(w => w.id === id)
   if (win) {
@@ -247,6 +305,7 @@ function updateWindowPosition(id, pos) {
   }
 }
 
+// Atualiza tamanho da janela
 function updateWindowSize(id, size) {
   const win = openWindows.find(w => w.id === id)
   if (win) {
@@ -255,16 +314,20 @@ function updateWindowSize(id, size) {
   }
 }
 
+// Traz janela para frente
 function bringToFront(id) {
   zIndexCounter++
   const win = openWindows.find(w => w.id === id)
   if (win) win.zIndex = zIndexCounter
 }
 
+// Minimiza janela
 function minimizeWindow(id) {
   const win = openWindows.find(w => w.id === id)
   if (win) win.minimized = true
 }
+
+// Restaura janela minimizada
 function restoreWindow(id) {
   const win = openWindows.find(w => w.id === id)
   if (win) win.minimized = false
@@ -272,7 +335,6 @@ function restoreWindow(id) {
 
 const showInstallPrompt = ref(false)
 let deferredPrompt = null
-
 
 function installApp() {
   if (deferredPrompt) {
@@ -285,7 +347,6 @@ function installApp() {
 }
 
 const isMobile = ref(false)
-
 function checkMobile() {
   isMobile.value = window.innerWidth <= 768
 }
@@ -323,13 +384,11 @@ const pauseTips = [
   }
 ]
 
-// Funções para pausar e retomar
+// Ativa modo pausa (pausa timers/música)
 function activatePauseMode() {
   pauseMode.value = true
   pauseStep.value = 0
-  // Pausar alarmes/timers
   window.dispatchEvent(new CustomEvent('devroom-pause-all'))
-  // Pausar música
   window.dispatchEvent(new CustomEvent('devroom-music-pause'))
 }
 function nextPauseTip() {
@@ -344,11 +403,163 @@ function prevPauseTip() {
 }
 function deactivatePauseMode() {
   pauseMode.value = false
-  // Retomar alarmes/timers
   window.dispatchEvent(new CustomEvent('devroom-resume-all'))
-  // Retomar música
   window.dispatchEvent(new CustomEvent('devroom-music-resume'))
 }
+
+// GitHub Integration
+const githubToken = ref(null)
+const isSyncing = ref(false)
+const githubUserLogin = ref('')
+
+const showLoginModal = ref(false)
+const showLogoutModal = ref(false)
+
+function confirmLoginWithGitHub() {
+  showLoginModal.value = false
+  loginWithGitHub()
+}
+
+function confirmLogoutGitHub() {
+  showLogoutModal.value = false
+  logoutGitHub()
+}
+
+function loginWithGitHub() {
+  const clientId = 'Ov23liLXp3BH07oDymH4'
+  const redirectUri = window.location.origin
+  const scope = 'repo'
+  window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`
+}
+
+async function handleGitHubCallback() {
+  const urlParams = new URLSearchParams(window.location.search)
+  const code = urlParams.get('code')
+  if (code) {
+    const res = await fetch('/api/github-callback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    })
+    const data = await res.json()
+    if (data.access_token) {
+      githubToken.value = data.access_token
+      localStorage.setItem('github_token', githubToken.value)
+      await fetchGitHubUserName()
+      onboardingStep.value = 5
+      onboardingDone.value = true
+      localStorage.setItem('dev-room-onboarding', 'ok')
+      await loadDataFromRepoAndSet()
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }
+}
+
+async function fetchGitHubUserName() {
+  if (!githubToken.value) return
+  const octokit = new Octokit({ auth: githubToken.value })
+  const { data } = await octokit.users.getAuthenticated()
+  userName.value = data.name || data.login || ''
+  githubUserLogin.value = data.login
+  localStorage.setItem(NOME_KEY, userName.value)
+}
+
+async function syncDataToRepo() {
+  if (!githubToken.value || !githubUserLogin.value) return
+  try {
+    await saveDataToRepo(githubToken.value, githubUserLogin.value, localStorage.getItem('dev-room-data') || '{}')
+    // Backup salvo no GitHub
+  } catch (err) {
+    // Erro ao salvar backup no GitHub
+  }
+}
+
+async function loadDataFromRepoAndSet() {
+  if (!githubToken.value || !githubUserLogin.value) return
+  const content = await loadDataFromRepo(githubToken.value, githubUserLogin.value)
+  localStorage.setItem('dev-room-data', content)
+  // Atualiza variáveis reativas principais do app imediatamente
+  const allData = getDevRoomData()
+  if (allData.nome) userName.value = allData.nome
+  if (allData.tema) applyTheme(allData.tema)
+  if (allData.windows && Array.isArray(allData.windows)) {
+    openWindows.splice(0, openWindows.length, ...allData.windows)
+    if (allData.windows.length) {
+      zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
+    }
+  }
+}
+
+function logoutGitHub() {
+  githubToken.value = null
+  localStorage.removeItem('github_token')
+}
+
+// Sincronização automática ao alterar localStorage em outras abas
+watchEffect(() => {
+  if (githubToken.value && githubUserLogin.value) {
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'dev-room-data') {
+        syncDataToRepo()
+      }
+    })
+  }
+})
+
+// Sincronização automática ao alterar localStorage na mesma aba
+watchEffect(() => {
+  if (githubToken.value && githubUserLogin.value) {
+    const data = localStorage.getItem('dev-room-data')
+    if (data) {
+      syncDataToRepo()
+    }
+  }
+})
+
+// Sincroniza backup local com GitHub a cada 2s se houver alteração
+let lastData = localStorage.getItem('dev-room-data')
+setInterval(() => {
+  if (githubToken.value && githubUserLogin.value) {
+    const currentData = localStorage.getItem('dev-room-data')
+    if (currentData !== lastData) {
+      lastData = currentData
+      syncDataToRepo()
+    }
+  }
+}, 2000)
+
+// Sincroniza backup do GitHub para localStorage a cada 10s
+let lastRepoData = null
+setInterval(async () => {
+  if (githubToken.value && githubUserLogin.value) {
+    try {
+      const repoContent = await loadDataFromRepo(githubToken.value, githubUserLogin.value)
+      if (repoContent && repoContent !== lastRepoData && repoContent !== localStorage.getItem('dev-room-data')) {
+        lastRepoData = repoContent
+        localStorage.setItem('dev-room-data', repoContent)
+        // Atualiza variáveis reativas principais do app
+        const allData = getDevRoomData()
+        if (allData.nome) userName.value = allData.nome
+        if (allData.tema) applyTheme(allData.tema)
+        if (allData.windows && Array.isArray(allData.windows)) {
+          openWindows.splice(0, openWindows.length, ...allData.windows)
+          if (allData.windows.length) {
+            zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
+          }
+        }
+      }
+    } catch (e) {
+      // Silencia erros de rede ou 404
+    }
+  }
+}, 10000)
+
+watch(onboardingStep, (step) => {
+  if (step === 5 && githubToken.value) {
+    onboardingDone.value = true
+    localStorage.setItem('dev-room-onboarding', 'ok')
+  }
+})
 </script>
 
 <template>
@@ -361,40 +572,21 @@ function deactivatePauseMode() {
       id="onboarding-modal"
     >
       <div class="max-w-md w-full bg-gray-900 p-8 rounded-xl shadow-xl text-center border border-blue-500" id="onboarding-content">
-        <!-- Passo 0 do onboarding -->
+        <!-- 1. Recepção -->
         <div v-if="onboardingStep === 0" id="onboarding-step-0">
           <font-awesome-icon icon="fa-solid fa-rocket" class="text-4xl mb-4 text-blue-400" />
           <h2 class="text-2xl font-bold mb-4">Bem-vindo ao Dev Room</h2>
-          <p class="mb-6">Esse é seu espaço digital com ferramentas úteis para programar, se organizar e focar.</p>
+          <p class="mb-6">Seu espaço digital para produtividade, organização e foco, feito especialmente para devs!</p>
           <button
             @click="onboardingStep++"
             class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white font-semibold"
-            id="onboarding-next-btn"
+            id="onboarding-next-btn-0"
           >
             Próximo
           </button>
         </div>
-        <!-- Passo 1 do onboarding -->
+        <!-- 2. Apoio -->
         <div v-else-if="onboardingStep === 1" id="onboarding-step-1">
-          <font-awesome-icon icon="fa-solid fa-user" class="text-3xl mb-4 text-green-400" />
-          <h2 class="text-xl font-bold mb-4">Qual é o seu nome?</h2>
-          <input
-            v-model="nomeInput"
-            placeholder="Digite seu nome"
-            class="w-full px-4 py-2 rounded bg-gray-800 text-white border border-blue-400 mb-4"
-            id="onboarding-name-input"
-          />
-          <button
-            :disabled="!nomeInput.trim()"
-            @click="saveName"
-            class="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white font-semibold disabled:opacity-50"
-            id="onboarding-continue-btn"
-          >
-            Continuar
-          </button>
-        </div>
-        <!-- Passo 2 do onboarding -->
-        <div v-else-if="onboardingStep === 2" id="onboarding-step-2">
           <font-awesome-icon icon="fa-solid fa-heart" class="text-3xl mb-4 text-pink-400" />
           <h2 class="text-xl font-bold mb-4">Apoie o Dev Room!</h2>
           <p class="mb-4">
@@ -404,19 +596,97 @@ function deactivatePauseMode() {
           <button
             @click="onboardingStep++"
             class="cursor-pointer bg-pink-600 hover:bg-pink-700 px-4 py-2 rounded text-white font-semibold"
-            id="onboarding-support-btn"
+            id="onboarding-next-btn-1"
           >
             Próximo
           </button>
         </div>
-        <!-- Passo 3 do onboarding -->
+        <!-- 3. Funcionalidades -->
+        <div v-else-if="onboardingStep === 2" id="onboarding-step-2">
+          <font-awesome-icon icon="fa-solid fa-cubes" class="text-3xl mb-4 text-yellow-400" />
+          <h2 class="text-xl font-bold mb-4">Funcionalidades</h2>
+          <ul class="list-disc ml-5 mt-2 space-y-1 text-left">
+            <li><b>Widgets:</b> To-Do, Notas rápidas, Pomodoro, Timer, Snippets, Checklist de Deploy, Lembrete de água, Player de música, Gerador de dados fake e Busca inteligente.</li>
+            <li><b>Personalização:</b> 10+ temas para deixar o ambiente com a sua cara.</li>
+            <li><b>Experiência fluida:</b> No desktop, organize as janelas livremente. No mobile, navegue pelo menu lateral.</li>
+            <li><b>Salvamento automático:</b> Tudo salvo no navegador ou sincronizado com seu GitHub.</li>
+          </ul>
+          <button
+            @click="onboardingStep++"
+            class="cursor-pointer bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded text-white font-semibold mt-4"
+            id="onboarding-next-btn-2"
+          >
+            Próximo
+          </button>
+        </div>
+        <!-- 4. Open Source -->
         <div v-else-if="onboardingStep === 3" id="onboarding-step-3">
+          <font-awesome-icon icon="fa-brands fa-github" class="text-3xl mb-4 text-gray-300" />
+          <h2 class="text-xl font-bold mb-4">Open Source</h2>
+          <p class="mb-4">
+            O Dev Room é <b>open source</b>! Veja o código, contribua ou adapte para seu time.<br>
+            <a href="https://github.com/Lucas19Alves/dev-room" target="_blank" class="text-blue-300 underline">github.com/Lucas19Alves/dev-room</a>
+          </p>
+          <button
+            @click="onboardingStep++"
+            class="cursor-pointer bg-gray-700 hover:bg-gray-800 px-4 py-2 rounded text-white font-semibold"
+            id="onboarding-next-btn-3"
+          >
+            Próximo
+          </button>
+        </div>
+        <!-- 5. Login (pode ser dispensado) -->
+        <div v-else-if="onboardingStep === 4 && !githubToken" id="onboarding-step-4">
+          <font-awesome-icon icon="fa-solid fa-right-to-bracket" class="text-3xl mb-4 text-blue-400" />
+          <h2 class="text-xl font-bold mb-4">Sincronize seus dados!</h2>
+          <p class="mb-4">
+            Faça login para salvar e sincronizar suas configurações e dados em qualquer dispositivo.<br>
+            <span class="text-xs text-gray-400">Se preferir, pode usar localmente sem login.</span>
+          </p>
+          <button
+            @click="loginWithGitHub"
+            class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-bold shadow transition text-lg mb-3 w-full"
+            id="onboarding-github-btn"
+          >
+            <font-awesome-icon icon="fa-solid fa-right-to-bracket" class="text-xl" />
+            Entrar
+          </button>
+          <button
+            @click="onboardingStep++"
+            class="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 text-gray-200 px-6 py-3 rounded-full font-bold shadow transition text-lg w-full"
+            id="onboarding-skip-login-btn"
+          >
+            <font-awesome-icon icon="fa-solid fa-user-lock" class="text-xl" />
+            Usar sem login
+          </button>
+        </div>
+        <!-- 6. Nome (se não logou) -->
+        <div v-else-if="onboardingStep === 5 && !githubToken" id="onboarding-step-5">
+          <font-awesome-icon icon="fa-solid fa-user" class="text-3xl mb-4 text-green-400" />
+          <h2 class="text-xl font-bold mb-4">Como você quer ser chamado?</h2>
+          <input
+            v-model="nomeInput"
+            type="text"
+            placeholder="Seu nome ou apelido"
+            class="w-full px-4 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none mb-4"
+            id="onboarding-name-input"
+          />
+          <button
+            @click="saveName"
+            class="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white font-semibold w-full"
+            id="onboarding-save-name-btn"
+          >
+            Salvar e começar
+          </button>
+        </div>
+        <!-- 6. Final (se logou ou já tem nome) -->
+        <div v-else-if="(onboardingStep === 5 && githubToken) || (onboardingStep === 6)" id="onboarding-step-6">
           <font-awesome-icon icon="fa-solid fa-th-large" class="text-3xl mb-4 text-purple-400" />
           <h2 class="text-xl font-bold mb-4">Tudo pronto, {{ userName }}!</h2>
           <p class="mb-4">Use os widgets no dock abaixo para abrir ferramentas como Pomodoro, Notas e muito mais.</p>
           <button
             @click="endOnboarding"
-            class="cursor-pointer bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white font-semibold"
+            class="cursor-pointer bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white font-semibold w-full"
             aria-label="Começar a usar o Dev Room"
             id="onboarding-finish-btn"
           >
@@ -430,6 +700,8 @@ function deactivatePauseMode() {
   <StickyNotes/>
 
   <SpeedInsights />
+
+  <inject/>
 
   <!-- Container principal do app -->
   <div class="h-screen text-gray-100 relative overflow-hidden"
@@ -495,12 +767,46 @@ function deactivatePauseMode() {
         >
           <!-- Saudação e botão fechar alinhados -->
           <div class="mb-6 flex flex-row items-center justify-between w-full">
-            <span class="text-base font-semibold" :style="{color: 'var(--name)'}">
-              Olá, dev <span>{{ userName }}!</span>
-            </span>
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-base font-semibold" :style="{color: 'var(--name)'}">
+                Olá, dev <span>{{ userName }}</span>
+              </span>
+              <button
+                v-if="!githubToken"
+                @click="showLoginModal = true"
+                class="flex items-center justify-center rounded-full p-2 border-2 transition"
+                :style="{
+                  background: 'var(--bg-panel)',
+                  color: 'var(--text-main)',
+                  borderColor: '#24292f'
+                }"
+                title="Entrar"
+                id="mobile-menu-login-btn"
+              >
+                <font-awesome-icon icon="fa-solid fa-right-to-bracket" class="text-lg" />
+              </button>
+              <button
+                v-else
+                @click="showLogoutModal = true"
+                class="flex items-center justify-center rounded-full p-2 border-2 transition"
+                :style="{
+                  background: 'var(--bg-panel)',
+                  color: 'var(--text-main)',
+                  borderColor: '#24292f'
+                }"
+                title="Sair"
+                id="mobile-menu-logout-btn"
+              >
+                <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-lg" />
+              </button>
+            </div>
             <button @click="mobileMenuOpen = false" class="text-gray-400 hover:text-white text-2xl ml-2" id="mobile-menu-close-btn">
               <font-awesome-icon icon="fa-solid fa-xmark" />
             </button>
+          </div>
+          <!-- GitHub Login/Logout -->
+          <div class="mb-4 w-full flex flex-col items-stretch">
+            <span v-if="isSyncing" class="ml-2 text-yellow-400">Sincronizando...</span>
           </div>
           <!-- Abas do menu mobile -->
           <div class="flex flex-col gap-3" id="mobile-menu-tabs">
@@ -549,8 +855,40 @@ function deactivatePauseMode() {
             Me apoie
           </button>
         </div>
-        <div id="status-bar-user">
-          <h1>Olá, dev <span class="font-semibold" :style="{color: 'var(--name)'}">{{ userName }}!</span></h1>
+        <div id="status-bar-user" class="flex items-center gap-2">
+          <h1>
+            Olá, dev <span class="font-semibold" :style="{color: 'var(--name)'}">{{ userName }}</span>
+          </h1>
+          <!-- Botão de login na statusbar -->
+          <button
+            v-if="!githubToken"
+            @click="showLoginModal = true"
+            class="ml-2 flex items-center justify-center rounded-full p-2 border-2 transition"
+            :style="{
+              background: 'var(--bg-panel)',
+              color: 'var(--text-main)',
+              borderColor: '#24292f'
+            }"
+            title="Entrar"
+            id="status-bar-login-btn"
+          >
+            <font-awesome-icon icon="fa-solid fa-right-to-bracket" class="text-lg" />
+          </button>
+          <!-- Botão de logout na statusbar -->
+          <button
+            v-else
+            @click="showLogoutModal = true"
+            class="ml-2 flex items-center justify-center rounded-full p-2 border-2 transition"
+            :style="{
+              background: 'var(--bg-panel)',
+              color: 'var(--text-main)',
+              borderColor: '#24292f'
+            }"
+            title="Sair"
+            id="status-bar-logout-btn"
+          >
+            <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-lg" />
+          </button>
         </div>
         <div class="flex flex-row gap-4 items-center" id="status-bar-clock">
           <h1 class="flex flex-row items-center gap-2">
@@ -686,7 +1024,7 @@ function deactivatePauseMode() {
     <transition name="fade">
       <div
         v-if="pauseMode"
-        class="fixed inset-0 z-[999] flex items-center justify-center"
+        class="fixed inset-0 z-[9999] flex items-center justify-center"
         style="background: rgba(0,0,0,0.85);"
         id="pause-modal"
       >
@@ -766,6 +1104,69 @@ function deactivatePauseMode() {
       <button @click="installApp" class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold" id="install-prompt-install-btn">Instalar</button>
       <button @click="showInstallPrompt = false" class="cursor-pointer ml-2 text-blue-200 hover:text-white" id="install-prompt-close-btn">Fechar</button>
     </div>
+
+    <!-- Modal de login via GitHub -->
+    <transition name="fade">
+      <div v-if="showLoginModal" class="fixed inset-0 z-[999] flex items-center justify-center"
+        style="background: rgba(0,0,0,0.85);">
+        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-full"
+          :style="{ borderColor: 'var(--accent)' }">
+          <font-awesome-icon icon="fa-brands fa-github" class="text-5xl mb-4 text-gray-300" />
+          <h2 class="text-2xl font-bold mb-4 text-center">Login via GitHub</h2>
+          <p class="mb-4 text-center">
+            Para sincronizar seus dados entre dispositivos, faça login com sua conta do <b>GitHub</b>.<br>
+            Seus dados ficarão salvos de forma privada em seu próprio repositório.
+          </p>
+          <button
+            @click="confirmLoginWithGitHub"
+            class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-bold shadow transition text-lg mb-3 w-full"
+            id="modal-github-login-btn"
+          >
+            <font-awesome-icon icon="fa-brands fa-github" class="text-xl" />
+            Entrar com GitHub
+          </button>
+          <button
+            @click="showLoginModal = false"
+            class="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 text-gray-200 px-6 py-3 rounded-full font-bold shadow transition text-lg w-full"
+            id="modal-github-cancel-btn"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Modal de logout com confirmação -->
+    <transition name="fade">
+      <div v-if="showLogoutModal" class="fixed inset-0 z-[999] flex items-center justify-center"
+        style="background: rgba(0,0,0,0.85);">
+        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-full"
+          :style="{ borderColor: 'var(--accent)' }">
+          <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-5xl mb-4 text-red-400" />
+          <h2 class="text-2xl font-bold mb-4 text-center">Sair da sincronização</h2>
+          <p class="mb-4 text-center text-red-300">
+            Ao sair, seus dados <b>não serão mais sincronizados</b> com o GitHub.<br>
+            Você poderá continuar usando o app localmente, mas <b>poderá perder dados</b> se limpar o navegador ou trocar de dispositivo.
+          </p>
+          <button
+            @click="confirmLogoutGitHub"
+            class="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full font-bold shadow transition text-lg mb-3 w-full"
+            id="modal-github-logout-btn"
+          >
+            <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-xl" />
+            Sair e parar sincronização
+          </button>
+          <button
+            @click="showLogoutModal = false"
+            class="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 text-gray-200 px-6 py-3 rounded-full font-bold shadow transition text-lg w-full"
+            id="modal-github-logout-cancel-btn"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </transition>
+
   </div>
 </template>
 

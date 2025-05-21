@@ -1,8 +1,6 @@
 <template>
-  <!-- Container principal do lembrete de água -->
   <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[220px] min-h-[220px]" id="water-reminder-main">
     <h2 class="text-xl font-bold mb-4 text-sky-400" id="water-reminder-title">Lembrete de Beber Água</h2>
-    <!-- Formulário de configuração do intervalo -->
     <form @submit.prevent="saveInterval" class="flex justify-center gap-2 mb-4 w-full" id="water-reminder-form">
       <label class="text-sm flex items-center gap-2" id="water-reminder-interval-label">
         Intervalo:
@@ -27,7 +25,6 @@
         {{ running ? 'Parar' : 'Iniciar' }}
       </button>
     </form>
-    <!-- Próximo lembrete e registro de consumo -->
     <div class="mb-4 w-full flex flex-col items-center" id="water-reminder-next">
       <div class="text-sm text-gray-400 mb-2" id="water-reminder-next-label">
         Próximo lembrete em: <span class="font-semibold text-sky-300" id="water-reminder-timeleft">{{ timeLeftFormatted }}</span>
@@ -36,6 +33,7 @@
         @click="registerDrink"
         class="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded font-bold transition"
         id="water-reminder-drink-btn"
+        :disabled="!running"
       >
         Bebi {{ amount }}ml de água
       </button>
@@ -52,7 +50,6 @@
         /> ml
       </div>
     </div>
-    <!-- Histórico do dia -->
     <div class="w-full mt-4 flex-1 flex flex-col" id="water-reminder-history">
       <div class="text-xs text-gray-400 mb-1" id="water-reminder-history-label">Histórico de hoje</div>
       <ul class="max-h-32 overflow-y-auto text-sm flex-1" id="water-reminder-history-list">
@@ -70,82 +67,89 @@
 </template>
 
 <script setup>
-// Importações e definição de propriedades
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { playSound } from '../utils/notify'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { playSound, notify } from '../utils/notify'
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
-// Função para notificar o usuário
-function notify(title, options = {}) {
-  if ("Notification" in window) {
-    if (Notification.permission === "granted") {
-      new Notification(title, options)
-    } else if (Notification.permission !== "denied") {
-      Notification.requestPermission().then(permission => {
-        if (permission === "granted") {
-          new Notification(title, options)
-        } else {
-          alert(`${title}\n${options.body || ''}`)
-        }
-      })
-    } else {
-      alert(`${title}\n${options.body || ''}`)
+// Estado do lembrete de água
+const allData = getDevRoomData()
+const waterReminder = ref(allData.waterReminder || {
+  config: { interval: 60, amount: 200 },
+  history: [],
+  next: null,
+  running: false
+})
+
+// Salva lembrete de água no localStorage ao alterar
+watch(waterReminder, (val) => {
+  const data = getDevRoomData()
+  data.waterReminder = val
+  setDevRoomData(data)
+}, { deep: true })
+
+// Atualiza lembrete ao detectar alteração no localStorage
+function syncFromStorage(e) {
+  if (e.key === 'dev-room-data') {
+    const allData = getDevRoomData()
+    waterReminder.value = allData.waterReminder || {
+      config: { interval: 60, amount: 200 },
+      history: [],
+      next: null,
+      running: false
     }
+  }
+}
+onMounted(() => {
+  window.addEventListener('storage', syncFromStorage)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('storage', syncFromStorage)
+})
+
+const interval = ref(waterReminder.value.config.interval || 60)
+const amount = ref(waterReminder.value.config.amount || 200)
+const timeLeft = ref(0)
+const running = ref(waterReminder.value.running || false)
+const timer = ref(null)
+const history = ref(waterReminder.value.history || [])
+const nextReminder = ref(waterReminder.value.next || null)
+
+function saveInterval() {
+  // Só salva, não inicia o timer
+}
+
+function toggleReminder() {
+  running.value = !running.value
+  if (running.value) {
+    resetTimer()
   } else {
-    alert(`${title}\n${options.body || ''}`)
+    clearInterval(timer.value)
+    nextReminder.value = null
+    timeLeft.value = 0
   }
 }
 
-// Chaves de armazenamento local
-const STORAGE_KEY = 'dev-room-water-reminder'
-const HISTORY_KEY = 'dev-room-water-history'
-const NEXT_REMINDER_KEY = 'dev-room-water-next-reminder'
-
-// Estados reativos principais
-const interval = ref(60) // minutos
-const amount = ref(200) // ml
-const timer = ref(null)
-const timeLeft = ref(interval.value * 60)
-const history = ref([])
-const running = ref(true)
-
-// Carrega configurações e histórico do localStorage
-function loadSettings() {
-  const savedInterval = localStorage.getItem(STORAGE_KEY)
-  if (savedInterval) interval.value = Number(savedInterval)
-  const savedHistory = localStorage.getItem(HISTORY_KEY)
-  history.value = savedHistory ? JSON.parse(savedHistory) : []
-}
-
-// Salva o intervalo escolhido e reinicia o timer
-function saveInterval() {
-  localStorage.setItem(STORAGE_KEY, interval.value)
-  resetTimer()
-}
-
-// Registra o consumo de água
 function registerDrink() {
+  if (!running.value) return
   const now = new Date()
   history.value.push({
     time: now.toISOString(),
     amount: amount.value
   })
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value))
   resetTimer()
 }
 
-// Reinicia o timer para o próximo lembrete
 function resetTimer() {
   const now = Date.now()
-  const next = now + interval.value * 60 * 1000
-  localStorage.setItem(NEXT_REMINDER_KEY, next)
-  timeLeft.value = interval.value * 60
+  nextReminder.value = now + interval.value * 60 * 1000
+  updateTimeLeft()
 }
 
-// Reduz o tempo restante e notifica quando chega a zero
 function tick() {
-  if (!running.value) return
-  if (timeLeft.value > 0) {
-    timeLeft.value--
+  if (!running.value || !nextReminder.value) return
+  const now = Date.now()
+  if (nextReminder.value > now) {
+    timeLeft.value = Math.floor((nextReminder.value - now) / 1000)
   } else {
     playSound('/sounds/notify.mp3')
     notify('Lembrete de hidratar-se', { body: 'Hora de beber água! 💧' })
@@ -153,64 +157,48 @@ function tick() {
   }
 }
 
-// Atualiza o tempo restante com base no localStorage
 function updateTimeLeft() {
-  const next = Number(localStorage.getItem(NEXT_REMINDER_KEY))
-  const now = Date.now()
-  if (next && next > now) {
-    timeLeft.value = Math.floor((next - now) / 1000)
-  } else {
+  if (!nextReminder.value) {
     timeLeft.value = 0
+    return
   }
+  const now = Date.now()
+  timeLeft.value = Math.max(Math.floor((nextReminder.value - now) / 1000), 0)
 }
 
-// Inicia ou pausa o lembrete
-function toggleReminder() {
-  running.value = !running.value
-  if (running.value) {
-    resetTimer()
-  }
-}
-
-// Histórico apenas do dia atual
 const todayHistory = computed(() => {
   const today = new Date().toISOString().slice(0, 10)
   return history.value.filter(item => item.time.startsWith(today))
 })
 
-// Soma total de água consumida no dia (em litros)
 const totalTodayLiters = computed(() => {
   const total = todayHistory.value.reduce((sum, item) => sum + item.amount, 0)
   return (total / 1000).toFixed(2)
 })
 
-// Formata horário para exibição
 function formatTime(iso) {
   const d = new Date(iso)
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-// Formata o tempo restante para mm:ss
 const timeLeftFormatted = computed(() => {
   const min = Math.floor(timeLeft.value / 60)
   const sec = timeLeft.value % 60
   return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
 })
 
-// Ciclo de vida do componente: inicialização e limpeza
+// Atualização automática ao mudar localStorage
 onMounted(() => {
-  loadSettings()
+  // Não inicia automaticamente!
   updateTimeLeft()
   timer.value = setInterval(() => {
     if (running.value) {
       tick()
-      updateTimeLeft()
     }
   }, 1000)
   if ("Notification" in window && Notification.permission !== "granted") {
     Notification.requestPermission()
   }
-  // Integração com modo pausa global
   window.addEventListener('devroom-pause-all', () => running.value = false)
   window.addEventListener('devroom-resume-all', () => running.value = true)
 })

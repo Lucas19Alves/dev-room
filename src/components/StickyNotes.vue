@@ -45,7 +45,7 @@
 </template>
 
 <script setup>
-import { computed, watch, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { notes, loadNotes, saveNotes, STORAGE_KEY } from '../stores/notesStore'
 
 const noteColors = [
@@ -55,6 +55,7 @@ const noteColors = [
 
 const floatingNotes = computed(() => notes.value.filter(n => n.floating))
 
+// Remove nota móvel pelo id
 function removeNoteById(id) {
   const idx = notes.value.findIndex(n => n.id === id)
   if (idx !== -1) {
@@ -63,12 +64,13 @@ function removeNoteById(id) {
   }
 }
 
+// Volta a nota para o QuickNotes
 function unfloatNote(note) {
   note.floating = false
   saveNotes()
 }
 
-// Drag & drop simples para notas móveis
+// Drag & drop para notas móveis
 let draggingNote = null
 let offsetX = 0
 let offsetY = 0
@@ -97,11 +99,19 @@ function stopDrag() {
   document.removeEventListener('mouseup', stopDrag)
 }
 
+// Sincroniza notas ao detectar alteração no localStorage
+function syncFromStorage(e) {
+  if (e.key === STORAGE_KEY || e.key === 'dev-room-data') {
+    loadNotes()
+  }
+}
+
 onMounted(() => {
   loadNotes()
-  window.addEventListener('storage', (e) => {
-    if (e.key === STORAGE_KEY) loadNotes()
-  })
+  window.addEventListener('storage', syncFromStorage)
+})
+onUnmounted(() => {
+  window.removeEventListener('storage', syncFromStorage)
 })
 
 watch(notes, saveNotes, { deep: true })

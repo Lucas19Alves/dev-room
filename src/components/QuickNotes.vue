@@ -4,7 +4,7 @@
     <!-- Título -->
     <h2 class="text-xl font-bold mb-4 text-orange-300" id="quicknotes-title">Notas Rápidas</h2>
     <!-- Formulário para adicionar nova nota -->
-    <form @submit.prevent="addNote" class="flex gap-2 mb-4" id="quicknotes-form">
+    <form @submit.prevent="addNote(newNote)" class="flex gap-2 mb-4" id="quicknotes-form">
       <input
         v-model="newNote"
         type="text"
@@ -24,7 +24,7 @@
     <!-- Grid de notas -->
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full overflow-y-auto flex-1 pr-2" id="quicknotes-list">
       <div
-        v-for="(note, idx) in fixedNotes"
+        v-for="(note, idx) in notes"
         :key="note.id"
         class="relative bg-yellow-100 rounded-lg shadow p-3 min-h-[80px] flex flex-col quicknotes-item"
         :style="{ background: noteColors[idx % noteColors.length] }"
@@ -40,7 +40,7 @@
         />
         <!-- Botão para remover nota -->
         <button
-          @click="removeNoteById(note.id)"
+          @click="removeNote(note.id)"
           class="absolute top-2 right-2 text-red-400 hover:text-red-600 transition quicknotes-remove-btn"
           title="Remover"
           :id="`quicknotes-remove-btn-${note.id}`"
@@ -59,7 +59,7 @@
         </button>
       </div>
       <!-- Mensagem caso não haja notas -->
-      <div v-if="fixedNotes.length === 0" class="col-span-full text-gray-400 text-center" id="quicknotes-empty">
+      <div v-if="notes.length === 0" class="col-span-full text-gray-400 text-center" id="quicknotes-empty">
         Nenhuma nota ainda.
       </div>
     </div>
@@ -67,46 +67,41 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import { notes, loadNotes, saveNotes, STORAGE_KEY } from '../stores/notesStore'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { notes, saveNotes, loadNotes, STORAGE_KEY } from '../stores/notesStore'
 
 const newNote = ref('')
-
 const noteColors = [
   '#FEF3C7', '#FDE68A', '#FCD34D', '#FFD6A5',
   '#E0BBE4', '#B5EAD7', '#C7CEEA',
 ]
-
-const fixedNotes = computed(() => notes.value.filter(n => !n.floating))
-
-// Detecta mobile via window.matchMedia
 const isMobile = ref(false)
+
+// Atualiza o estado mobile e carrega notas ao montar
 onMounted(() => {
+  loadNotes()
   const checkMobile = () => {
     isMobile.value = window.matchMedia('(max-width: 640px)').matches
   }
   checkMobile()
   window.addEventListener('resize', checkMobile)
-  loadNotes()
-  window.addEventListener('storage', (e) => {
-    if (e.key === STORAGE_KEY) loadNotes()
-  })
+  window.addEventListener('storage', syncFromStorage)
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', () => {})
+  window.removeEventListener('storage', syncFromStorage)
 })
 
-function addNote() {
-  if (newNote.value.trim() === '') return
-  notes.value.push({
-    id: Date.now() + Math.random(),
-    text: newNote.value.trim(),
-    floating: false,
-    x: 100,
-    y: 100
-  })
+// Adiciona uma nova nota
+function addNote(text) {
+  if (text.trim() === '') return
+  notes.value.push({ text: text.trim(), id: Date.now() + Math.random(), floating: false, x: 100, y: 100 })
   newNote.value = ''
   saveNotes()
 }
 
-function removeNoteById(id) {
+// Remove uma nota pelo id
+function removeNote(id) {
   const idx = notes.value.findIndex(n => n.id === id)
   if (idx !== -1) {
     notes.value.splice(idx, 1)
@@ -114,12 +109,18 @@ function removeNoteById(id) {
   }
 }
 
+// Torna a nota móvel (sticky)
 function floatNote(note) {
   note.floating = true
-  note.x = 100
-  note.y = 100
+  note.x = note.x ?? 100
+  note.y = note.y ?? 100
   saveNotes()
 }
 
-watch(notes, saveNotes, { deep: true })
+// Sincroniza notas ao detectar alteração no localStorage
+function syncFromStorage(e) {
+  if (e.key === STORAGE_KEY || e.key === 'dev-room-data') {
+    loadNotes()
+  }
+}
 </script>

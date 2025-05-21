@@ -60,9 +60,34 @@
 </template>
 
 <script setup>
-// Importações e estados reativos principais
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { playSound, notify } from '../utils/notify'
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
+
+// Estado do Pomodoro
+const allData = getDevRoomData()
+const pomodoro = ref(allData.pomodoro || { state: {}, config: {} })
+
+// Salva pomodoro no localStorage ao alterar
+watch(pomodoro, (val) => {
+  const data = getDevRoomData()
+  data.pomodoro = val
+  setDevRoomData(data)
+}, { deep: true })
+
+// Atualiza pomodoro ao detectar alteração no localStorage
+function syncFromStorage(e) {
+  if (e.key === 'dev-room-data') {
+    const allData = getDevRoomData()
+    pomodoro.value = allData.pomodoro || { state: {}, config: {} }
+  }
+}
+onMounted(() => {
+  window.addEventListener('storage', syncFromStorage)
+})
+onUnmounted(() => {
+  window.removeEventListener('storage', syncFromStorage)
+})
 
 // Chaves para localStorage
 const POMODORO_STATE_KEY = 'dev-room-pomodoro-state'
