@@ -32,6 +32,41 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Dev Room">
   <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+
+  <!-- Script para papel de parede (executa antes de qualquer coisa) -->
+  <script>
+    (function() {
+      // Tenta restaurar o papel de parede o mais cedo possível
+      const WALLPAPER_KEY = 'dev-room-wallpaper';
+      const savedWallpaper = localStorage.getItem(WALLPAPER_KEY);
+      
+      if (savedWallpaper) {
+        // Cria um estilo inline para aplicar imediatamente
+        const style = document.createElement('style');
+        style.textContent = `
+          html, body {
+            background-image: url('${savedWallpaper}') !important;
+            background-size: cover !important;
+            background-position: center center !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
+          }
+          html.has-wallpaper, body.has-wallpaper {
+            background-image: url('${savedWallpaper}') !important;
+            background-size: cover !important;
+            background-position: center center !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
+          }
+        `;
+        style.id = 'wallpaper-style';
+        document.head.appendChild(style);
+        
+        // Adicionar classe para CSS
+        document.documentElement.classList.add('has-wallpaper');
+      }
+    })();
+  </script>
 </head>
 
 <body>

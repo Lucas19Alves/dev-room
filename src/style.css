@@ -131,12 +131,35 @@ html {
   padding: 0;
 }
 
-/* Estilos para o background */
-body {
+/* Estilos específicos quando há um papel de parede */
+html.has-wallpaper,
+body.has-wallpaper {
   background-attachment: fixed !important;
   background-size: cover !important;
   background-position: center center !important;
   background-repeat: no-repeat !important;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* Este script de inicialização garante que o papel de parede seja aplicado 
+   antes que o resto do conteúdo seja renderizado */
+html::before {
+  content: "";
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  z-index: -9999;
+  background-image: none;
+}
+
+/* Estilos gerais para o background */
+body {
   min-height: 100vh;
   width: 100vw;
   overflow-x: hidden;
