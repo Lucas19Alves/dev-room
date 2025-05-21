@@ -53,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
   setWallpaper: {
@@ -63,10 +63,43 @@ const props = defineProps({
 })
 
 const WALLPAPER_KEY = 'dev-room-wallpaper'
+const WALLPAPER_CLASS = 'has-wallpaper'
 const fileInput = ref(null)
 const wallpaperError = ref('')
 const wallpaperSuccess = ref('')
 const currentWallpaper = ref('')
+
+function applyWallpaper(imageUrl) {
+  if (!imageUrl) return
+  
+  // Adicionar classe identificadora ao HTML e body
+  document.documentElement.classList.add(WALLPAPER_CLASS)
+  document.body.classList.add(WALLPAPER_CLASS)
+  
+  // Aplicar ao HTML e body para maior compatibilidade
+  const wallpaperStyle = `url('${imageUrl}')`;
+  document.documentElement.style.backgroundImage = wallpaperStyle
+  document.documentElement.style.backgroundSize = 'cover'
+  document.documentElement.style.backgroundPosition = 'center center'
+  document.documentElement.style.backgroundRepeat = 'no-repeat'
+  document.documentElement.style.backgroundAttachment = 'fixed'
+  
+  document.body.style.backgroundImage = wallpaperStyle
+  document.body.style.backgroundSize = 'cover'
+  document.body.style.backgroundPosition = 'center center'
+  document.body.style.backgroundRepeat = 'no-repeat'
+  document.body.style.backgroundAttachment = 'fixed'
+}
+
+function removeWallpaperStyles() {
+  // Remover classe identificadora
+  document.documentElement.classList.remove(WALLPAPER_CLASS)
+  document.body.classList.remove(WALLPAPER_CLASS)
+  
+  // Limpar estilos
+  document.documentElement.style.backgroundImage = 'none'
+  document.body.style.backgroundImage = 'none'
+}
 
 function handleFileUpload(event) {
   const file = event.target.files[0]
@@ -103,13 +136,10 @@ function handleFileUpload(event) {
       localStorage.setItem(WALLPAPER_KEY, base64Image)
       currentWallpaper.value = base64Image
       
-      // Aplicar como papel de parede - direto no estilo do body
-      document.body.style.backgroundImage = `url('${base64Image}')`
-      document.body.style.backgroundSize = 'cover'
-      document.body.style.backgroundPosition = 'center center'
-      document.body.style.backgroundRepeat = 'no-repeat'
+      // Aplicar como papel de parede
+      applyWallpaper(base64Image)
       
-      // Chamamos a função prop (mas o estilo já foi aplicado)
+      // Chamamos a função prop
       props.setWallpaper(base64Image)
       
       wallpaperSuccess.value = 'Papel de parede aplicado com sucesso!'
@@ -182,13 +212,10 @@ function optimizeImageForStorage(img, mimeType) {
     localStorage.setItem(WALLPAPER_KEY, optimizedImage)
     currentWallpaper.value = optimizedImage
     
-    // Aplicar como papel de parede - direto no estilo do body
-    document.body.style.backgroundImage = `url('${optimizedImage}')`
-    document.body.style.backgroundSize = 'cover'
-    document.body.style.backgroundPosition = 'center center'
-    document.body.style.backgroundRepeat = 'no-repeat'
+    // Aplicar como papel de parede
+    applyWallpaper(optimizedImage)
     
-    // Chamamos a função prop (mas o estilo já foi aplicado)
+    // Chamamos a função prop
     props.setWallpaper(optimizedImage)
     
     wallpaperSuccess.value = 'Imagem redimensionada e aplicada com sucesso!'
@@ -203,8 +230,8 @@ function removeWallpaper() {
   localStorage.removeItem(WALLPAPER_KEY)
   currentWallpaper.value = ''
   
-  // Remover papel de parede do body
-  document.body.style.backgroundImage = 'none'
+  // Remover papel de parede
+  removeWallpaperStyles()
   
   // Remover papel de parede via prop
   props.setWallpaper(null)
@@ -213,17 +240,52 @@ function removeWallpaper() {
   setTimeout(() => wallpaperSuccess.value = '', 3000)
 }
 
-onMounted(() => {
-  // Carregar papel de parede atual
+// Função para restaurar o papel de parede
+function restoreWallpaper() {
   const savedWallpaper = localStorage.getItem(WALLPAPER_KEY)
   if (savedWallpaper) {
     currentWallpaper.value = savedWallpaper
-    
-    // Aplicar imediatamente ao body
-    document.body.style.backgroundImage = `url('${savedWallpaper}')`
-    document.body.style.backgroundSize = 'cover'
-    document.body.style.backgroundPosition = 'center center'
-    document.body.style.backgroundRepeat = 'no-repeat'
+    applyWallpaper(savedWallpaper)
+    props.setWallpaper(savedWallpaper)
   }
+}
+
+// Função para garantir que o papel de parede seja aplicado em diferentes momentos
+function setupWallpaperRestoration() {
+  // Se o conteúdo já foi carregado
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    restoreWallpaper()
+  } else {
+    // Caso contrário, aguardar o carregamento
+    document.addEventListener('DOMContentLoaded', restoreWallpaper)
+  }
+  
+  // Adicionar outro evento para ter certeza que o papel de parede é aplicado
+  window.addEventListener('load', restoreWallpaper)
+}
+
+onMounted(() => {
+  // Inicializar o papel de parede
+  restoreWallpaper()
+  
+  // Configurar restauração para garantir persistência
+  setupWallpaperRestoration()
 })
-</script> 
+
+onBeforeUnmount(() => {
+  // Limpar event listeners
+  document.removeEventListener('DOMContentLoaded', restoreWallpaper)
+  window.removeEventListener('load', restoreWallpaper)
+})
+</script>
+
+<style>
+/* Estilos específicos para quando há papel de parede */
+html.has-wallpaper,
+body.has-wallpaper {
+  background-attachment: fixed !important;
+  background-size: cover !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+}
+</style> 
