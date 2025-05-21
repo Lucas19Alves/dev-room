@@ -146,7 +146,6 @@ import java from 'highlight.js/lib/languages/java'
 import 'highlight.js/styles/github-dark.css'
 import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
-// Registra as linguagens suportadas
 hljs.registerLanguage('javascript', javascript)
 hljs.registerLanguage('python', python)
 hljs.registerLanguage('bash', bash)

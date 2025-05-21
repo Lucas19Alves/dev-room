@@ -171,7 +171,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { getDevRoomData, setDevRoomData } from '../utils/storage' // <-- Adicione esta linha!
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
 const props = defineProps({
   setTheme: Function,

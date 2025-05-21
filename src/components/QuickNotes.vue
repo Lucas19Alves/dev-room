@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
 const allData = getDevRoomData()
@@ -85,7 +85,6 @@ watch(notes, (val) => {
   setDevRoomData(data)
 }, { deep: true })
 
-// Detecta mobile via window.matchMedia
 const isMobile = ref(false)
 onMounted(() => {
   const checkMobile = () => {

@@ -77,7 +77,6 @@ const allData = getDevRoomData()
 const tasks = ref(allData.tasks || [])
 const newTask = ref('')
 
-// Estados para edição
 const editingId = ref(null)
 const editText = ref('')
 const editInput = ref(null)
@@ -88,7 +87,6 @@ watch(tasks, (val) => {
   setDevRoomData(data)
 }, { deep: true })
 
-// Adiciona uma nova tarefa
 function addTask(text) {
   if (text.trim() === '') return
   tasks.value.push({
@@ -99,23 +97,19 @@ function addTask(text) {
   newTask.value = ''
 }
 
-// Remove uma tarefa pelo ID
 function removeTask(id) {
   tasks.value = tasks.value.filter(t => t.id !== id)
 }
 
-// Inicia edição ao dar duplo clique
 function startEdit(task) {
   editingId.value = task.id
   editText.value = task.text
   nextTick(() => {
-    // Foca no input ao editar
     const input = document.getElementById(`todo-edit-input-${task.id}`)
     if (input) input.focus()
   })
 }
 
-// Salva edição ao sair do input ou pressionar Enter
 function saveEdit(task) {
   if (editText.value.trim() !== '') {
     task.text = editText.value.trim()
@@ -127,7 +121,6 @@ function saveEdit(task) {
   editText.value = ''
 }
 
-// Computed para ordenar: não concluídas primeiro, concluídas depois
 const sortedTasks = computed(() => {
   return [
     ...tasks.value.filter(t => !t.done),
