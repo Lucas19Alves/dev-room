@@ -154,18 +154,22 @@ const editingId = ref(null)
 const editText = ref('')
 const filter = ref('all')
 
+// Adiciona novo item
 function addItem(text) {
   checklist.value.push({ text, done: false, id: Date.now() + Math.random() })
 }
 
+// Remove item pelo id
 function removeItem(id) {
   checklist.value = checklist.value.filter(i => i.id !== id)
 }
 
+// Reseta todos os itens para não concluídos
 function resetChecklist() {
   checklist.value.forEach(item => (item.done = false))
 }
 
+// Restaura checklist padrão
 function restoreDefault() {
   checklist.value = [
     { text: 'Testes automatizados passaram', done: false, id: Date.now() + Math.random() },
@@ -177,6 +181,7 @@ function restoreDefault() {
   ]
 }
 
+// Edita item
 function startEdit(item) {
   editingId.value = item.id
   editText.value = item.text
@@ -194,6 +199,7 @@ function saveEdit(item) {
   }
 }
 
+// Exporta checklist para arquivo JSON
 function exportChecklist() {
   const data = JSON.stringify(checklist.value, null, 2)
   const blob = new Blob([data], { type: 'application/json' })
@@ -205,6 +211,7 @@ function exportChecklist() {
   URL.revokeObjectURL(url)
 }
 
+// Importa checklist de arquivo JSON
 function importChecklist(e) {
   const file = e.target.files[0]
   if (!file) return
@@ -241,6 +248,7 @@ function importChecklist(e) {
   reader.readAsText(file)
 }
 
+// Exibe toast de feedback
 function showToast(msg) {
   const toast = document.createElement('div')
   toast.textContent = msg
@@ -270,7 +278,7 @@ const filteredItems = computed(() => {
 const doneCount = computed(() => checklist.value.filter(i => i.done).length)
 const progress = computed(() => checklist.value.length ? Math.round((doneCount.value / checklist.value.length) * 100) : 0)
 
-// Atualização automática ao mudar localStorage
+// Atualiza checklist ao detectar alteração no localStorage
 function syncFromStorage(e) {
   if (e.key === 'dev-room-data') {
     const allData = getDevRoomData()

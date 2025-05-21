@@ -12,8 +12,10 @@ import Window from './components/Window.vue'
 import FakeDataGenerator from './components/FakeDataGenerator.vue'
 import Config from './components/Config.vue'
 import StickyNotes from './components/StickyNotes.vue'
+import ChatGPTApi from './components/ChatGPTApi.vue'
 import { ref, reactive, onMounted, onUnmounted, watch, watchEffect } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
+import { inject } from "@vercel/analytics"
 import { Octokit } from '@octokit/rest';
 import { ensureRepo, saveDataToRepo, loadDataFromRepo } from './utils/githubSync';
 import { getDevRoomData, setDevRoomData } from './utils/storage';
@@ -24,12 +26,11 @@ const THEME_KEY = 'dev-room-theme'
 const userName = ref(localStorage.getItem(NOME_KEY) || '')
 const nomeInput = ref(userName.value || '')
 const onboardingDone = ref(localStorage.getItem('dev-room-onboarding') === 'ok');
-
 const onboardingStep = ref(0)
 const checkedOnboarding = ref(false)
-
 const firstLoginModal = ref(localStorage.getItem('dev-room-first-login') !== 'ok' && localStorage.getItem('dev-room-first-login') !== 'skip')
 
+// Salva nome do usuário e avança onboarding
 function saveName() {
   if (nomeInput.value.trim() !== '') {
     userName.value = nomeInput.value.trim()
@@ -38,6 +39,7 @@ function saveName() {
   }
 }
 
+// Finaliza onboarding
 function endOnboarding() {
   onboardingDone.value = true
   localStorage.setItem('dev-room-onboarding', 'ok')
@@ -63,6 +65,7 @@ function skipFirstLogin() {
 let zIndexCounter = 10
 const openWindows = reactive([])
 
+// Salva estado principal do app no localStorage e dev-room-data
 function saveAppState() {
   const data = getDevRoomData()
   data.nome = userName.value
@@ -74,7 +77,7 @@ function saveAppState() {
   localStorage.setItem('dev-room-windows', JSON.stringify(openWindows))
 }
 
-// Sempre que mudar nome, tema ou janelas:
+// Observa mudanças e salva estado
 watch(userName, saveAppState)
 watch(currentTheme, saveAppState)
 watch(openWindows, saveAppState, { deep: true })
@@ -83,7 +86,6 @@ onMounted(() => {
   onboardingDone.value = localStorage.getItem('dev-room-onboarding') === 'ok';
 
   const salvo = localStorage.getItem(NOME_KEY)
-
   if (salvo && salvo.trim() !== '') {
     userName.value = salvo
   }
@@ -104,9 +106,9 @@ onMounted(() => {
   }
 
   window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault()
-  deferredPrompt = e
-  showInstallPrompt.value = true
+    e.preventDefault()
+    deferredPrompt = e
+    showInstallPrompt.value = true
   })
   
   checkMobile()
@@ -118,12 +120,10 @@ onMounted(() => {
     try {
       const parsed = JSON.parse(savedWindows)
       openWindows.splice(0, openWindows.length, ...parsed)
-      // Atualiza zIndexCounter para evitar sobreposição errada
       if (parsed.length) {
         zIndexCounter = Math.max(...parsed.map(w => w.zIndex ?? 10), zIndexCounter)
       }
     } catch (e) {
-      // Se der erro, limpa o localStorage para evitar travar o app
       localStorage.removeItem('dev-room-windows')
     }
   }
@@ -143,8 +143,7 @@ onMounted(() => {
 
   const allData = getDevRoomData()
   if (allData.nome) userName.value = allData.nome
-  if (allData.tema) applyTheme(allData.tema
-  )
+  if (allData.tema) applyTheme(allData.tema)
   if (allData.windows && Array.isArray(allData.windows)) {
     openWindows.splice(0, openWindows.length, ...allData.windows)
     if (allData.windows.length) {
@@ -176,6 +175,7 @@ function formatTime(date) {
   })
 }
 
+// Mapeamento dos componentes das janelas
 const windowComponents = {
   Timer,
   MusicPlayer,
@@ -188,6 +188,7 @@ const windowComponents = {
   WaterReminder,
   FakeDataGenerator,
   Config,
+  ChatGPTApi,
 }
 
 watch(openWindows, (windows) => {
@@ -208,10 +209,12 @@ const mobileTabs = [
   { type: 'WaterReminder', label: 'Lembrete de Água', icon: 'fa-solid fa-droplet' },
   { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database' },
   { type: 'Config', label: 'Configurações', icon: 'fa-solid fa-gear' },
+  { type: 'ChatGPTApi', label: 'IA (ChatGPT)', icon: 'fa-solid fa-robot' },
 ]
 
 const mobileMenuOpen = ref(false)
 
+// Abre uma janela (desktop) ou ativa aba (mobile)
 function openWindow(type) {
   if (isMobile.value) {
     mobileActiveTab.value = type
@@ -236,7 +239,9 @@ function openWindow(type) {
     Themes: 'Temas',
     WaterReminder: 'Lembrete de Água',
     FakeDataGenerator: 'Gerador de Dados Falsos',
-    Config: 'Configurações'
+    Config: 'Configurações',
+    ChatGPTApi: 'ChatGPT API',
+    StackOverflow: 'Stack Overflow',
   }
   const defaultSizes = {
     Timer: { width: 320, height: 360 },
@@ -251,7 +256,9 @@ function openWindow(type) {
     Themes: { width: 340, height: 560 },
     WaterReminder: { width: 340, height: 400 },
     FakeDataGenerator: { width: 340, height: 400 },
-    Config: { width: 340, height: 400 }
+    Config: { width: 340, height: 400 },
+    ChatGPTApi: { width: 600, height: 600 },
+    StackOverflow: { width: 600, height: 600 },
   }
   let { width, height } = defaultSizes[type] || { width: 340, height: 220 }
 
@@ -264,7 +271,6 @@ function openWindow(type) {
     maxWidth = rect.width
     maxHeight = rect.height
   }
-  // Ajusta o tamanho para nunca ultrapassar o container
   width = Math.min(width, maxWidth - 16)
   height = Math.min(height, maxHeight - 16)
 
@@ -284,11 +290,13 @@ function openWindow(type) {
   })
 }
 
+// Fecha uma janela pelo id
 function closeWindow(id) {
   const idx = openWindows.findIndex(w => w.id === id)
   if (idx !== -1) openWindows.splice(idx, 1)
 }
 
+// Atualiza posição da janela
 function updateWindowPosition(id, pos) {
   const win = openWindows.find(w => w.id === id)
   if (win) {
@@ -297,6 +305,7 @@ function updateWindowPosition(id, pos) {
   }
 }
 
+// Atualiza tamanho da janela
 function updateWindowSize(id, size) {
   const win = openWindows.find(w => w.id === id)
   if (win) {
@@ -305,16 +314,20 @@ function updateWindowSize(id, size) {
   }
 }
 
+// Traz janela para frente
 function bringToFront(id) {
   zIndexCounter++
   const win = openWindows.find(w => w.id === id)
   if (win) win.zIndex = zIndexCounter
 }
 
+// Minimiza janela
 function minimizeWindow(id) {
   const win = openWindows.find(w => w.id === id)
   if (win) win.minimized = true
 }
+
+// Restaura janela minimizada
 function restoreWindow(id) {
   const win = openWindows.find(w => w.id === id)
   if (win) win.minimized = false
@@ -322,7 +335,6 @@ function restoreWindow(id) {
 
 const showInstallPrompt = ref(false)
 let deferredPrompt = null
-
 
 function installApp() {
   if (deferredPrompt) {
@@ -335,7 +347,6 @@ function installApp() {
 }
 
 const isMobile = ref(false)
-
 function checkMobile() {
   isMobile.value = window.innerWidth <= 768
 }
@@ -373,13 +384,11 @@ const pauseTips = [
   }
 ]
 
-// Funções para pausar e retomar
+// Ativa modo pausa (pausa timers/música)
 function activatePauseMode() {
   pauseMode.value = true
   pauseStep.value = 0
-  // Pausar alarmes/timers
   window.dispatchEvent(new CustomEvent('devroom-pause-all'))
-  // Pausar música
   window.dispatchEvent(new CustomEvent('devroom-music-pause'))
 }
 function nextPauseTip() {
@@ -394,9 +403,7 @@ function prevPauseTip() {
 }
 function deactivatePauseMode() {
   pauseMode.value = false
-  // Retomar alarmes/timers
   window.dispatchEvent(new CustomEvent('devroom-resume-all'))
-  // Retomar música
   window.dispatchEvent(new CustomEvent('devroom-music-resume'))
 }
 
@@ -461,9 +468,9 @@ async function syncDataToRepo() {
   if (!githubToken.value || !githubUserLogin.value) return
   try {
     await saveDataToRepo(githubToken.value, githubUserLogin.value, localStorage.getItem('dev-room-data') || '{}')
-    console.log('Backup salvo no GitHub!')
+    // Backup salvo no GitHub
   } catch (err) {
-    console.error('Erro ao salvar backup no GitHub:', err)
+    // Erro ao salvar backup no GitHub
   }
 }
 
@@ -471,7 +478,7 @@ async function loadDataFromRepoAndSet() {
   if (!githubToken.value || !githubUserLogin.value) return
   const content = await loadDataFromRepo(githubToken.value, githubUserLogin.value)
   localStorage.setItem('dev-room-data', content)
-  // Atualize variáveis reativas principais do app imediatamente:
+  // Atualiza variáveis reativas principais do app imediatamente
   const allData = getDevRoomData()
   if (allData.nome) userName.value = allData.nome
   if (allData.tema) applyTheme(allData.tema)
@@ -481,7 +488,6 @@ async function loadDataFromRepoAndSet() {
       zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
     }
   }
-  // Se tiver outros dados reativos, atualize aqui também!
 }
 
 function logoutGitHub() {
@@ -489,7 +495,7 @@ function logoutGitHub() {
   localStorage.removeItem('github_token')
 }
 
-// Sincronização automática ao alterar localStorage
+// Sincronização automática ao alterar localStorage em outras abas
 watchEffect(() => {
   if (githubToken.value && githubUserLogin.value) {
     window.addEventListener('storage', (e) => {
@@ -500,10 +506,9 @@ watchEffect(() => {
   }
 })
 
-// Sincronização automática ao alterar localStorage NA MESMA ABA
+// Sincronização automática ao alterar localStorage na mesma aba
 watchEffect(() => {
   if (githubToken.value && githubUserLogin.value) {
-    // Sincroniza sempre que dev-room-data mudar
     const data = localStorage.getItem('dev-room-data')
     if (data) {
       syncDataToRepo()
@@ -511,6 +516,7 @@ watchEffect(() => {
   }
 })
 
+// Sincroniza backup local com GitHub a cada 2s se houver alteração
 let lastData = localStorage.getItem('dev-room-data')
 setInterval(() => {
   if (githubToken.value && githubUserLogin.value) {
@@ -522,9 +528,8 @@ setInterval(() => {
   }
 }, 2000)
 
+// Sincroniza backup do GitHub para localStorage a cada 10s
 let lastRepoData = null
-
-// Sincronização automática do repositório para o localStorage
 setInterval(async () => {
   if (githubToken.value && githubUserLogin.value) {
     try {
@@ -532,7 +537,7 @@ setInterval(async () => {
       if (repoContent && repoContent !== lastRepoData && repoContent !== localStorage.getItem('dev-room-data')) {
         lastRepoData = repoContent
         localStorage.setItem('dev-room-data', repoContent)
-        // Atualize variáveis reativas principais do app, se necessário:
+        // Atualiza variáveis reativas principais do app
         const allData = getDevRoomData()
         if (allData.nome) userName.value = allData.nome
         if (allData.tema) applyTheme(allData.tema)
@@ -542,13 +547,12 @@ setInterval(async () => {
             zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
           }
         }
-        // Se tiver outros dados reativos, atualize aqui também!
       }
     } catch (e) {
-      // Silencie erros de rede ou 404
+      // Silencia erros de rede ou 404
     }
   }
-}, 10000) // a cada 10 segundos
+}, 10000)
 
 watch(onboardingStep, (step) => {
   if (step === 5 && githubToken.value) {
@@ -696,6 +700,8 @@ watch(onboardingStep, (step) => {
   <StickyNotes/>
 
   <SpeedInsights />
+
+  <inject/>
 
   <!-- Container principal do app -->
   <div class="h-screen text-gray-100 relative overflow-hidden"

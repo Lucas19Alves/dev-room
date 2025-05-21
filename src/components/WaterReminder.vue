@@ -71,12 +71,39 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { playSound, notify } from '../utils/notify'
 import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
+// Estado do lembrete de água
 const allData = getDevRoomData()
 const waterReminder = ref(allData.waterReminder || {
   config: { interval: 60, amount: 200 },
   history: [],
   next: null,
   running: false
+})
+
+// Salva lembrete de água no localStorage ao alterar
+watch(waterReminder, (val) => {
+  const data = getDevRoomData()
+  data.waterReminder = val
+  setDevRoomData(data)
+}, { deep: true })
+
+// Atualiza lembrete ao detectar alteração no localStorage
+function syncFromStorage(e) {
+  if (e.key === 'dev-room-data') {
+    const allData = getDevRoomData()
+    waterReminder.value = allData.waterReminder || {
+      config: { interval: 60, amount: 200 },
+      history: [],
+      next: null,
+      running: false
+    }
+  }
+}
+onMounted(() => {
+  window.addEventListener('storage', syncFromStorage)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('storage', syncFromStorage)
 })
 
 const interval = ref(waterReminder.value.config.interval || 60)
@@ -86,17 +113,6 @@ const running = ref(waterReminder.value.running || false)
 const timer = ref(null)
 const history = ref(waterReminder.value.history || [])
 const nextReminder = ref(waterReminder.value.next || null)
-
-watch([interval, amount, running, history, nextReminder], () => {
-  const data = getDevRoomData()
-  data.waterReminder = {
-    config: { interval: interval.value, amount: amount.value },
-    history: history.value,
-    next: nextReminder.value,
-    running: running.value
-  }
-  setDevRoomData(data)
-}, { deep: true })
 
 function saveInterval() {
   // Só salva, não inicia o timer
@@ -172,18 +188,6 @@ const timeLeftFormatted = computed(() => {
 })
 
 // Atualização automática ao mudar localStorage
-function syncFromStorage(e) {
-  if (e.key === 'dev-room-data') {
-    const allData = getDevRoomData()
-    waterReminder.value = allData.waterReminder || {
-      config: { interval: 60, amount: 200 },
-      history: [],
-      next: null,
-      running: false
-    }
-  }
-}
-
 onMounted(() => {
   // Não inicia automaticamente!
   updateTimeLeft()
@@ -197,13 +201,11 @@ onMounted(() => {
   }
   window.addEventListener('devroom-pause-all', () => running.value = false)
   window.addEventListener('devroom-resume-all', () => running.value = true)
-  window.addEventListener('storage', syncFromStorage)
 })
 
 onBeforeUnmount(() => {
   if (timer.value) clearInterval(timer.value)
   window.removeEventListener('devroom-pause-all', () => running.value = false)
   window.removeEventListener('devroom-resume-all', () => running.value = true)
-  window.removeEventListener('storage', syncFromStorage)
 })
 </script>

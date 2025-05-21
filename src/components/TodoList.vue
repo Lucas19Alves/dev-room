@@ -73,20 +73,21 @@
 import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue'
 import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
+// Estado reativo das tarefas
 const allData = getDevRoomData()
 const tasks = ref(allData.tasks || [])
 const newTask = ref('')
-
 const editingId = ref(null)
 const editText = ref('')
-const editInput = ref(null)
 
+// Salva tarefas no localStorage sempre que alteradas
 watch(tasks, (val) => {
   const data = getDevRoomData()
   data.tasks = val
   setDevRoomData(data)
 }, { deep: true })
 
+// Adiciona nova tarefa
 function addTask(text) {
   if (text.trim() === '') return
   tasks.value.push({
@@ -97,10 +98,12 @@ function addTask(text) {
   newTask.value = ''
 }
 
+// Remove tarefa pelo id
 function removeTask(id) {
   tasks.value = tasks.value.filter(t => t.id !== id)
 }
 
+// Inicia edição de tarefa
 function startEdit(task) {
   editingId.value = task.id
   editText.value = task.text
@@ -110,6 +113,7 @@ function startEdit(task) {
   })
 }
 
+// Salva edição da tarefa
 function saveEdit(task) {
   if (editText.value.trim() !== '') {
     task.text = editText.value.trim()
@@ -121,14 +125,13 @@ function saveEdit(task) {
   editText.value = ''
 }
 
-const sortedTasks = computed(() => {
-  return [
-    ...tasks.value.filter(t => !t.done),
-    ...tasks.value.filter(t => t.done)
-  ]
-})
+// Ordena tarefas: pendentes primeiro
+const sortedTasks = computed(() => [
+  ...tasks.value.filter(t => !t.done),
+  ...tasks.value.filter(t => t.done)
+])
 
-// Atualização automática ao mudar localStorage
+// Atualiza tarefas ao detectar alteração no localStorage
 function syncFromStorage(e) {
   if (e.key === 'dev-room-data') {
     const allData = getDevRoomData()

@@ -146,6 +146,7 @@ import java from 'highlight.js/lib/languages/java'
 import 'highlight.js/styles/github-dark.css'
 import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
+// Registra linguagens suportadas
 hljs.registerLanguage('javascript', javascript)
 hljs.registerLanguage('python', python)
 hljs.registerLanguage('bash', bash)
@@ -167,6 +168,7 @@ const newSnippet = ref({ title: '', language: '', code: '' })
 const editingIdx = ref(null)
 const editSnippetData = ref({ title: '', language: '', code: '' })
 
+// Salva snippets no localStorage ao alterar
 watch(snippets, (val) => {
   const data = getDevRoomData()
   data.snippets = val
@@ -226,7 +228,7 @@ function highlight(code, lang) {
   return hljs.highlightAuto(code).value
 }
 
-// Atualização automática ao mudar localStorage
+// Atualiza snippets ao detectar alteração no localStorage
 function syncFromStorage(e) {
   if (e.key === 'dev-room-data') {
     const allData = getDevRoomData()

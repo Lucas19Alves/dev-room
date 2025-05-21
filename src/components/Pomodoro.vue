@@ -64,14 +64,30 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { playSound, notify } from '../utils/notify'
 import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
+// Estado do Pomodoro
 const allData = getDevRoomData()
 const pomodoro = ref(allData.pomodoro || { state: {}, config: {} })
 
+// Salva pomodoro no localStorage ao alterar
 watch(pomodoro, (val) => {
   const data = getDevRoomData()
   data.pomodoro = val
   setDevRoomData(data)
 }, { deep: true })
+
+// Atualiza pomodoro ao detectar alteração no localStorage
+function syncFromStorage(e) {
+  if (e.key === 'dev-room-data') {
+    const allData = getDevRoomData()
+    pomodoro.value = allData.pomodoro || { state: {}, config: {} }
+  }
+}
+onMounted(() => {
+  window.addEventListener('storage', syncFromStorage)
+})
+onUnmounted(() => {
+  window.removeEventListener('storage', syncFromStorage)
+})
 
 // Chaves para localStorage
 const POMODORO_STATE_KEY = 'dev-room-pomodoro-state'
@@ -249,14 +265,6 @@ function skip() {
   nextStage()
 }
 
-// Atualização automática ao mudar localStorage
-function syncFromStorage(e) {
-  if (e.key === 'dev-room-data') {
-    const allData = getDevRoomData()
-    pomodoro.value = allData.pomodoro || { state: {}, config: {} }
-  }
-}
-
 // Ciclo de vida: monta e desmonta o componente
 onMounted(() => {
   loadConfig()
@@ -265,7 +273,6 @@ onMounted(() => {
   window.addEventListener('devroom-resume-all', () => {
     if (running.value) startTimer()
   })
-  window.addEventListener('storage', syncFromStorage)
 })
 
 onUnmounted(() => {
@@ -275,7 +282,6 @@ onUnmounted(() => {
   window.removeEventListener('devroom-resume-all', () => {
     if (running.value) startTimer()
   })
-  window.removeEventListener('storage', syncFromStorage)
 })
 
 // Observa mudanças para salvar o estado automaticamente

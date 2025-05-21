@@ -1,3 +1,4 @@
+// Funções utilitárias para acessar o objeto principal do localStorage
 export function getDevRoomData() {
   try {
     return JSON.parse(localStorage.getItem('dev-room-data')) || {};

@@ -16,6 +16,7 @@
     "@fortawesome/vue-fontawesome": "^3.0.8",
     "@octokit/rest": "^21.1.1",
     "@tailwindcss/vite": "^4.1.7",
+    "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
     "highlight.js": "^11.11.1",
     "interactjs": "^1.10.27",

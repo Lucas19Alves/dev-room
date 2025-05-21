@@ -71,13 +71,13 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { notes, saveNotes, loadNotes, STORAGE_KEY } from '../stores/notesStore'
 
 const newNote = ref('')
-
 const noteColors = [
   '#FEF3C7', '#FDE68A', '#FCD34D', '#FFD6A5',
   '#E0BBE4', '#B5EAD7', '#C7CEEA',
 ]
-
 const isMobile = ref(false)
+
+// Atualiza o estado mobile e carrega notas ao montar
 onMounted(() => {
   loadNotes()
   const checkMobile = () => {
@@ -92,6 +92,7 @@ onUnmounted(() => {
   window.removeEventListener('storage', syncFromStorage)
 })
 
+// Adiciona uma nova nota
 function addNote(text) {
   if (text.trim() === '') return
   notes.value.push({ text: text.trim(), id: Date.now() + Math.random(), floating: false, x: 100, y: 100 })
@@ -99,6 +100,7 @@ function addNote(text) {
   saveNotes()
 }
 
+// Remove uma nota pelo id
 function removeNote(id) {
   const idx = notes.value.findIndex(n => n.id === id)
   if (idx !== -1) {
@@ -107,6 +109,7 @@ function removeNote(id) {
   }
 }
 
+// Torna a nota móvel (sticky)
 function floatNote(note) {
   note.floating = true
   note.x = note.x ?? 100
@@ -114,6 +117,7 @@ function floatNote(note) {
   saveNotes()
 }
 
+// Sincroniza notas ao detectar alteração no localStorage
 function syncFromStorage(e) {
   if (e.key === STORAGE_KEY || e.key === 'dev-room-data') {
     loadNotes()
