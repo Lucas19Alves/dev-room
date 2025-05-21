@@ -1,6 +1,6 @@
 <template>
   <!-- Container principal das configurações -->
-  <div class="flex flex-col gap-6 w-full max-w-md mx-auto" id="config-main">
+  <div class="flex flex-col gap-6 w-full max-w-md mx-auto mb-24" id="config-main">
     <!-- Seção: Usuário -->
     <section class="rounded-lg p-4 flex flex-col gap-2" :style="{ borderColor: 'var(--accent)' }" id="config-user-section">
       <h2 class="text-lg font-bold mb-2" :style="{ color: 'var(--text-main)' }" id="config-user-title">
@@ -37,15 +37,17 @@
         <button
           v-for="theme in themes"
           :key="theme.value"
-          class="rounded-lg p-2 flex flex-col items-center border-2 transition"
+          type="button"
+          class="rounded-lg p-2 flex flex-col items-center border-2 border-solid transition"
           :style="{
             borderColor: currentTheme === theme.value ? 'var(--accent)' : theme.border,
             background: theme.preview,
             color: currentTheme === theme.value ? 'var(--accent)' : '#fff',
-            opacity: currentTheme === theme.value ? 1 : 0.85
+            touchAction: 'manipulation'
           }"
           @click="setTheme(theme.value)"
           :id="`config-theme-btn-${theme.value}`"
+          tabindex="0"
         >
           <span class="font-bold text-xs mb-1 flex items-center gap-1" :id="`config-theme-label-${theme.value}`">
             {{ theme.label }}
@@ -65,9 +67,9 @@
 
     <!-- Seção: Documentação -->
     <section class="rounded-lg p-4 flex flex-col gap-2" id="config-doc-section">
-      <h2 class="text-lg font-bold mb-2" :style="{ color: 'var(--text-main)' }" id="config-doc-title">
+      <h2 class="text-lg font-bold mb-2 flex items-center gap-2" :style="{ color: 'var(--text-main)' }" id="config-doc-title">
         <font-awesome-icon icon="fa-solid fa-book" class="mr-2" />
-        Documentação
+        Documentação & Comunidade
       </h2>
       <div class="flex gap-2 mb-3" id="config-doc-tabs">
         <button
@@ -83,55 +85,82 @@
           {{ tab }}
         </button>
       </div>
-      <div class="bg-gray-900 rounded-b p-3 text-sm min-h-[120px]" id="config-doc-content">
+      <div class="bg-gray-900 rounded-b p-3 text-sm min-h-[140px]" id="config-doc-content">
         <!-- Conteúdo da documentação por aba -->
-        <div v-if="docTab === 'Introdução'" id="config-doc-intro">
-          <p>
-            Bem-vindo à documentação do <b>Dev Room</b>! Aqui você encontra informações sobre como utilizar cada funcionalidade do sistema para aumentar sua produtividade.
-          </p>
-          <ul class="list-disc ml-5 mt-2" id="config-doc-intro-list">
-            <li>Abra ferramentas pelo dock na parte inferior da tela (desktop) ou pelo menu lateral (mobile).</li>
-            <li>No desktop, arraste e organize as janelas conforme sua preferência. No mobile, navegue entre as ferramentas pelo menu.</li>
-            <li>Personalize o ambiente com temas e extensões.</li>
-            <li>Gerencie tarefas, notas, timers, pomodoro, snippets, checklist de deploy, lembretes de água, player de música, gerador de dados e muito mais em um só lugar.</li>
-            <li>Seu progresso e configurações são salvos automaticamente no navegador.</li>
+        <div v-if="docTab === 'Visão Geral'" id="config-doc-intro">
+          <div class="mb-3">
+            <font-awesome-icon icon="fa-solid fa-lightbulb" class="text-yellow-400 mr-2" />
+            <b>Dev Room</b> é seu ambiente digital para produtividade, organização e foco, feito especialmente para devs!
+          </div>
+          <ul class="list-disc ml-5 mt-2 space-y-1" id="config-doc-intro-list">
+            <li>
+              <b>Widgets modulares:</b> To-Do, Notas rápidas, Pomodoro, Timer, Snippets, Checklist de Deploy, Lembrete de água, Player de música, Gerador de dados fake e Busca inteligente.
+            </li>
+            <li>
+              <b>Personalização:</b> Escolha entre <span class="font-bold text-pink-300">10+ temas</span> e deixe o ambiente com a sua cara.
+            </li>
+            <li>
+              <b>Experiência fluida:</b> No desktop, organize as janelas livremente. No mobile, navegue pelo menu lateral.
+            </li>
+            <li>
+              <b>Salvamento automático:</b> Suas tarefas, notas e configurações ficam salvas no navegador.
+            </li>
+            <li>
+              <b>Open Source:</b> O projeto é aberto! Veja, contribua ou adapte para seu time.
+            </li>
           </ul>
+          <div class="mt-4 p-3 rounded bg-gray-800 border border-pink-500 flex flex-col gap-2 items-center text-center">
+            <span class="font-bold text-pink-300 text-base">🌟 Contribua ou acompanhe o projeto no GitHub:</span>
+            <a href="https://github.com/Lucas19Alves/dev-room" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-project-github">
+              <font-awesome-icon icon="fa-brands fa-github" />
+              github.com/Lucas19Alves/dev-room
+            </a>
+            <span class="text-xs text-gray-400">Pull requests, issues e sugestões são bem-vindos!</span>
+          </div>
         </div>
-        <div v-else-if="docTab === 'Janelas'" id="config-doc-windows">
-          <ul class="list-disc ml-5" id="config-doc-windows-list">
-            <li><b>Timer:</b> Cronômetro simples para medir tempo de atividades. Permite iniciar, pausar e resetar. O timer continua mesmo se a janela for fechada.</li>
-            <li><b>To-Do List:</b> Lista de tarefas com salvamento automático no seu navegador. Marque tarefas como concluídas ou exclua-as.</li>
-            <li><b>Notas Rápidas:</b> Bloco para anotações rápidas, ideias ou lembretes.</li>
-            <li><b>Snippets de Código:</b> Salve e consulte trechos de código úteis. Integração opcional com Gists do GitHub.</li>
-            <li><b>Checklist de Deploy:</b> Lista de verificação para garantir um deploy seguro. Personalize e salve seus próprios itens.</li>
-            <li><b>Pomodoro:</b> Técnica de produtividade baseada em ciclos de foco e pausa. O ciclo continua mesmo se a janela for fechada.</li>
-            <li><b>Lembrete de Água:</b> Defina intervalos para ser lembrado de beber água. O lembrete continua funcionando mesmo se a janela for fechada.</li>
+        <div v-else-if="docTab === 'Funcionalidades'" id="config-doc-windows">
+          <div class="mb-2">
+            <font-awesome-icon icon="fa-solid fa-cubes" class="text-blue-400 mr-2" />
+            <b>Ferramentas disponíveis:</b>
+          </div>
+          <ul class="list-disc ml-5 space-y-1" id="config-doc-windows-list">
+            <li><b>Timer:</b> Cronômetro simples para medir tempo de atividades. Continua mesmo se a janela for fechada.</li>
+            <li><b>To-Do List:</b> Lista de tarefas com salvamento automático. Marque, edite ou exclua tarefas.</li>
+            <li><b>Notas Rápidas:</b> Bloco para anotações rápidas, ideias ou lembretes. Fixe ou desafixe notas.</li>
+            <li><b>Snippets de Código:</b> Salve e consulte trechos de código úteis.</li>
+            <li><b>Checklist de Deploy:</b> Lista de verificação para garantir um deploy seguro. Personalize seus itens.</li>
+            <li><b>Pomodoro:</b> Técnica de produtividade baseada em ciclos de foco e pausa.</li>
+            <li><b>Lembrete de Água:</b> Defina intervalos para ser lembrado de beber água.</li>
             <li><b>Busca:</b> Pesquise rapidamente entre suas notas, tarefas e códigos.</li>
             <li><b>Temas:</b> Personalize as cores e o visual do Dev Room.</li>
             <li><b>Player de Música:</b> Ouça músicas para relaxar ou focar durante o trabalho.</li>
             <li><b>Gerador de Dados:</b> Gere dados fake para testes de desenvolvimento.</li>
           </ul>
         </div>
-        <div v-else-if="docTab === 'Sobre'" id="config-doc-about">
-          <p class="mb-2">
-            <b>Dev Room</b> é um ambiente digital integrado para desenvolvedores, criado para centralizar ferramentas essenciais do dia a dia em um só lugar. O objetivo é proporcionar praticidade, organização e foco, reunindo recursos como listas de tarefas, notas rápidas, timer, pomodoro, snippets de código, personalização de temas e muito mais.
-          </p>
-          <p class="mb-2">
-            O projeto foi desenvolvido utilizando <b>Vue.js</b> e <b>Tailwind CSS</b>, priorizando responsividade, usabilidade e uma experiência moderna.
-          </p>
-          <hr class="my-2 border-pink-400/30" id="config-doc-about-divider">
-          <p>
-            <b>Sobre o autor:</b><br>
-            Meu nome é Lucas, sou desenvolvedor apaixonado por criar soluções que facilitam a vida de outros devs. Gosto de experimentar novas tecnologias, compartilhar conhecimento e construir ambientes produtivos e agradáveis para todos.
-          </p>
-          <div class="mt-4 flex flex-col gap-2 text-sm" id="config-doc-about-links">
-            <a href="https://github.com/Lucas19Alves" target="_blank" class="hover:underline text-pink-300" id="config-doc-about-github">
-              <font-awesome-icon icon="fa-brands fa-github" class="mr-1" />
-              Meu GitHub
+        <div v-else-if="docTab === 'Sobre & Contato'" id="config-doc-about">
+          <div class="mb-3 flex flex-col gap-2 items-center">
+            <font-awesome-icon icon="fa-solid fa-user-astronaut" class="text-3xl text-pink-400" />
+            <span class="font-bold text-lg">Sobre o autor</span>
+            <span class="text-base text-pink-200">Lucas Alves</span>
+            <span class="text-xs text-gray-400 text-center">Desenvolvedor apaixonado por criar soluções que facilitam a vida de outros devs. Gosto de experimentar novas tecnologias, compartilhar conhecimento e construir ambientes produtivos e agradáveis para todos.</span>
+          </div>
+          <div class="mt-2 flex flex-col gap-2 items-center text-center">
+            <span class="font-bold text-pink-300">🌐 Me encontre:</span>
+            <a href="https://github.com/Lucas19Alves" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-github">
+              <font-awesome-icon icon="fa-brands fa-github" />
+              github.com/Lucas19Alves
             </a>
-            <a href="https://portifolio-2-0.vercel.app/" target="_blank" class="hover:underline text-pink-300" id="config-doc-about-portfolio">
-              <font-awesome-icon icon="fa-solid fa-globe" class="mr-1" />
-              Meu Portfólio
+            <a href="https://portifolio-2-0.vercel.app/" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-portfolio">
+              <font-awesome-icon icon="fa-solid fa-globe" />
+              portifolio-2-0.vercel.app
+            </a>
+          </div>
+          <div class="mt-4 p-3 rounded bg-gray-800 border border-pink-500 flex flex-col gap-2 items-center text-center">
+            <span class="font-bold text-pink-300 text-base">⭐ Projeto Open Source</span>
+            <span class="text-xs text-gray-400">Acesse, contribua ou compartilhe:</span>
+            <a href="https://github.com/Lucas19Alves/dev-room" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-project-github">
+              <font-awesome-icon icon="fa-brands fa-github" />
+              github.com/Lucas19Alves/dev-room
             </a>
           </div>
         </div>
@@ -232,6 +261,6 @@ function setTheme(theme) {
   if (props.setTheme) props.setTheme(theme)
 }
 
-const docTabs = ['Introdução', 'Janelas', 'Sobre']
-const docTab = ref('Introdução')
+const docTabs = ['Visão Geral', 'Funcionalidades', 'Sobre & Contato']
+const docTab = ref('Visão Geral')
 </script>

@@ -47,8 +47,9 @@
         >
           <font-awesome-icon icon="fa-solid fa-trash" />
         </button>
-        <!-- Botão para desafixar nota (ícone) -->
+        <!-- Botão para desafixar nota (ícone) - só no desktop -->
         <button
+          v-if="!isMobile"
           @click="floatNote(note)"
           class="absolute top-2 left-2 text-blue-400 hover:text-blue-600 transition quicknotes-float-btn"
           title="Desafixar"
@@ -78,6 +79,20 @@ const noteColors = [
 
 const fixedNotes = computed(() => notes.value.filter(n => !n.floating))
 
+// Detecta mobile via window.matchMedia
+const isMobile = ref(false)
+onMounted(() => {
+  const checkMobile = () => {
+    isMobile.value = window.matchMedia('(max-width: 640px)').matches
+  }
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+  loadNotes()
+  window.addEventListener('storage', (e) => {
+    if (e.key === STORAGE_KEY) loadNotes()
+  })
+})
+
 function addNote() {
   if (newNote.value.trim() === '') return
   notes.value.push({
@@ -105,13 +120,6 @@ function floatNote(note) {
   note.y = 100
   saveNotes()
 }
-
-onMounted(() => {
-  loadNotes()
-  window.addEventListener('storage', (e) => {
-    if (e.key === STORAGE_KEY) loadNotes()
-  })
-})
 
 watch(notes, saveNotes, { deep: true })
 </script>

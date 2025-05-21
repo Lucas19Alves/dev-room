@@ -437,16 +437,43 @@ function deactivatePauseMode() {
     id="main-app"
   >
 
-    <!-- Botão para abrir menu mobile -->
-    <button
-      v-if="isMobile"
-      @click="mobileMenuOpen = true"
-      class="cursor-pointer fixed top-4 left-4 z-50 bg-gray-900/80 rounded-full p-3 shadow-lg border border-gray-700"
-      aria-label="Abrir menu"
-      id="mobile-menu-open-btn"
-    >
-      <font-awesome-icon icon="fa-solid fa-bars" class="text-2xl text-blue-300" />
-    </button>
+    <!-- Barra superior mobile com botão de abrir menu e "Me apoie" -->
+    <div v-if="isMobile" class="w-full flex items-center justify-between gap-2 px-4 py-3" :style="{
+      background: 'var(--bg-panel)',
+      borderBottom: '1px solid var(--accent)'
+    }" id="mobile-topbar">
+      <!-- Botão de abrir menu mobile -->
+      <button
+        v-if="!mobileMenuOpen"
+        @click="mobileMenuOpen = true"
+        class="flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-base shadow transition border"
+        :style="{
+          background: 'var(--accent)',
+          color: 'var(--text-main)',
+          border: '2px solid var(--accent)'
+        }"
+        aria-label="Abrir menu"
+        id="mobile-menu-open-btn"
+      >
+        <font-awesome-icon icon="fa-solid fa-bars" class="text-xl" />
+        Menu
+      </button>
+      <!-- Botão de apoio mobile -->
+      <button
+        class="flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-base shadow transition border"
+        :style="{
+          background: 'var(--accent)',
+          color: 'var(--text-main)',
+          border: '2px solid var(--accent)'
+        }"
+        @click="showPixModal = true"
+        title="Me apoie"
+        id="mobile-dock-support-btn"
+      >
+        <font-awesome-icon icon="fa-solid fa-heart" class="text-base" />
+        Me apoie
+      </button>
+    </div>
 
     <!-- Menu lateral mobile -->
     <transition name="fade">
@@ -466,10 +493,15 @@ function deactivatePauseMode() {
           }"
           id="mobile-menu"
         >
-          <!-- Botão para fechar menu mobile -->
-          <button @click="mobileMenuOpen = false" class="self-end mb-6 text-gray-400 hover:text-white text-2xl" id="mobile-menu-close-btn">
-            <font-awesome-icon icon="fa-solid fa-xmark" />
-          </button>
+          <!-- Saudação e botão fechar alinhados -->
+          <div class="mb-6 flex flex-row items-center justify-between w-full">
+            <span class="text-base font-semibold" :style="{color: 'var(--name)'}">
+              Olá, dev <span>{{ userName }}!</span>
+            </span>
+            <button @click="mobileMenuOpen = false" class="text-gray-400 hover:text-white text-2xl ml-2" id="mobile-menu-close-btn">
+              <font-awesome-icon icon="fa-solid fa-xmark" />
+            </button>
+          </div>
           <!-- Abas do menu mobile -->
           <div class="flex flex-col gap-3" id="mobile-menu-tabs">
             <button v-for="tab in mobileTabs" :key="tab.type"
@@ -490,37 +522,11 @@ function deactivatePauseMode() {
     <!-- Conteúdo principal mobile -->
     <div v-if="isMobile" class="flex flex-col h-screen" id="mobile-main">
       <div class="flex-1 overflow-auto" id="mobile-content">
-        <component :is="windowComponents[mobileActiveTab]" />
+        <component
+          :is="mobileActiveTab === 'Config' ? Config : windowComponents[mobileActiveTab]"
+          v-bind="mobileActiveTab === 'Config' ? { setTheme: applyTheme, currentTheme, nome: userName, setNome } : {}"
+        />
       </div>
-
-      <!-- Dock mobile -->
-      <nav
-        class="fixed bottom-0 left-0 w-full z-40 flex items-center justify-center py-2"
-        aria-label="Dock"
-        :style="{
-          background: 'var(--bg-panel)',
-          borderTop: '1px solid var(--accent)',
-          boxShadow: '0 -2px 8px 0 rgb(0 0 0 / 0.10)'
-        }"
-        id="mobile-dock"
-      >
-        <!-- Botão de apoio mobile -->
-        <button
-          class="cursor-pointer flex items-center gap-2 px-3 py-1 rounded-full font-semibold text-xs shadow transition"
-          :style="{
-            background: 'var(--accent)',
-            color: 'var(--text-main)',
-            border: '1px solid var(--accent)',
-            opacity: 0.85
-          }"
-          @click="showPixModal = true"
-          title="Me apoie"
-          id="mobile-dock-support-btn"
-        >
-          <font-awesome-icon icon="fa-solid fa-heart" class="text-base" />
-          Me apoie
-        </button>
-      </nav>
     </div>
 
     <!-- Conteúdo principal desktop -->
@@ -812,4 +818,3 @@ function deactivatePauseMode() {
   }
 }
 </style>
-```
