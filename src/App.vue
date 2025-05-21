@@ -15,6 +15,7 @@ import StickyNotes from './components/StickyNotes.vue'
 import { ref, reactive, onMounted, onUnmounted, watch, watchEffect } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
 import { Octokit } from '@octokit/rest';
+import { ensureRepo, saveDataToRepo, loadDataFromRepo } from './utils/githubSync';
 
 const NOME_KEY = 'dev-room-nome'
 const THEME_KEY = 'dev-room-theme'
@@ -110,8 +111,7 @@ onMounted(() => {
   const token = localStorage.getItem('github_token')
   if (token) {
     githubToken.value = token
-    loadOrCreateGist().then(loadDataFromGist)
-    fetchGitHubUserName()
+    fetchGitHubUserName().then(loadDataFromRepoAndSet)
   } else {
     handleGitHubCallback()
   }
@@ -374,13 +374,13 @@ function deactivatePauseMode() {
 
 // GitHub Integration
 const githubToken = ref(null)
-const gistId = ref(null)
 const isSyncing = ref(false)
+const githubUserLogin = ref('')
 
 function loginWithGitHub() {
   const clientId = 'Ov23liLXp3BH07oDymH4'
   const redirectUri = window.location.origin
-  const scope = 'gist'
+  const scope = 'repo'
   window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`
 }
 
@@ -398,49 +398,13 @@ async function handleGitHubCallback() {
       githubToken.value = data.access_token
       localStorage.setItem('github_token', githubToken.value)
       await fetchGitHubUserName()
-      onboardingStep.value = 5 // Vai para o final
+      onboardingStep.value = 5
       onboardingDone.value = true
       localStorage.setItem('dev-room-onboarding', 'ok')
-      await loadOrCreateGist()
-      await loadDataFromGist()
+      await loadDataFromRepoAndSet()
       window.history.replaceState({}, document.title, window.location.pathname)
     }
   }
-}
-
-async function loadOrCreateGist() {
-  const octokit = new Octokit({ auth: githubToken.value })
-  const gists = await octokit.gists.list()
-  let gist = gists.data.find(g => g.files['dev-room-data.json'])
-  if (!gist) {
-    // Cria um novo Gist privado
-    const created = await octokit.gists.create({
-      files: { 'dev-room-data.json': { content: '{}' } },
-      public: false,
-      description: 'Dev Room Data'
-    })
-    gist = created.data
-  }
-  gistId.value = gist.id
-}
-
-async function loadDataFromGist() {
-  const octokit = new Octokit({ auth: githubToken.value })
-  const gist = await octokit.gists.get({ gist_id: gistId.value })
-  const content = gist.data.files['dev-room-data.json'].content
-  localStorage.setItem('dev-room-data', content)
-}
-
-async function syncDataToGist() {
-  if (!githubToken.value || !gistId.value) return
-  isSyncing.value = true
-  const octokit = new Octokit({ auth: githubToken.value })
-  const data = localStorage.getItem('dev-room-data')
-  await octokit.gists.update({
-    gist_id: gistId.value,
-    files: { 'dev-room-data.json': { content: data || '{}' } }
-  })
-  isSyncing.value = false
 }
 
 async function fetchGitHubUserName() {
@@ -448,20 +412,33 @@ async function fetchGitHubUserName() {
   const octokit = new Octokit({ auth: githubToken.value })
   const { data } = await octokit.users.getAuthenticated()
   userName.value = data.name || data.login || ''
+  githubUserLogin.value = data.login
   localStorage.setItem(NOME_KEY, userName.value)
+}
+
+async function syncDataToRepo() {
+  if (!githubToken.value || !githubUserLogin.value) return
+  const data = localStorage.getItem('dev-room-data') || '{}'
+  await saveDataToRepo(githubToken.value, githubUserLogin.value, data)
+}
+
+async function loadDataFromRepoAndSet() {
+  if (!githubToken.value || !githubUserLogin.value) return
+  const content = await loadDataFromRepo(githubToken.value, githubUserLogin.value)
+  localStorage.setItem('dev-room-data', content)
 }
 
 function logoutGitHub() {
   githubToken.value = null
-  gistId.value = null
   localStorage.removeItem('github_token')
 }
 
+// Sincronização automática ao alterar localStorage
 watchEffect(() => {
-  if (githubToken.value && gistId.value) {
+  if (githubToken.value && githubUserLogin.value) {
     window.addEventListener('storage', (e) => {
       if (e.key === 'dev-room-data') {
-        syncDataToGist()
+        syncDataToRepo()
       }
     })
   }
