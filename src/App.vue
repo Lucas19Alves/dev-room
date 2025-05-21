@@ -380,6 +380,7 @@ const isSyncing = ref(false)
 function loginWithGitHub() {
   const clientId = 'Ov23liLXp3BH07oDymH4'
   const redirectUri = window.location.origin
+  const scope = 'gist'
   window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`
 }
 
