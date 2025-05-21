@@ -418,8 +418,12 @@ async function fetchGitHubUserName() {
 
 async function syncDataToRepo() {
   if (!githubToken.value || !githubUserLogin.value) return
-  const data = localStorage.getItem('dev-room-data') || '{}'
-  await saveDataToRepo(githubToken.value, githubUserLogin.value, data)
+  try {
+    await saveDataToRepo(githubToken.value, githubUserLogin.value, localStorage.getItem('dev-room-data') || '{}')
+    console.log('Backup salvo no GitHub!')
+  } catch (err) {
+    console.error('Erro ao salvar backup no GitHub:', err)
+  }
 }
 
 async function loadDataFromRepoAndSet() {
