@@ -53,9 +53,17 @@
     <div class="w-full mt-4 flex-1 flex flex-col" id="water-reminder-history">
       <div class="text-xs text-gray-400 mb-1" id="water-reminder-history-label">Histórico de hoje</div>
       <ul class="max-h-32 overflow-y-auto text-sm flex-1" id="water-reminder-history-list">
-        <li v-for="(item, idx) in todayHistory" :key="idx" class="flex justify-between border-b border-gray-700 py-1 water-reminder-history-item">
+        <li v-for="(item, idx) in todayHistory" :key="idx" class="flex justify-between items-center border-b border-gray-700 py-1 water-reminder-history-item">
           <span>{{ formatTime(item.time) }}</span>
           <span>{{ item.amount }}ml</span>
+          <button
+            @click="removeHistoryItem(item)"
+            class="ml-2 text-xs text-red-400 hover:text-red-600 px-2 py-0.5 rounded transition border border-transparent hover:border-red-400"
+            title="Remover este registro"
+            :id="`water-reminder-history-remove-btn-${idx}`"
+          >
+            Remover
+          </button>
         </li>
         <li v-if="todayHistory.length === 0" class="text-gray-500 text-center" id="water-reminder-history-empty">Nenhum registro hoje.</li>
       </ul>
@@ -137,6 +145,14 @@ function registerDrink() {
     amount: amount.value
   })
   resetTimer()
+}
+
+// Remove um item do histórico
+function removeHistoryItem(item) {
+  const idx = history.value.findIndex(h => h.time === item.time && h.amount === item.amount)
+  if (idx !== -1) {
+    history.value.splice(idx, 1)
+  }
 }
 
 function resetTimer() {

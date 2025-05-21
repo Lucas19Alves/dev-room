@@ -86,7 +86,6 @@
 </template>
 
 <script setup>
-// Importações e definição de propriedades
 import { ref, onMounted, watch } from 'vue'
 import interact from 'interactjs'
 
@@ -112,16 +111,13 @@ const minHeight = 160
 const maximized = ref(false)
 const prevState = ref({ x: 0, y: 0, width: 0, height: 0 })
 
-// Sincroniza posição ao receber props novas
 watch(() => props.x, val => (pos.value.x = val))
 watch(() => props.y, val => (pos.value.y = val))
 
-// Emite evento para trazer janela para frente
 function bringToFront() {
   emit('bringToFront')
 }
 
-// Maximiza a janela
 function maximize() {
   prevState.value = {
     x: pos.value.x,
@@ -144,7 +140,6 @@ function maximize() {
   }
 }
 
-// Restaura a janela ao tamanho/posição anterior
 function restore() {
   pos.value.x = prevState.value.x
   pos.value.y = prevState.value.y
@@ -155,14 +150,13 @@ function restore() {
   emit('update:size', { width: size.value.width, height: size.value.height })
 }
 
-// Inicializa drag e resize com interact.js
 onMounted(() => {
   size.value.width = props.width
   size.value.height = props.height
 
   interact(windowRef.value)
     .draggable({
-      allowFrom: '.cursor-move',
+      allowFrom: '.window-header', // Só permite mover pela barra superior
       modifiers: [
         interact.modifiers.restrictRect({
           restriction: props.containerSelector
@@ -182,7 +176,8 @@ onMounted(() => {
       }
     })
     .resizable({
-      edges: { left: true, right: true, bottom: true, top: true },
+      // Remove resize pelo topo para não atrapalhar o drag
+      edges: { left: true, right: true, bottom: true, top: false },
       modifiers: [
         interact.modifiers.restrictEdges({
           outer: props.containerSelector

@@ -71,10 +71,12 @@ function saveAppState() {
   data.nome = userName.value
   data.tema = currentTheme.value
   data.windows = JSON.parse(JSON.stringify(openWindows))
+  data.lastModified = Date.now() // <-- Adicione isso
   setDevRoomData(data)
   localStorage.setItem(NOME_KEY, userName.value)
   localStorage.setItem(THEME_KEY, currentTheme.value)
   localStorage.setItem('dev-room-windows', JSON.stringify(openWindows))
+  localStorage.setItem('dev-room-lastModified', data.lastModified) // <-- Salva também localmente
 }
 
 // Observa mudanças e salva estado
@@ -511,15 +513,22 @@ async function syncDataToRepo() {
 async function loadDataFromRepoAndSet() {
   if (!githubToken.value || !githubUserLogin.value) return
   const content = await loadDataFromRepo(githubToken.value, githubUserLogin.value)
-  localStorage.setItem('dev-room-data', content)
-  // Atualiza variáveis reativas principais do app imediatamente
-  const allData = getDevRoomData()
-  if (allData.nome) userName.value = allData.nome
-  if (allData.tema) applyTheme(allData.tema)
-  if (allData.windows && Array.isArray(allData.windows)) {
-    openWindows.splice(0, openWindows.length, ...allData.windows)
-    if (allData.windows.length) {
-      zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
+  const repoData = JSON.parse(content || '{}')
+  const localLastModified = Number(localStorage.getItem('dev-room-lastModified') || 0)
+  const repoLastModified = Number(repoData.lastModified || 0)
+
+  // Só sobrescreve se o backup do GitHub for mais recente
+  if (repoLastModified > localLastModified) {
+    localStorage.setItem('dev-room-data', content)
+    localStorage.setItem('dev-room-lastModified', repoLastModified)
+    // Atualiza variáveis reativas principais do app imediatamente
+    if (repoData.nome) userName.value = repoData.nome
+    if (repoData.tema) applyTheme(repoData.tema)
+    if (repoData.windows && Array.isArray(repoData.windows)) {
+      openWindows.splice(0, openWindows.length, ...repoData.windows)
+      if (repoData.windows.length) {
+        zIndexCounter = Math.max(...repoData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
+      }
     }
   }
 }
@@ -563,22 +572,27 @@ setInterval(() => {
 }, 2000)
 
 // Sincroniza backup do GitHub para localStorage a cada 10s
-let lastRepoData = null
 setInterval(async () => {
   if (githubToken.value && githubUserLogin.value) {
     try {
       const repoContent = await loadDataFromRepo(githubToken.value, githubUserLogin.value)
-      if (repoContent && repoContent !== lastRepoData && repoContent !== localStorage.getItem('dev-room-data')) {
-        lastRepoData = repoContent
+      const repoData = JSON.parse(repoContent || '{}')
+      const localLastModified = Number(localStorage.getItem('dev-room-lastModified') || 0)
+      const repoLastModified = Number(repoData.lastModified || 0)
+      if (
+        repoContent &&
+        repoLastModified > localLastModified &&
+        repoContent !== localStorage.getItem('dev-room-data')
+      ) {
         localStorage.setItem('dev-room-data', repoContent)
+        localStorage.setItem('dev-room-lastModified', repoLastModified)
         // Atualiza variáveis reativas principais do app
-        const allData = getDevRoomData()
-        if (allData.nome) userName.value = allData.nome
-        if (allData.tema) applyTheme(allData.tema)
-        if (allData.windows && Array.isArray(allData.windows)) {
-          openWindows.splice(0, openWindows.length, ...allData.windows)
-          if (allData.windows.length) {
-            zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
+        if (repoData.nome) userName.value = repoData.nome
+        if (repoData.tema) applyTheme(repoData.tema)
+        if (repoData.windows && Array.isArray(repoData.windows)) {
+          openWindows.splice(0, openWindows.length, ...repoData.windows)
+          if (repoData.windows.length) {
+            zIndexCounter = Math.max(...repoData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
           }
         }
       }
