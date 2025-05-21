@@ -70,7 +70,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, computed } from 'vue'
+import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue'
 import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
 const allData = getDevRoomData()
@@ -126,5 +126,19 @@ const sortedTasks = computed(() => {
     ...tasks.value.filter(t => !t.done),
     ...tasks.value.filter(t => t.done)
   ]
+})
+
+// Atualização automática ao mudar localStorage
+function syncFromStorage(e) {
+  if (e.key === 'dev-room-data') {
+    const allData = getDevRoomData()
+    tasks.value = allData.tasks || []
+  }
+}
+onMounted(() => {
+  window.addEventListener('storage', syncFromStorage)
+})
+onUnmounted(() => {
+  window.removeEventListener('storage', syncFromStorage)
 })
 </script>

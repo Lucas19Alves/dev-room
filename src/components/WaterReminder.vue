@@ -171,6 +171,19 @@ const timeLeftFormatted = computed(() => {
   return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
 })
 
+// Atualização automática ao mudar localStorage
+function syncFromStorage(e) {
+  if (e.key === 'dev-room-data') {
+    const allData = getDevRoomData()
+    waterReminder.value = allData.waterReminder || {
+      config: { interval: 60, amount: 200 },
+      history: [],
+      next: null,
+      running: false
+    }
+  }
+}
+
 onMounted(() => {
   // Não inicia automaticamente!
   updateTimeLeft()
@@ -184,11 +197,13 @@ onMounted(() => {
   }
   window.addEventListener('devroom-pause-all', () => running.value = false)
   window.addEventListener('devroom-resume-all', () => running.value = true)
+  window.addEventListener('storage', syncFromStorage)
 })
 
 onBeforeUnmount(() => {
   if (timer.value) clearInterval(timer.value)
   window.removeEventListener('devroom-pause-all', () => running.value = false)
   window.removeEventListener('devroom-resume-all', () => running.value = true)
+  window.removeEventListener('storage', syncFromStorage)
 })
 </script>

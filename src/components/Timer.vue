@@ -183,12 +183,28 @@ function toggleTimer() {
   }
 }
 
+// Atualização automática ao mudar localStorage
+function syncFromStorage(e) {
+  if (e.key === 'dev-room-data') {
+    const allData = getDevRoomData()
+    timer.value = allData.timer || {
+      inputMinutes: 0,
+      inputSeconds: 0,
+      totalSeconds: 0,
+      elapsed: 0,
+      running: false,
+      endTimestamp: null
+    }
+  }
+}
+
 onMounted(() => {
   loadState()
   window.addEventListener('devroom-pause-all', pauseTimer)
   window.addEventListener('devroom-resume-all', () => {
     if (running.value) startTimer()
   })
+  window.addEventListener('storage', syncFromStorage)
 })
 
 onUnmounted(() => {
@@ -198,6 +214,7 @@ onUnmounted(() => {
   window.removeEventListener('devroom-resume-all', () => {
     if (running.value) startTimer()
   })
+  window.removeEventListener('storage', syncFromStorage)
 })
 
 watch([inputMinutes, inputSeconds, totalSeconds, elapsed, running, endTimestamp], saveState)

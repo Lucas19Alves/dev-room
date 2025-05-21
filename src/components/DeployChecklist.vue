@@ -137,7 +137,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, nextTick } from 'vue'
+import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
 const allData = getDevRoomData()
@@ -269,6 +269,20 @@ const filteredItems = computed(() => {
 
 const doneCount = computed(() => checklist.value.filter(i => i.done).length)
 const progress = computed(() => checklist.value.length ? Math.round((doneCount.value / checklist.value.length) * 100) : 0)
+
+// Atualização automática ao mudar localStorage
+function syncFromStorage(e) {
+  if (e.key === 'dev-room-data') {
+    const allData = getDevRoomData()
+    checklist.value = allData.deployChecklist || []
+  }
+}
+onMounted(() => {
+  window.addEventListener('storage', syncFromStorage)
+})
+onUnmounted(() => {
+  window.removeEventListener('storage', syncFromStorage)
+})
 </script>
 
 <style scoped>

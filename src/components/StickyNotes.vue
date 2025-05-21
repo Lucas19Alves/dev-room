@@ -45,7 +45,7 @@
 </template>
 
 <script setup>
-import { computed, watch, onMounted } from 'vue'
+import { computed, watch, onMounted, onUnmounted } from 'vue'
 import { notes, loadNotes, saveNotes, STORAGE_KEY } from '../stores/notesStore'
 
 const noteColors = [
@@ -97,11 +97,18 @@ function stopDrag() {
   document.removeEventListener('mouseup', stopDrag)
 }
 
+function syncFromStorage(e) {
+  if (e.key === STORAGE_KEY || e.key === 'dev-room-data') {
+    loadNotes()
+  }
+}
+
 onMounted(() => {
   loadNotes()
-  window.addEventListener('storage', (e) => {
-    if (e.key === STORAGE_KEY) loadNotes()
-  })
+  window.addEventListener('storage', syncFromStorage)
+})
+onUnmounted(() => {
+  window.removeEventListener('storage', syncFromStorage)
 })
 
 watch(notes, saveNotes, { deep: true })

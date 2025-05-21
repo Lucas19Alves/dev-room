@@ -471,6 +471,17 @@ async function loadDataFromRepoAndSet() {
   if (!githubToken.value || !githubUserLogin.value) return
   const content = await loadDataFromRepo(githubToken.value, githubUserLogin.value)
   localStorage.setItem('dev-room-data', content)
+  // Atualize variáveis reativas principais do app imediatamente:
+  const allData = getDevRoomData()
+  if (allData.nome) userName.value = allData.nome
+  if (allData.tema) applyTheme(allData.tema)
+  if (allData.windows && Array.isArray(allData.windows)) {
+    openWindows.splice(0, openWindows.length, ...allData.windows)
+    if (allData.windows.length) {
+      zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
+    }
+  }
+  // Se tiver outros dados reativos, atualize aqui também!
 }
 
 function logoutGitHub() {
@@ -510,6 +521,34 @@ setInterval(() => {
     }
   }
 }, 2000)
+
+let lastRepoData = null
+
+// Sincronização automática do repositório para o localStorage
+setInterval(async () => {
+  if (githubToken.value && githubUserLogin.value) {
+    try {
+      const repoContent = await loadDataFromRepo(githubToken.value, githubUserLogin.value)
+      if (repoContent && repoContent !== lastRepoData && repoContent !== localStorage.getItem('dev-room-data')) {
+        lastRepoData = repoContent
+        localStorage.setItem('dev-room-data', repoContent)
+        // Atualize variáveis reativas principais do app, se necessário:
+        const allData = getDevRoomData()
+        if (allData.nome) userName.value = allData.nome
+        if (allData.tema) applyTheme(allData.tema)
+        if (allData.windows && Array.isArray(allData.windows)) {
+          openWindows.splice(0, openWindows.length, ...allData.windows)
+          if (allData.windows.length) {
+            zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
+          }
+        }
+        // Se tiver outros dados reativos, atualize aqui também!
+      }
+    } catch (e) {
+      // Silencie erros de rede ou 404
+    }
+  }
+}, 10000) // a cada 10 segundos
 
 watch(onboardingStep, (step) => {
   if (step === 5 && githubToken.value) {
@@ -979,7 +1018,7 @@ watch(onboardingStep, (step) => {
     <transition name="fade">
       <div
         v-if="pauseMode"
-        class="fixed inset-0 z-[999] flex items-center justify-center"
+        class="fixed inset-0 z-[9999] flex items-center justify-center"
         style="background: rgba(0,0,0,0.85);"
         id="pause-modal"
       >

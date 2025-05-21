@@ -249,6 +249,14 @@ function skip() {
   nextStage()
 }
 
+// Atualização automática ao mudar localStorage
+function syncFromStorage(e) {
+  if (e.key === 'dev-room-data') {
+    const allData = getDevRoomData()
+    pomodoro.value = allData.pomodoro || { state: {}, config: {} }
+  }
+}
+
 // Ciclo de vida: monta e desmonta o componente
 onMounted(() => {
   loadConfig()
@@ -257,6 +265,7 @@ onMounted(() => {
   window.addEventListener('devroom-resume-all', () => {
     if (running.value) startTimer()
   })
+  window.addEventListener('storage', syncFromStorage)
 })
 
 onUnmounted(() => {
@@ -266,6 +275,7 @@ onUnmounted(() => {
   window.removeEventListener('devroom-resume-all', () => {
     if (running.value) startTimer()
   })
+  window.removeEventListener('storage', syncFromStorage)
 })
 
 // Observa mudanças para salvar o estado automaticamente

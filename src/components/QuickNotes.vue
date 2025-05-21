@@ -67,8 +67,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { notes, saveNotes, loadNotes } from '../stores/notesStore'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { notes, saveNotes, loadNotes, STORAGE_KEY } from '../stores/notesStore'
 
 const newNote = ref('')
 
@@ -85,6 +85,11 @@ onMounted(() => {
   }
   checkMobile()
   window.addEventListener('resize', checkMobile)
+  window.addEventListener('storage', syncFromStorage)
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', () => {})
+  window.removeEventListener('storage', syncFromStorage)
 })
 
 function addNote(text) {
@@ -107,5 +112,11 @@ function floatNote(note) {
   note.x = note.x ?? 100
   note.y = note.y ?? 100
   saveNotes()
+}
+
+function syncFromStorage(e) {
+  if (e.key === STORAGE_KEY || e.key === 'dev-room-data') {
+    loadNotes()
+  }
 }
 </script>
