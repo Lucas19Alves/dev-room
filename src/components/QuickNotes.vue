@@ -67,11 +67,9 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
-import { getDevRoomData, setDevRoomData } from '../utils/storage'
+import { ref, computed, onMounted } from 'vue'
+import { notes, saveNotes, loadNotes } from '../stores/notesStore'
 
-const allData = getDevRoomData()
-const notes = ref(allData.notes || [])
 const newNote = ref('')
 
 const noteColors = [
@@ -79,14 +77,9 @@ const noteColors = [
   '#E0BBE4', '#B5EAD7', '#C7CEEA',
 ]
 
-watch(notes, (val) => {
-  const data = getDevRoomData()
-  data.notes = val
-  setDevRoomData(data)
-}, { deep: true })
-
 const isMobile = ref(false)
 onMounted(() => {
+  loadNotes()
   const checkMobile = () => {
     isMobile.value = window.matchMedia('(max-width: 640px)').matches
   }
@@ -96,11 +89,23 @@ onMounted(() => {
 
 function addNote(text) {
   if (text.trim() === '') return
-  notes.value.push({ text: text.trim(), id: Date.now() + Math.random() })
+  notes.value.push({ text: text.trim(), id: Date.now() + Math.random(), floating: false, x: 100, y: 100 })
   newNote.value = ''
+  saveNotes()
 }
 
 function removeNote(id) {
-  notes.value = notes.value.filter(n => n.id !== id)
+  const idx = notes.value.findIndex(n => n.id === id)
+  if (idx !== -1) {
+    notes.value.splice(idx, 1)
+    saveNotes()
+  }
+}
+
+function floatNote(note) {
+  note.floating = true
+  note.x = note.x ?? 100
+  note.y = note.y ?? 100
+  saveNotes()
 }
 </script>

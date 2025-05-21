@@ -16,7 +16,7 @@ import { ref, reactive, onMounted, onUnmounted, watch, watchEffect } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
 import { Octokit } from '@octokit/rest';
 import { ensureRepo, saveDataToRepo, loadDataFromRepo } from './utils/githubSync';
-import { getDevRoomData } from './utils/storage';
+import { getDevRoomData, setDevRoomData } from './utils/storage';
 
 const NOME_KEY = 'dev-room-nome'
 const THEME_KEY = 'dev-room-theme'
@@ -59,6 +59,25 @@ function skipFirstLogin() {
   firstLoginModal.value = false
   localStorage.setItem('dev-room-first-login', 'skip')
 }
+
+let zIndexCounter = 10
+const openWindows = reactive([])
+
+function saveAppState() {
+  const data = getDevRoomData()
+  data.nome = userName.value
+  data.tema = currentTheme.value
+  data.windows = JSON.parse(JSON.stringify(openWindows))
+  setDevRoomData(data)
+  localStorage.setItem(NOME_KEY, userName.value)
+  localStorage.setItem(THEME_KEY, currentTheme.value)
+  localStorage.setItem('dev-room-windows', JSON.stringify(openWindows))
+}
+
+// Sempre que mudar nome, tema ou janelas:
+watch(userName, saveAppState)
+watch(currentTheme, saveAppState)
+watch(openWindows, saveAppState, { deep: true })
 
 onMounted(() => {
   onboardingDone.value = localStorage.getItem('dev-room-onboarding') === 'ok';
@@ -121,6 +140,17 @@ onMounted(() => {
     firstLoginModal.value = false
     localStorage.setItem('dev-room-first-login', 'ok')
   }
+
+  const allData = getDevRoomData()
+  if (allData.nome) userName.value = allData.nome
+  if (allData.tema) applyTheme(allData.tema
+  )
+  if (allData.windows && Array.isArray(allData.windows)) {
+    openWindows.splice(0, openWindows.length, ...allData.windows)
+    if (allData.windows.length) {
+      zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -159,9 +189,6 @@ const windowComponents = {
   FakeDataGenerator,
   Config,
 }
-
-let zIndexCounter = 10
-const openWindows = reactive([])
 
 watch(openWindows, (windows) => {
   localStorage.setItem('dev-room-windows', JSON.stringify(windows))

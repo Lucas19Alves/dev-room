@@ -1,17 +1,20 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
-const STORAGE_KEY = 'dev-room-quick-notes'
-const notes = ref([])
+const STORAGE_KEY = 'dev-room-data' // agora sempre usa o objeto principal!
+const notes = ref(getDevRoomData().notes || [])
 
 function loadNotes() {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  notes.value = saved ? JSON.parse(saved) : []
+  const allData = getDevRoomData()
+  notes.value = allData.notes || []
 }
 
 function saveNotes() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(notes.value))
+  const allData = getDevRoomData()
+  allData.notes = notes.value
+  setDevRoomData(allData)
 }
 
-loadNotes()
+watch(notes, saveNotes, { deep: true })
 
 export { notes, loadNotes, saveNotes, STORAGE_KEY }
