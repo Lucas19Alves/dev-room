@@ -405,6 +405,19 @@ const githubToken = ref(null)
 const isSyncing = ref(false)
 const githubUserLogin = ref('')
 
+const showLoginModal = ref(false)
+const showLogoutModal = ref(false)
+
+function confirmLoginWithGitHub() {
+  showLoginModal.value = false
+  loginWithGitHub()
+}
+
+function confirmLogoutGitHub() {
+  showLogoutModal.value = false
+  logoutGitHub()
+}
+
 function loginWithGitHub() {
   const clientId = 'Ov23liLXp3BH07oDymH4'
   const redirectUri = window.location.origin
@@ -715,7 +728,7 @@ watch(onboardingStep, (step) => {
               </span>
               <button
                 v-if="!githubToken"
-                @click="loginWithGitHub"
+                @click="showLoginModal = true"
                 class="flex items-center justify-center rounded-full p-2 border-2 transition"
                 :style="{
                   background: 'var(--bg-panel)',
@@ -729,7 +742,7 @@ watch(onboardingStep, (step) => {
               </button>
               <button
                 v-else
-                @click="logoutGitHub"
+                @click="showLogoutModal = true"
                 class="flex items-center justify-center rounded-full p-2 border-2 transition"
                 :style="{
                   background: 'var(--bg-panel)',
@@ -801,9 +814,10 @@ watch(onboardingStep, (step) => {
           <h1>
             Olá, dev <span class="font-semibold" :style="{color: 'var(--name)'}">{{ userName }}</span>
           </h1>
+          <!-- Botão de login na statusbar -->
           <button
             v-if="!githubToken"
-            @click="loginWithGitHub"
+            @click="showLoginModal = true"
             class="ml-2 flex items-center justify-center rounded-full p-2 border-2 transition"
             :style="{
               background: 'var(--bg-panel)',
@@ -815,9 +829,10 @@ watch(onboardingStep, (step) => {
           >
             <font-awesome-icon icon="fa-solid fa-right-to-bracket" class="text-lg" />
           </button>
+          <!-- Botão de logout na statusbar -->
           <button
             v-else
-            @click="logoutGitHub"
+            @click="showLogoutModal = true"
             class="ml-2 flex items-center justify-center rounded-full p-2 border-2 transition"
             :style="{
               background: 'var(--bg-panel)',
@@ -1044,6 +1059,68 @@ watch(onboardingStep, (step) => {
       <button @click="installApp" class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold" id="install-prompt-install-btn">Instalar</button>
       <button @click="showInstallPrompt = false" class="cursor-pointer ml-2 text-blue-200 hover:text-white" id="install-prompt-close-btn">Fechar</button>
     </div>
+
+    <!-- Modal de login via GitHub -->
+    <transition name="fade">
+      <div v-if="showLoginModal" class="fixed inset-0 z-[999] flex items-center justify-center"
+        style="background: rgba(0,0,0,0.85);">
+        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-full"
+          :style="{ borderColor: 'var(--accent)' }">
+          <font-awesome-icon icon="fa-brands fa-github" class="text-5xl mb-4 text-gray-300" />
+          <h2 class="text-2xl font-bold mb-4 text-center">Login via GitHub</h2>
+          <p class="mb-4 text-center">
+            Para sincronizar seus dados entre dispositivos, faça login com sua conta do <b>GitHub</b>.<br>
+            Seus dados ficarão salvos de forma privada em seu próprio repositório.
+          </p>
+          <button
+            @click="confirmLoginWithGitHub"
+            class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-bold shadow transition text-lg mb-3 w-full"
+            id="modal-github-login-btn"
+          >
+            <font-awesome-icon icon="fa-brands fa-github" class="text-xl" />
+            Entrar com GitHub
+          </button>
+          <button
+            @click="showLoginModal = false"
+            class="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 text-gray-200 px-6 py-3 rounded-full font-bold shadow transition text-lg w-full"
+            id="modal-github-cancel-btn"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Modal de logout com confirmação -->
+    <transition name="fade">
+      <div v-if="showLogoutModal" class="fixed inset-0 z-[999] flex items-center justify-center"
+        style="background: rgba(0,0,0,0.85);">
+        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-full"
+          :style="{ borderColor: 'var(--accent)' }">
+          <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-5xl mb-4 text-red-400" />
+          <h2 class="text-2xl font-bold mb-4 text-center">Sair da sincronização</h2>
+          <p class="mb-4 text-center text-red-300">
+            Ao sair, seus dados <b>não serão mais sincronizados</b> com o GitHub.<br>
+            Você poderá continuar usando o app localmente, mas <b>poderá perder dados</b> se limpar o navegador ou trocar de dispositivo.
+          </p>
+          <button
+            @click="confirmLogoutGitHub"
+            class="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full font-bold shadow transition text-lg mb-3 w-full"
+            id="modal-github-logout-btn"
+          >
+            <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-xl" />
+            Sair e parar sincronização
+          </button>
+          <button
+            @click="showLogoutModal = false"
+            class="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 text-gray-200 px-6 py-3 rounded-full font-bold shadow transition text-lg w-full"
+            id="modal-github-logout-cancel-btn"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </transition>
 
   </div>
 </template>
