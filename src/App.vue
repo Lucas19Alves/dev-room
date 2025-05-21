@@ -258,7 +258,6 @@ function openWindow(type) {
     FakeDataGenerator: { width: 340, height: 400 },
     Config: { width: 340, height: 400 },
     ChatGPTApi: { width: 600, height: 600 },
-    StackOverflow: { width: 600, height: 600 },
   }
   let { width, height } = defaultSizes[type] || { width: 340, height: 220 }
 
@@ -955,7 +954,8 @@ watch(onboardingStep, (step) => {
               winTab.type === 'Search' ? 'text-cyan-400 hover:text-cyan-200' : '',
               winTab.type === 'Themes' ? 'text-fuchsia-400 hover:text-fuchsia-200' : '',
               winTab.type === 'WaterReminder' ? 'text-sky-400 hover:text-sky-200' : '',
-              winTab.type === 'FakeDataGenerator' ? 'text-lime-400 hover:text-lime-200' : ''
+              winTab.type === 'FakeDataGenerator' ? 'text-lime-400 hover:text-lime-200' : '',
+              winTab.type === 'ChatGPTApi' ? 'text-emerald-400 hover:text-emerald-200' : '',
             ]" class="text-2xl" />
             <span class="dock-tooltip group-hover:opacity-100">{{ winTab.label }}</span>
             <span
