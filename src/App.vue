@@ -16,6 +16,7 @@ import { ref, reactive, onMounted, onUnmounted, watch, watchEffect } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
 import { Octokit } from '@octokit/rest';
 import { ensureRepo, saveDataToRepo, loadDataFromRepo } from './utils/githubSync';
+import { getDevRoomData } from './utils/storage';
 
 const NOME_KEY = 'dev-room-nome'
 const THEME_KEY = 'dev-room-theme'
@@ -447,6 +448,28 @@ watchEffect(() => {
     })
   }
 })
+
+// Sincronização automática ao alterar localStorage NA MESMA ABA
+watchEffect(() => {
+  if (githubToken.value && githubUserLogin.value) {
+    // Sincroniza sempre que dev-room-data mudar
+    const data = localStorage.getItem('dev-room-data')
+    if (data) {
+      syncDataToRepo()
+    }
+  }
+})
+
+let lastData = localStorage.getItem('dev-room-data')
+setInterval(() => {
+  if (githubToken.value && githubUserLogin.value) {
+    const currentData = localStorage.getItem('dev-room-data')
+    if (currentData !== lastData) {
+      lastData = currentData
+      syncDataToRepo()
+    }
+  }
+}, 2000)
 
 watch(onboardingStep, (step) => {
   if (step === 5 && githubToken.value) {
