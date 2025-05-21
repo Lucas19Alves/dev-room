@@ -13,7 +13,7 @@ import FakeDataGenerator from './components/FakeDataGenerator.vue'
 import Config from './components/Config.vue'
 import StickyNotes from './components/StickyNotes.vue'
 import ChatGPTApi from './components/ChatGPTApi.vue'
-import { ref, reactive, onMounted, onUnmounted, watch, watchEffect } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch, watchEffect, computed } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
 import { inject } from "@vercel/analytics"
 import { Octokit } from '@octokit/rest';
@@ -82,6 +82,29 @@ watch(userName, saveAppState)
 watch(currentTheme, saveAppState)
 watch(openWindows, saveAppState, { deep: true })
 
+// Papel de parede - agora aplica diretamente ao estilo do body
+const wallpaper = ref(null)
+
+function setWallpaper(imageDataUrl) {
+  wallpaper.value = imageDataUrl
+  
+  // Já não precisamos fazer nada aqui pois o componente Wallpaper 
+  // aplica diretamente o estilo ao body
+}
+
+// Imagem de fundo - carregamento direto do localStorage
+const BACKGROUND_IMAGE_KEY = 'dev-room-background'
+const backgroundImage = computed(() => {
+  try {
+    // Carrega diretamente da chave específica no localStorage
+    const imgData = localStorage.getItem(BACKGROUND_IMAGE_KEY)
+    return imgData || null
+  } catch (error) {
+    console.error('Erro ao carregar imagem de fundo:', error)
+    return null
+  }
+})
+
 onMounted(() => {
   onboardingDone.value = localStorage.getItem('dev-room-onboarding') === 'ok';
 
@@ -149,6 +172,18 @@ onMounted(() => {
     if (allData.windows.length) {
       zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
     }
+  }
+
+  // Verifica a imagem de fundo
+  if (localStorage.getItem(BACKGROUND_IMAGE_KEY)) {
+    console.log('Imagem de fundo encontrada')
+  }
+
+  // Carregar papel de parede se existir
+  const savedWallpaper = localStorage.getItem('dev-room-wallpaper')
+  if (savedWallpaper) {
+    wallpaper.value = savedWallpaper
+    console.log('Papel de parede carregado')
   }
 })
 
@@ -562,6 +597,8 @@ watch(onboardingStep, (step) => {
 </script>
 
 <template>
+  <!-- O papel de parede agora é aplicado diretamente ao estilo do body -->
+
   <!-- Modal de onboarding -->
   <transition name="fade">
     <div
@@ -703,10 +740,13 @@ watch(onboardingStep, (step) => {
   <inject/>
 
   <!-- Container principal do app -->
-  <div class="h-screen text-gray-100 relative overflow-hidden"
-    :style="{ background: 'var(--bg-main)', color: 'var(--text-main)' }"
-    id="main-app"
-  >
+  <div 
+    id="main-app" 
+    class="h-screen text-gray-100 relative overflow-hidden"
+    :style="{ 
+      backgroundColor: wallpaper ? 'transparent' : 'var(--bg-main)', 
+      color: 'var(--text-main)'
+    }">
 
     <!-- Barra superior mobile com botão de abrir menu e "Me apoie" -->
     <div v-if="isMobile" class="w-full flex items-center justify-between gap-2 px-4 py-3" :style="{
@@ -829,7 +869,7 @@ watch(onboardingStep, (step) => {
       <div class="flex-1 overflow-auto" id="mobile-content">
         <component
           :is="mobileActiveTab === 'Config' ? Config : windowComponents[mobileActiveTab]"
-          v-bind="mobileActiveTab === 'Config' ? { setTheme: applyTheme, currentTheme, nome: userName, setNome } : {}"
+          v-bind="mobileActiveTab === 'Config' ? { setTheme: applyTheme, currentTheme, nome: userName, setNome, setWallpaper } : {}"
         />
       </div>
     </div>
@@ -906,7 +946,7 @@ watch(onboardingStep, (step) => {
             @update:size="size => updateWindowSize(win.id, size)" @bringToFront="bringToFront(win.id)"
             @minimize="minimizeWindow(win.id)">
             <component :is="win.type === 'Config' ? Config : windowComponents[win.type]"
-              v-bind="win.type === 'Config' ? { setTheme: applyTheme, currentTheme, nome: userName, setNome } : {}" />
+              v-bind="win.type === 'Config' ? { setTheme: applyTheme, currentTheme, nome: userName, setNome, setWallpaper } : {}" />
           </Window>
         </template>
       </div>
@@ -1020,7 +1060,7 @@ watch(onboardingStep, (step) => {
       </div>
     </transition>
 
-    <!-- Modal do modo pausa -->
+    <!-- Modal de modo pausa -->
     <transition name="fade">
       <div
         v-if="pauseMode"
@@ -1170,7 +1210,21 @@ watch(onboardingStep, (step) => {
   </div>
 </template>
 
-<style scoped>
+<style>
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  position: relative;
+}
+
+/* Removemos os estilos específicos do papel de parede pois agora 
+   o estilo é aplicado diretamente ao body */
+
 #roomContent {
   padding-bottom: 120px;
 }

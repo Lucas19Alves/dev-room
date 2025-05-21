@@ -65,6 +65,15 @@
       </div>
     </section>
 
+    <!-- Seção: Papel de Parede -->
+    <section class="rounded-lg p-4 flex flex-col gap-2" id="config-wallpaper-section">
+      <h2 class="text-lg font-bold mb-2" :style="{ color: 'var(--text-main)' }" id="config-wallpaper-title">
+        <font-awesome-icon icon="fa-solid fa-image" class="mr-2" />
+        Papel de Parede
+      </h2>
+      <Wallpaper :setWallpaper="setWallpaper" />
+    </section>
+
     <!-- Seção: Documentação -->
     <section class="rounded-lg p-4 flex flex-col gap-2" id="config-doc-section">
       <h2 class="text-lg font-bold mb-2 flex items-center gap-2" :style="{ color: 'var(--text-main)' }" id="config-doc-title">
@@ -172,12 +181,14 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { getDevRoomData, setDevRoomData } from '../utils/storage'
+import Wallpaper from './Wallpaper.vue'
 
 const props = defineProps({
   setTheme: Function,
   currentTheme: String,
   nome: String,
-  setNome: Function
+  setNome: Function,
+  setWallpaper: Function
 })
 
 const nomeLocal = ref(props.nome)

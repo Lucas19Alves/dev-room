@@ -126,8 +126,21 @@ html {
   background: var(--bg-main);
   color: var(--text-main);
   transition: background 0.3s, color 0.3s;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
+/* Estilos para o background */
+body {
+  background-attachment: fixed !important;
+  background-size: cover !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+  min-height: 100vh;
+  width: 100vw;
+  overflow-x: hidden;
+}
 
 /* Personalização da barra de rolagem para todas as janelas */
 .flex-1::-webkit-scrollbar,
