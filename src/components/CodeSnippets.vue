@@ -4,7 +4,7 @@
     <!-- Título -->
     <h2 class="text-xl font-bold mb-4 text-fuchsia-400" id="codesnippets-title">Snippets de Código</h2>
     <!-- Formulário para adicionar novo snippet -->
-    <form @submit.prevent="addSnippet" class="flex flex-col sm:flex-row gap-2 mb-4" id="codesnippets-form">
+    <form @submit.prevent="addSnippet(newSnippet)" class="flex flex-col sm:flex-row gap-2 mb-4" id="codesnippets-form">
       <input
         v-model="newSnippet.title"
         type="text"
@@ -50,7 +50,7 @@
     <!-- Lista de snippets -->
     <div class="overflow-y-auto flex-1 w-full min-h-[40px]" id="codesnippets-list">
       <div
-        v-for="(snippet, idx) in filteredSnippets"
+        v-for="snippet in filteredSnippets"
         :key="snippet.id"
         class="mb-4 p-4 rounded-lg shadow bg-gray-800 border border-fuchsia-900 relative codesnippets-item"
         :id="`codesnippets-item-${snippet.id}`"
@@ -70,7 +70,7 @@
               <font-awesome-icon icon="fa-solid fa-copy" />
             </button>
             <button
-              @click="editSnippet(idx)"
+              @click="editSnippet(snippet.id)"
               class="text-yellow-400 hover:text-yellow-200 transition codesnippets-edit-btn"
               title="Editar"
               :id="`codesnippets-edit-btn-${snippet.id}`"
@@ -78,7 +78,7 @@
               <font-awesome-icon icon="fa-solid fa-pen" />
             </button>
             <button
-              @click="removeSnippet(idx)"
+              @click="removeSnippet(snippet.id)"
               class="text-red-400 hover:text-red-600 transition codesnippets-remove-btn"
               title="Remover"
               :id="`codesnippets-remove-btn-${snippet.id}`"
@@ -132,8 +132,7 @@
 </template>
 
 <script setup>
-// Importações e estados reativos principais
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import hljs from 'highlight.js/lib/core'
 import javascript from 'highlight.js/lib/languages/javascript'
 import python from 'highlight.js/lib/languages/python'
@@ -143,8 +142,9 @@ import xml from 'highlight.js/lib/languages/xml'
 import css from 'highlight.js/lib/languages/css'
 import sql from 'highlight.js/lib/languages/sql'
 import markdown from 'highlight.js/lib/languages/markdown'
-import java from 'highlight.js/lib/languages/java' // Importa Java
+import java from 'highlight.js/lib/languages/java'
 import 'highlight.js/styles/github-dark.css'
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
 // Registra as linguagens suportadas
 hljs.registerLanguage('javascript', javascript)
@@ -155,83 +155,61 @@ hljs.registerLanguage('xml', xml)
 hljs.registerLanguage('css', css)
 hljs.registerLanguage('sql', sql)
 hljs.registerLanguage('markdown', markdown)
-hljs.registerLanguage('java', java) // Registra Java
+hljs.registerLanguage('java', java)
 
-const STORAGE_KEY = 'dev-room-snippets'
 const languages = [
-  'javascript', 'python', 'bash', 'json', 'xml', 'css', 'sql', 'markdown', 'java' // Adiciona Java
+  'javascript', 'python', 'bash', 'json', 'xml', 'css', 'sql', 'markdown', 'java'
 ]
 
-const newSnippet = ref({ title: '', language: '', code: '' })
-const snippets = ref([])
+const allData = getDevRoomData()
+const snippets = ref(allData.snippets || [])
 const search = ref('')
-
+const newSnippet = ref({ title: '', language: '', code: '' })
 const editingIdx = ref(null)
 const editSnippetData = ref({ title: '', language: '', code: '' })
 
-// Carrega snippets do localStorage ao iniciar
-function loadSnippets() {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  snippets.value = saved ? JSON.parse(saved) : []
-}
+watch(snippets, (val) => {
+  const data = getDevRoomData()
+  data.snippets = val
+  setDevRoomData(data)
+}, { deep: true })
 
-// Salva snippets no localStorage
-function saveSnippets() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(snippets.value))
-}
-
-// Adiciona novo snippet
-function addSnippet() {
-  if (
-    !newSnippet.value.title.trim() ||
-    !newSnippet.value.language ||
-    !newSnippet.value.code.trim()
-  ) return
-  snippets.value.push({
-    id: Date.now() + Math.random(),
-    title: newSnippet.value.title.trim(),
-    language: newSnippet.value.language,
-    code: newSnippet.value.code
-  })
+function addSnippet(snippet) {
+  if (!snippet.title.trim() || !snippet.language || !snippet.code.trim()) return
+  snippet.id = Date.now() + Math.random()
+  snippets.value.push(snippet)
   newSnippet.value = { title: '', language: '', code: '' }
-  saveSnippets()
 }
 
-// Remove snippet pelo índice
-function removeSnippet(idx) {
-  snippets.value.splice(idx, 1)
-  saveSnippets()
+function removeSnippet(id) {
+  snippets.value = snippets.value.filter(s => s.id !== id)
 }
 
-// Edita snippet pelo índice
-function editSnippet(idx) {
-  editingIdx.value = idx
-  editSnippetData.value = { ...snippets.value[idx] }
+function editSnippet(id) {
+  const snippet = snippets.value.find(s => s.id === id)
+  if (snippet) {
+    editingIdx.value = id
+    editSnippetData.value = { ...snippet }
+  }
 }
 
-// Salva edição do snippet
 function saveEdit() {
-  if (
-    !editSnippetData.value.title.trim() ||
-    !editSnippetData.value.language ||
-    !editSnippetData.value.code.trim()
-  ) return
-  snippets.value[editingIdx.value] = { ...editSnippetData.value }
-  editingIdx.value = null
-  saveSnippets()
+  if (!editSnippetData.value.title.trim() || !editSnippetData.value.language || !editSnippetData.value.code.trim()) return
+  const idx = snippets.value.findIndex(s => s.id === editingIdx.value)
+  if (idx !== -1) {
+    snippets.value[idx] = { ...editSnippetData.value }
+    editingIdx.value = null
+  }
 }
 
-// Cancela edição
 function cancelEdit() {
   editingIdx.value = null
 }
 
-// Copia código para a área de transferência
 function copyCode(code) {
   navigator.clipboard.writeText(code)
 }
 
-// Lista filtrada de snippets conforme busca
 const filteredSnippets = computed(() => {
   if (!search.value.trim()) return snippets.value
   const q = search.value.trim().toLowerCase()
@@ -242,15 +220,10 @@ const filteredSnippets = computed(() => {
   )
 })
 
-// Realça o código conforme a linguagem
 function highlight(code, lang) {
   if (hljs.getLanguage(lang)) {
     return hljs.highlight(code, { language: lang }).value
   }
   return hljs.highlightAuto(code).value
 }
-
-// Inicializa e observa mudanças para salvar automaticamente
-loadSnippets()
-watch(snippets, saveSnippets, { deep: true })
 </script>

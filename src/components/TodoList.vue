@@ -3,7 +3,7 @@
   <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[180px] min-h-[180px]" id="todo-main">
     <h2 class="text-xl font-bold mb-4 text-yellow-300" id="todo-title">To-Do List</h2>
     <!-- Formulário para adicionar nova tarefa -->
-    <form @submit.prevent="addTask" class="flex flex-row gap-2 mb-4 w-full" id="todo-form">
+    <form @submit.prevent="addTask(newTask)" class="flex flex-row gap-2 mb-4 w-full" id="todo-form">
       <input
         v-model="newTask"
         type="text"
@@ -32,7 +32,6 @@
           <input
             type="checkbox"
             v-model="task.done"
-            @change="saveTasks"
             class="todo-checkbox"
             :id="`todo-checkbox-${task.id}`"
           />
@@ -57,7 +56,7 @@
           />
         </label>
         <button
-          @click="removeTaskById(task.id)"
+          @click="removeTask(task.id)"
           class="ml-2 text-red-400 hover:text-red-600 transition todo-remove-btn"
           title="Remover"
           :id="`todo-remove-btn-${task.id}`"
@@ -71,54 +70,38 @@
 </template>
 
 <script setup>
-// Importações e definição de estados reativos
 import { ref, watch, nextTick, computed } from 'vue'
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
-const STORAGE_KEY = 'dev-room-tasks'
+const allData = getDevRoomData()
+const tasks = ref(allData.tasks || [])
 const newTask = ref('')
-const tasks = ref([])
 
 // Estados para edição
 const editingId = ref(null)
 const editText = ref('')
 const editInput = ref(null)
 
-// Carrega tarefas do localStorage ao iniciar
-function loadTasks() {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  tasks.value = saved ? JSON.parse(saved) : []
-}
-
-// Salva tarefas no localStorage
-function saveTasks() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks.value))
-}
+watch(tasks, (val) => {
+  const data = getDevRoomData()
+  data.tasks = val
+  setDevRoomData(data)
+}, { deep: true })
 
 // Adiciona uma nova tarefa
-function addTask() {
-  if (newTask.value.trim() === '') return
+function addTask(text) {
+  if (text.trim() === '') return
   tasks.value.push({
     id: Date.now() + Math.random(),
-    text: newTask.value.trim(),
+    text: text.trim(),
     done: false
   })
   newTask.value = ''
-  saveTasks()
-}
-
-// Remove uma tarefa pelo índice
-function removeTask(idx) {
-  tasks.value.splice(idx, 1)
-  saveTasks()
 }
 
 // Remove uma tarefa pelo ID
-function removeTaskById(id) {
-  const idx = tasks.value.findIndex(t => t.id === id)
-  if (idx !== -1) {
-    tasks.value.splice(idx, 1)
-    saveTasks()
-  }
+function removeTask(id) {
+  tasks.value = tasks.value.filter(t => t.id !== id)
 }
 
 // Inicia edição ao dar duplo clique
@@ -136,7 +119,9 @@ function startEdit(task) {
 function saveEdit(task) {
   if (editText.value.trim() !== '') {
     task.text = editText.value.trim()
-    saveTasks()
+    const data = getDevRoomData()
+    data.tasks = tasks.value
+    setDevRoomData(data)
   }
   editingId.value = null
   editText.value = ''
@@ -149,8 +134,4 @@ const sortedTasks = computed(() => {
     ...tasks.value.filter(t => t.done)
   ]
 })
-
-// Inicializa tarefas e observa mudanças para salvar automaticamente
-loadTasks()
-watch(tasks, saveTasks, { deep: true })
 </script>

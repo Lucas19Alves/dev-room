@@ -12,8 +12,9 @@ import Window from './components/Window.vue'
 import FakeDataGenerator from './components/FakeDataGenerator.vue'
 import Config from './components/Config.vue'
 import StickyNotes from './components/StickyNotes.vue'
-import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch, watchEffect } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
+import { Octokit } from '@octokit/rest';
 
 const NOME_KEY = 'dev-room-nome'
 const THEME_KEY = 'dev-room-theme'
@@ -24,6 +25,8 @@ const onboardingDone = ref(localStorage.getItem('dev-room-onboarding') === 'ok')
 
 const onboardingStep = ref(0)
 const checkedOnboarding = ref(false)
+
+const firstLoginModal = ref(localStorage.getItem('dev-room-first-login') !== 'ok' && localStorage.getItem('dev-room-first-login') !== 'skip')
 
 function saveName() {
   if (nomeInput.value.trim() !== '') {
@@ -48,6 +51,11 @@ function applyTheme(theme) {
 function setNome(novoNome) {
   userName.value = novoNome
   localStorage.setItem(NOME_KEY, userName.value)
+}
+
+function skipFirstLogin() {
+  firstLoginModal.value = false
+  localStorage.setItem('dev-room-first-login', 'skip')
 }
 
 onMounted(() => {
@@ -97,6 +105,20 @@ onMounted(() => {
       // Se der erro, limpa o localStorage para evitar travar o app
       localStorage.removeItem('dev-room-windows')
     }
+  }
+
+  const token = localStorage.getItem('github_token')
+  if (token) {
+    githubToken.value = token
+    loadOrCreateGist().then(loadDataFromGist)
+    fetchGitHubUserName()
+  } else {
+    handleGitHubCallback()
+  }
+
+  if (githubToken.value) {
+    firstLoginModal.value = false
+    localStorage.setItem('dev-room-first-login', 'ok')
   }
 })
 
@@ -215,7 +237,7 @@ function openWindow(type) {
     maxHeight = rect.height
   }
   // Ajusta o tamanho para nunca ultrapassar o container
-  width = Math.min(width, maxWidth - 16) // 16px de margem opcional
+  width = Math.min(width, maxWidth - 16)
   height = Math.min(height, maxHeight - 16)
 
   x = (maxWidth - width) / 2
@@ -349,6 +371,108 @@ function deactivatePauseMode() {
   // Retomar música
   window.dispatchEvent(new CustomEvent('devroom-music-resume'))
 }
+
+// GitHub Integration
+const githubToken = ref(null)
+const gistId = ref(null)
+const isSyncing = ref(false)
+
+function loginWithGitHub() {
+  const clientId = 'Ov23liLXp3BH07oDymH4'
+  const redirectUri = window.location.origin + '/api/github-callback'
+  const scope = 'gist'
+  window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`
+}
+
+async function handleGitHubCallback() {
+  const urlParams = new URLSearchParams(window.location.search)
+  const code = urlParams.get('code')
+  if (code) {
+    const res = await fetch('/api/github-callback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    })
+    const data = await res.json()
+    if (data.access_token) {
+      githubToken.value = data.access_token
+      localStorage.setItem('github_token', githubToken.value)
+      await fetchGitHubUserName()
+      onboardingStep.value = 5 // Vai para o final
+      onboardingDone.value = true
+      localStorage.setItem('dev-room-onboarding', 'ok')
+      await loadOrCreateGist()
+      await loadDataFromGist()
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }
+}
+
+async function loadOrCreateGist() {
+  const octokit = new Octokit({ auth: githubToken.value })
+  const gists = await octokit.gists.list()
+  let gist = gists.data.find(g => g.files['dev-room-data.json'])
+  if (!gist) {
+    // Cria um novo Gist privado
+    const created = await octokit.gists.create({
+      files: { 'dev-room-data.json': { content: '{}' } },
+      public: false,
+      description: 'Dev Room Data'
+    })
+    gist = created.data
+  }
+  gistId.value = gist.id
+}
+
+async function loadDataFromGist() {
+  const octokit = new Octokit({ auth: githubToken.value })
+  const gist = await octokit.gists.get({ gist_id: gistId.value })
+  const content = gist.data.files['dev-room-data.json'].content
+  localStorage.setItem('dev-room-data', content)
+}
+
+async function syncDataToGist() {
+  if (!githubToken.value || !gistId.value) return
+  isSyncing.value = true
+  const octokit = new Octokit({ auth: githubToken.value })
+  const data = localStorage.getItem('dev-room-data')
+  await octokit.gists.update({
+    gist_id: gistId.value,
+    files: { 'dev-room-data.json': { content: data || '{}' } }
+  })
+  isSyncing.value = false
+}
+
+async function fetchGitHubUserName() {
+  if (!githubToken.value) return
+  const octokit = new Octokit({ auth: githubToken.value })
+  const { data } = await octokit.users.getAuthenticated()
+  userName.value = data.name || data.login || ''
+  localStorage.setItem(NOME_KEY, userName.value)
+}
+
+function logoutGitHub() {
+  githubToken.value = null
+  gistId.value = null
+  localStorage.removeItem('github_token')
+}
+
+watchEffect(() => {
+  if (githubToken.value && gistId.value) {
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'dev-room-data') {
+        syncDataToGist()
+      }
+    })
+  }
+})
+
+watch(onboardingStep, (step) => {
+  if (step === 5 && githubToken.value) {
+    onboardingDone.value = true
+    localStorage.setItem('dev-room-onboarding', 'ok')
+  }
+})
 </script>
 
 <template>
@@ -361,40 +485,21 @@ function deactivatePauseMode() {
       id="onboarding-modal"
     >
       <div class="max-w-md w-full bg-gray-900 p-8 rounded-xl shadow-xl text-center border border-blue-500" id="onboarding-content">
-        <!-- Passo 0 do onboarding -->
+        <!-- 1. Recepção -->
         <div v-if="onboardingStep === 0" id="onboarding-step-0">
           <font-awesome-icon icon="fa-solid fa-rocket" class="text-4xl mb-4 text-blue-400" />
           <h2 class="text-2xl font-bold mb-4">Bem-vindo ao Dev Room</h2>
-          <p class="mb-6">Esse é seu espaço digital com ferramentas úteis para programar, se organizar e focar.</p>
+          <p class="mb-6">Seu espaço digital para produtividade, organização e foco, feito especialmente para devs!</p>
           <button
             @click="onboardingStep++"
             class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white font-semibold"
-            id="onboarding-next-btn"
+            id="onboarding-next-btn-0"
           >
             Próximo
           </button>
         </div>
-        <!-- Passo 1 do onboarding -->
+        <!-- 2. Apoio -->
         <div v-else-if="onboardingStep === 1" id="onboarding-step-1">
-          <font-awesome-icon icon="fa-solid fa-user" class="text-3xl mb-4 text-green-400" />
-          <h2 class="text-xl font-bold mb-4">Qual é o seu nome?</h2>
-          <input
-            v-model="nomeInput"
-            placeholder="Digite seu nome"
-            class="w-full px-4 py-2 rounded bg-gray-800 text-white border border-blue-400 mb-4"
-            id="onboarding-name-input"
-          />
-          <button
-            :disabled="!nomeInput.trim()"
-            @click="saveName"
-            class="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white font-semibold disabled:opacity-50"
-            id="onboarding-continue-btn"
-          >
-            Continuar
-          </button>
-        </div>
-        <!-- Passo 2 do onboarding -->
-        <div v-else-if="onboardingStep === 2" id="onboarding-step-2">
           <font-awesome-icon icon="fa-solid fa-heart" class="text-3xl mb-4 text-pink-400" />
           <h2 class="text-xl font-bold mb-4">Apoie o Dev Room!</h2>
           <p class="mb-4">
@@ -404,19 +509,97 @@ function deactivatePauseMode() {
           <button
             @click="onboardingStep++"
             class="cursor-pointer bg-pink-600 hover:bg-pink-700 px-4 py-2 rounded text-white font-semibold"
-            id="onboarding-support-btn"
+            id="onboarding-next-btn-1"
           >
             Próximo
           </button>
         </div>
-        <!-- Passo 3 do onboarding -->
+        <!-- 3. Funcionalidades -->
+        <div v-else-if="onboardingStep === 2" id="onboarding-step-2">
+          <font-awesome-icon icon="fa-solid fa-cubes" class="text-3xl mb-4 text-yellow-400" />
+          <h2 class="text-xl font-bold mb-4">Funcionalidades</h2>
+          <ul class="list-disc ml-5 mt-2 space-y-1 text-left">
+            <li><b>Widgets:</b> To-Do, Notas rápidas, Pomodoro, Timer, Snippets, Checklist de Deploy, Lembrete de água, Player de música, Gerador de dados fake e Busca inteligente.</li>
+            <li><b>Personalização:</b> 10+ temas para deixar o ambiente com a sua cara.</li>
+            <li><b>Experiência fluida:</b> No desktop, organize as janelas livremente. No mobile, navegue pelo menu lateral.</li>
+            <li><b>Salvamento automático:</b> Tudo salvo no navegador ou sincronizado com seu GitHub.</li>
+          </ul>
+          <button
+            @click="onboardingStep++"
+            class="cursor-pointer bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded text-white font-semibold mt-4"
+            id="onboarding-next-btn-2"
+          >
+            Próximo
+          </button>
+        </div>
+        <!-- 4. Open Source -->
         <div v-else-if="onboardingStep === 3" id="onboarding-step-3">
+          <font-awesome-icon icon="fa-brands fa-github" class="text-3xl mb-4 text-gray-300" />
+          <h2 class="text-xl font-bold mb-4">Open Source</h2>
+          <p class="mb-4">
+            O Dev Room é <b>open source</b>! Veja o código, contribua ou adapte para seu time.<br>
+            <a href="https://github.com/Lucas19Alves/dev-room" target="_blank" class="text-blue-300 underline">github.com/Lucas19Alves/dev-room</a>
+          </p>
+          <button
+            @click="onboardingStep++"
+            class="cursor-pointer bg-gray-700 hover:bg-gray-800 px-4 py-2 rounded text-white font-semibold"
+            id="onboarding-next-btn-3"
+          >
+            Próximo
+          </button>
+        </div>
+        <!-- 5. Login (pode ser dispensado) -->
+        <div v-else-if="onboardingStep === 4 && !githubToken" id="onboarding-step-4">
+          <font-awesome-icon icon="fa-solid fa-right-to-bracket" class="text-3xl mb-4 text-blue-400" />
+          <h2 class="text-xl font-bold mb-4">Sincronize seus dados!</h2>
+          <p class="mb-4">
+            Faça login para salvar e sincronizar suas configurações e dados em qualquer dispositivo.<br>
+            <span class="text-xs text-gray-400">Se preferir, pode usar localmente sem login.</span>
+          </p>
+          <button
+            @click="loginWithGitHub"
+            class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-bold shadow transition text-lg mb-3 w-full"
+            id="onboarding-github-btn"
+          >
+            <font-awesome-icon icon="fa-solid fa-right-to-bracket" class="text-xl" />
+            Entrar
+          </button>
+          <button
+            @click="onboardingStep++"
+            class="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 text-gray-200 px-6 py-3 rounded-full font-bold shadow transition text-lg w-full"
+            id="onboarding-skip-login-btn"
+          >
+            <font-awesome-icon icon="fa-solid fa-user-lock" class="text-xl" />
+            Usar sem login
+          </button>
+        </div>
+        <!-- 6. Nome (se não logou) -->
+        <div v-else-if="onboardingStep === 5 && !githubToken" id="onboarding-step-5">
+          <font-awesome-icon icon="fa-solid fa-user" class="text-3xl mb-4 text-green-400" />
+          <h2 class="text-xl font-bold mb-4">Como você quer ser chamado?</h2>
+          <input
+            v-model="nomeInput"
+            type="text"
+            placeholder="Seu nome ou apelido"
+            class="w-full px-4 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none mb-4"
+            id="onboarding-name-input"
+          />
+          <button
+            @click="saveName"
+            class="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white font-semibold w-full"
+            id="onboarding-save-name-btn"
+          >
+            Salvar e começar
+          </button>
+        </div>
+        <!-- 6. Final (se logou ou já tem nome) -->
+        <div v-else-if="(onboardingStep === 5 && githubToken) || (onboardingStep === 6)" id="onboarding-step-6">
           <font-awesome-icon icon="fa-solid fa-th-large" class="text-3xl mb-4 text-purple-400" />
           <h2 class="text-xl font-bold mb-4">Tudo pronto, {{ userName }}!</h2>
           <p class="mb-4">Use os widgets no dock abaixo para abrir ferramentas como Pomodoro, Notas e muito mais.</p>
           <button
             @click="endOnboarding"
-            class="cursor-pointer bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white font-semibold"
+            class="cursor-pointer bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white font-semibold w-full"
             aria-label="Começar a usar o Dev Room"
             id="onboarding-finish-btn"
           >
@@ -495,12 +678,46 @@ function deactivatePauseMode() {
         >
           <!-- Saudação e botão fechar alinhados -->
           <div class="mb-6 flex flex-row items-center justify-between w-full">
-            <span class="text-base font-semibold" :style="{color: 'var(--name)'}">
-              Olá, dev <span>{{ userName }}!</span>
-            </span>
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-base font-semibold" :style="{color: 'var(--name)'}">
+                Olá, dev <span>{{ userName }}</span>
+              </span>
+              <button
+                v-if="!githubToken"
+                @click="loginWithGitHub"
+                class="flex items-center justify-center rounded-full p-2 border-2 transition"
+                :style="{
+                  background: 'var(--bg-panel)',
+                  color: 'var(--text-main)',
+                  borderColor: '#24292f'
+                }"
+                title="Entrar"
+                id="mobile-menu-login-btn"
+              >
+                <font-awesome-icon icon="fa-solid fa-right-to-bracket" class="text-lg" />
+              </button>
+              <button
+                v-else
+                @click="logoutGitHub"
+                class="flex items-center justify-center rounded-full p-2 border-2 transition"
+                :style="{
+                  background: 'var(--bg-panel)',
+                  color: 'var(--text-main)',
+                  borderColor: '#24292f'
+                }"
+                title="Sair"
+                id="mobile-menu-logout-btn"
+              >
+                <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-lg" />
+              </button>
+            </div>
             <button @click="mobileMenuOpen = false" class="text-gray-400 hover:text-white text-2xl ml-2" id="mobile-menu-close-btn">
               <font-awesome-icon icon="fa-solid fa-xmark" />
             </button>
+          </div>
+          <!-- GitHub Login/Logout -->
+          <div class="mb-4 w-full flex flex-col items-stretch">
+            <span v-if="isSyncing" class="ml-2 text-yellow-400">Sincronizando...</span>
           </div>
           <!-- Abas do menu mobile -->
           <div class="flex flex-col gap-3" id="mobile-menu-tabs">
@@ -549,8 +766,38 @@ function deactivatePauseMode() {
             Me apoie
           </button>
         </div>
-        <div id="status-bar-user">
-          <h1>Olá, dev <span class="font-semibold" :style="{color: 'var(--name)'}">{{ userName }}!</span></h1>
+        <div id="status-bar-user" class="flex items-center gap-2">
+          <h1>
+            Olá, dev <span class="font-semibold" :style="{color: 'var(--name)'}">{{ userName }}</span>
+          </h1>
+          <button
+            v-if="!githubToken"
+            @click="loginWithGitHub"
+            class="ml-2 flex items-center justify-center rounded-full p-2 border-2 transition"
+            :style="{
+              background: 'var(--bg-panel)',
+              color: 'var(--text-main)',
+              borderColor: '#24292f'
+            }"
+            title="Entrar"
+            id="status-bar-login-btn"
+          >
+            <font-awesome-icon icon="fa-solid fa-right-to-bracket" class="text-lg" />
+          </button>
+          <button
+            v-else
+            @click="logoutGitHub"
+            class="ml-2 flex items-center justify-center rounded-full p-2 border-2 transition"
+            :style="{
+              background: 'var(--bg-panel)',
+              color: 'var(--text-main)',
+              borderColor: '#24292f'
+            }"
+            title="Sair"
+            id="status-bar-logout-btn"
+          >
+            <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-lg" />
+          </button>
         </div>
         <div class="flex flex-row gap-4 items-center" id="status-bar-clock">
           <h1 class="flex flex-row items-center gap-2">
@@ -766,6 +1013,7 @@ function deactivatePauseMode() {
       <button @click="installApp" class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold" id="install-prompt-install-btn">Instalar</button>
       <button @click="showInstallPrompt = false" class="cursor-pointer ml-2 text-blue-200 hover:text-white" id="install-prompt-close-btn">Fechar</button>
     </div>
+
   </div>
 </template>
 
@@ -818,3 +1066,4 @@ function deactivatePauseMode() {
   }
 }
 </style>
+````

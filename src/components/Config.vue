@@ -263,4 +263,19 @@ function setTheme(theme) {
 
 const docTabs = ['Visão Geral', 'Funcionalidades', 'Sobre & Contato']
 const docTab = ref('Visão Geral')
+
+const allData = getDevRoomData()
+const nome = ref(allData.nome || '')
+const tema = ref(allData.tema || 'theme-default')
+
+watch(nome, (val) => {
+  const data = getDevRoomData()
+  data.nome = val
+  setDevRoomData(data)
+})
+watch(tema, (val) => {
+  const data = getDevRoomData()
+  data.tema = val
+  setDevRoomData(data)
+})
 </script>

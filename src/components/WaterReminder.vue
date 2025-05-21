@@ -71,8 +71,18 @@
 
 <script setup>
 // Importações e definição de propriedades
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { playSound } from '../utils/notify'
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
+
+const allData = getDevRoomData()
+const waterReminder = ref(allData.waterReminder || { config: {}, history: [], next: null })
+
+watch(waterReminder, (val) => {
+  const data = getDevRoomData()
+  data.waterReminder = val
+  setDevRoomData(data)
+}, { deep: true })
 
 // Função para notificar o usuário
 function notify(title, options = {}) {

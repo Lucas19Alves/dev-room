@@ -59,11 +59,20 @@
 </template>
 
 <script setup>
-// Importações e estados reativos principais
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { playSound, notify } from '../utils/notify'
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
 const TIMER_STATE_KEY = 'dev-room-timer-state'
+
+const allData = getDevRoomData()
+const timer = ref(allData.timer || { state: {} })
+
+watch(timer, (val) => {
+  const data = getDevRoomData()
+  data.timer = val
+  setDevRoomData(data)
+}, { deep: true })
 
 const inputMinutes = ref(0)
 const inputSeconds = ref(0)

@@ -60,9 +60,18 @@
 </template>
 
 <script setup>
-// Importações e estados reativos principais
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { playSound, notify } from '../utils/notify'
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
+
+const allData = getDevRoomData()
+const pomodoro = ref(allData.pomodoro || { state: {}, config: {} })
+
+watch(pomodoro, (val) => {
+  const data = getDevRoomData()
+  data.pomodoro = val
+  setDevRoomData(data)
+}, { deep: true })
 
 // Chaves para localStorage
 const POMODORO_STATE_KEY = 'dev-room-pomodoro-state'

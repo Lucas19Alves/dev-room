@@ -2,7 +2,7 @@
   <div class="flex flex-col items-center justify-center w-full h-full p-4" id="deploy-main">
     <h2 class="text-xl font-bold mb-4 text-green-400" id="deploy-title">Checklist de Deploy</h2>
     <!-- Formulário para adicionar novo item -->
-    <form @submit.prevent="addItem" class="flex gap-2 mb-4 w-full" id="deploy-form">
+    <form @submit.prevent="addItem(newItem)" class="flex gap-2 mb-4 w-full" id="deploy-form">
       <input
         v-model="newItem"
         type="text"
@@ -75,7 +75,7 @@
           />
         </label>
         <button
-          @click="removeItem(idx)"
+          @click="removeItem(item.id)"
           class="ml-2 text-red-400 hover:text-red-600 transition deploy-remove-btn"
           title="Remover"
           :id="`deploy-remove-btn-${item.id}`"
@@ -91,7 +91,7 @@
     <div class="w-full mt-4">
       <div class="flex justify-between text-xs mb-1">
         <span>Progresso</span>
-        <span>{{ doneCount }}/{{ items.length }} concluídos</span>
+        <span>{{ doneCount }}/{{ checklist.length }} concluídos</span>
       </div>
       <div class="w-full bg-gray-700 rounded h-2 overflow-hidden">
         <div
@@ -105,7 +105,7 @@
       <button
         class="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded transition"
         @click="resetChecklist"
-        :disabled="items.length === 0"
+        :disabled="checklist.length === 0"
         id="deploy-reset-btn"
       >
         Resetar
@@ -120,7 +120,7 @@
       <button
         class="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded transition"
         @click="exportChecklist"
-        :disabled="items.length === 0"
+        :disabled="checklist.length === 0"
         id="deploy-export-btn"
       >
         Exportar
@@ -138,60 +138,43 @@
 
 <script setup>
 import { ref, watch, computed, nextTick } from 'vue'
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
 
-const STORAGE_KEY = 'dev-room-deploy-checklist'
-const defaultItems = [
-  { text: 'Testes automatizados passaram', done: false },
-  { text: 'Variáveis de ambiente revisadas', done: false },
-  { text: 'Build gerado em modo produção', done: false },
-  { text: 'Backup realizado', done: false },
-  { text: 'Documentação atualizada', done: false },
-  { text: 'Notificações enviadas para o time', done: false }
-]
+const allData = getDevRoomData()
+const checklist = ref(allData.deployChecklist || [])
+
+watch(checklist, (val) => {
+  const data = getDevRoomData()
+  data.deployChecklist = val
+  setDevRoomData(data)
+}, { deep: true })
 
 const newItem = ref('')
-const items = ref([])
 const editingId = ref(null)
 const editText = ref('')
 const filter = ref('all')
 
-function loadItems() {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (saved) {
-    items.value = JSON.parse(saved)
-  } else {
-    items.value = defaultItems.map(i => ({ ...i, id: Date.now() + Math.random() }))
-  }
+function addItem(text) {
+  checklist.value.push({ text, done: false, id: Date.now() + Math.random() })
 }
 
-function saveItems() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items.value))
-}
-
-function addItem() {
-  if (newItem.value.trim() === '') return
-  items.value.push({
-    id: Date.now() + Math.random(),
-    text: newItem.value.trim(),
-    done: false
-  })
-  newItem.value = ''
-  saveItems()
-}
-
-function removeItem(idx) {
-  items.value.splice(idx, 1)
-  saveItems()
+function removeItem(id) {
+  checklist.value = checklist.value.filter(i => i.id !== id)
 }
 
 function resetChecklist() {
-  items.value.forEach(item => (item.done = false))
-  saveItems()
+  checklist.value.forEach(item => (item.done = false))
 }
 
 function restoreDefault() {
-  items.value = defaultItems.map(i => ({ ...i, id: Date.now() + Math.random() }))
-  saveItems()
+  checklist.value = [
+    { text: 'Testes automatizados passaram', done: false, id: Date.now() + Math.random() },
+    { text: 'Variáveis de ambiente revisadas', done: false, id: Date.now() + Math.random() },
+    { text: 'Build gerado em modo produção', done: false, id: Date.now() + Math.random() },
+    { text: 'Backup realizado', done: false, id: Date.now() + Math.random() },
+    { text: 'Documentação atualizada', done: false, id: Date.now() + Math.random() },
+    { text: 'Notificações enviadas para o time', done: false, id: Date.now() + Math.random() }
+  ]
 }
 
 function startEdit(item) {
@@ -208,12 +191,11 @@ function saveEdit(item) {
     item.text = editText.value.trim() || item.text
     editingId.value = null
     editText.value = ''
-    saveItems()
   }
 }
 
 function exportChecklist() {
-  const data = JSON.stringify(items.value, null, 2)
+  const data = JSON.stringify(checklist.value, null, 2)
   const blob = new Blob([data], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -245,8 +227,7 @@ function importChecklist(e) {
           id: item.id || Date.now() + Math.random(),
           done: !!item.done
         }))
-        items.value = sanitized
-        saveItems()
+        checklist.value = sanitized
         if (duplicatedCount > 0) {
           showToast(`${duplicatedCount} item(ns) com ID duplicado foram ignorados ao importar.`)
         }
@@ -259,7 +240,6 @@ function importChecklist(e) {
   }
   reader.readAsText(file)
 }
-
 
 function showToast(msg) {
   const toast = document.createElement('div')
@@ -281,17 +261,14 @@ function showToast(msg) {
 }
 
 const filteredItems = computed(() => {
-  if (filter.value === 'all') return items.value
-  if (filter.value === 'open') return items.value.filter(i => !i.done)
-  if (filter.value === 'done') return items.value.filter(i => i.done)
-  return items.value
+  if (filter.value === 'all') return checklist.value
+  if (filter.value === 'open') return checklist.value.filter(i => !i.done)
+  if (filter.value === 'done') return checklist.value.filter(i => i.done)
+  return checklist.value
 })
 
-const doneCount = computed(() => items.value.filter(i => i.done).length)
-const progress = computed(() => items.value.length ? Math.round((doneCount.value / items.value.length) * 100) : 0)
-
-loadItems()
-watch(items, saveItems, { deep: true })
+const doneCount = computed(() => checklist.value.filter(i => i.done).length)
+const progress = computed(() => checklist.value.length ? Math.round((doneCount.value / checklist.value.length) * 100) : 0)
 </script>
 
 <style scoped>
