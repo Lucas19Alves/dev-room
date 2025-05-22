@@ -47,7 +47,7 @@ import {
   faWindowMaximize, faHandshake, faFaceSmileBeam, faMugHot, faArrowLeft, faArrowRight,
   faUpRightAndDownLeftFromCenter, faDownLeftAndUpRightToCenter, faPlus, faThLarge, faRightToBracket,
   faArrowRightFromBracket, faCubes, faUserLock, faGlobe, faUserAstronaut, faLightbulb, faGear, faRobot,
-  faImage, faTableColumns, faKey, faCircleInfo, faPaperPlane, faCodePullRequest, faCodeCommit
+  faImage, faTableColumns, faKey, faCircleInfo, faPaperPlane, faCodePullRequest, faCodeCommit, faCircleExclamation,
 } from '@fortawesome/free-solid-svg-icons'
 import { faGithub } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
@@ -61,7 +61,7 @@ library.add(
   faUpRightAndDownLeftFromCenter, faDownLeftAndUpRightToCenter, faPlus, faThLarge, faRightToBracket,
   faArrowRightFromBracket, faCubes, faUserLock, faGlobe, faUserAstronaut, faLightbulb, faGear,
   faGithub, faRobot, faImage, faTableColumns, faKey, faCircleInfo, faPaperPlane, faCodePullRequest,
-  faCodeCommit,
+  faCodeCommit, faCircleExclamation,
 )
 
 const app = createApp(App)
