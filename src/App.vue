@@ -294,7 +294,7 @@ function openWindow(type) {
     Docs: { width: 480, height: 500 },
     QuickNotes: { width: 620, height: 600 },
     CodeSnippets: { width: 600, height: 680 },
-    GithubFeatures: { width: 340, height: 400 },
+    GithubFeatures: { width: 740, height: 400 },
     DeployChecklist: { width: 340, height: 520 },
     Pomodoro: { width: 400, height: 420 },
     Search: { width: 700, height: 500 },
