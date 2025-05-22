@@ -13,6 +13,7 @@ import FakeDataGenerator from './components/FakeDataGenerator.vue'
 import Config from './components/Config.vue'
 import StickyNotes from './components/StickyNotes.vue'
 import ChatGPTApi from './components/ChatGPTApi.vue'
+import Kanban from './components/Kanban.vue'
 import { ref, reactive, onMounted, onUnmounted, watch, watchEffect, computed } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
 import { inject } from "@vercel/analytics"
@@ -226,6 +227,7 @@ const windowComponents = {
   FakeDataGenerator,
   Config,
   ChatGPTApi,
+  Kanban,
 }
 
 watch(openWindows, (windows) => {
@@ -238,15 +240,17 @@ const mobileTabs = [
   { type: 'Timer', label: 'Timer', icon: 'fa-solid fa-stopwatch' },
   { type: 'MusicPlayer', label: 'Player de Música', icon: 'fa-solid fa-music' },
   { type: 'TodoList', label: 'To-Do List', icon: 'fa-solid fa-list-check' },
+  { type: 'Kanban', label: 'Kanban', icon: 'fa-solid fa-table-columns' },
   { type: 'QuickNotes', label: 'Notas Rápidas', icon: 'fa-solid fa-sticky-note' },
   { type: 'CodeSnippets', label: 'Snippets de Código', icon: 'fa-solid fa-code' },
   { type: 'DeployChecklist', label: 'Checklist de Deploy', icon: 'fa-solid fa-rocket' },
   { type: 'Pomodoro', label: 'Pomodoro', icon: 'fa-solid fa-clock' },
+  { type: 'ChatGPTApi', label: 'IA (ChatGPT)', icon: 'fa-solid fa-robot' },
   { type: 'Search', label: 'Busca', icon: 'fa-solid fa-magnifying-glass' },
   { type: 'WaterReminder', label: 'Lembrete de Água', icon: 'fa-solid fa-droplet' },
   { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database' },
   { type: 'Config', label: 'Configurações', icon: 'fa-solid fa-gear' },
-  { type: 'ChatGPTApi', label: 'IA (ChatGPT)', icon: 'fa-solid fa-robot' },
+  
 ]
 
 const mobileMenuOpen = ref(false)
@@ -279,6 +283,7 @@ function openWindow(type) {
     Config: 'Configurações',
     ChatGPTApi: 'ChatGPT API',
     StackOverflow: 'Stack Overflow',
+    Kanban: 'Kanban',
   }
   const defaultSizes = {
     Timer: { width: 320, height: 360 },
@@ -295,6 +300,7 @@ function openWindow(type) {
     FakeDataGenerator: { width: 340, height: 400 },
     Config: { width: 340, height: 400 },
     ChatGPTApi: { width: 600, height: 600 },
+    Kanban: { width: 1000, height: 400 },
   }
   let { width, height } = defaultSizes[type] || { width: 340, height: 220 }
 
@@ -1010,6 +1016,7 @@ watch(onboardingStep, (step) => {
               winTab.type === 'WaterReminder' ? 'text-sky-400 hover:text-sky-200' : '',
               winTab.type === 'FakeDataGenerator' ? 'text-lime-400 hover:text-lime-200' : '',
               winTab.type === 'ChatGPTApi' ? 'text-emerald-400 hover:text-emerald-200' : '',
+              winTab.type === 'Kanban' ? 'text-blue-400 hover:text-blue-200' : '',
             ]" class="text-2xl" />
             <span class="dock-tooltip group-hover:opacity-100">{{ winTab.label }}</span>
             <span

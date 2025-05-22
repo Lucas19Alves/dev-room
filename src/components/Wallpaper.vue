@@ -250,32 +250,32 @@ function restoreWallpaper() {
   }
 }
 
-// Função para garantir que o papel de parede seja aplicado em diferentes momentos
+// Guardar referência para remover corretamente
+function onDomContentLoaded() {
+  restoreWallpaper()
+}
+function onWindowLoad() {
+  restoreWallpaper()
+}
+
 function setupWallpaperRestoration() {
-  // Se o conteúdo já foi carregado
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
     restoreWallpaper()
   } else {
-    // Caso contrário, aguardar o carregamento
-    document.addEventListener('DOMContentLoaded', restoreWallpaper)
+    document.addEventListener('DOMContentLoaded', onDomContentLoaded)
   }
-  
-  // Adicionar outro evento para ter certeza que o papel de parede é aplicado
-  window.addEventListener('load', restoreWallpaper)
+  window.addEventListener('load', onWindowLoad)
 }
 
 onMounted(() => {
-  // Inicializar o papel de parede
   restoreWallpaper()
-  
-  // Configurar restauração para garantir persistência
   setupWallpaperRestoration()
 })
 
+
 onBeforeUnmount(() => {
-  // Limpar event listeners
-  document.removeEventListener('DOMContentLoaded', restoreWallpaper)
-  window.removeEventListener('load', restoreWallpaper)
+  document.removeEventListener('DOMContentLoaded', onDomContentLoaded)
+  window.removeEventListener('load', onWindowLoad)
 })
 </script>
 
@@ -288,4 +288,4 @@ body.has-wallpaper {
   background-position: center center !important;
   background-repeat: no-repeat !important;
 }
-</style> 
+</style>

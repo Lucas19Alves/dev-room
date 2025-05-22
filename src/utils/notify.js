@@ -1,6 +1,8 @@
 export function playSound(url) {
   const audio = new Audio(url)
-  audio.play()
+  audio.play().catch(() => {
+    // Silencia o erro de autoplay bloqueado
+  })
 }
 
 export function notify(title, options = {}) {
