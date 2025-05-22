@@ -13,6 +13,7 @@ import FakeDataGenerator from './components/FakeDataGenerator.vue'
 import Config from './components/Config.vue'
 import StickyNotes from './components/StickyNotes.vue'
 import ChatGPTApi from './components/ChatGPTApi.vue'
+import GithubFeatures from './components/GithubFeatures.vue'
 import Kanban from './components/Kanban.vue'
 import { ref, reactive, onMounted, onUnmounted, watch, watchEffect, computed } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
@@ -219,6 +220,7 @@ const windowComponents = {
   MusicPlayer,
   TodoList,
   QuickNotes,
+  GithubFeatures,
   CodeSnippets,
   DeployChecklist,
   Pomodoro,
@@ -243,6 +245,7 @@ const mobileTabs = [
   { type: 'Kanban', label: 'Kanban', icon: 'fa-solid fa-table-columns' },
   { type: 'QuickNotes', label: 'Notas Rápidas', icon: 'fa-solid fa-sticky-note' },
   { type: 'CodeSnippets', label: 'Snippets de Código', icon: 'fa-solid fa-code' },
+  { type: 'GithubFeatures', label: 'GitHub', icon: 'fa-brands fa-github' },
   { type: 'DeployChecklist', label: 'Checklist de Deploy', icon: 'fa-solid fa-rocket' },
   { type: 'Pomodoro', label: 'Pomodoro', icon: 'fa-solid fa-clock' },
   { type: 'ChatGPTApi', label: 'IA (ChatGPT)', icon: 'fa-solid fa-robot' },
@@ -250,7 +253,6 @@ const mobileTabs = [
   { type: 'WaterReminder', label: 'Lembrete de Água', icon: 'fa-solid fa-droplet' },
   { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database' },
   { type: 'Config', label: 'Configurações', icon: 'fa-solid fa-gear' },
-  
 ]
 
 const mobileMenuOpen = ref(false)
@@ -274,6 +276,7 @@ function openWindow(type) {
     Docs: 'Documentação',
     QuickNotes: 'Notas Rápidas',
     CodeSnippets: 'Snippets de Código',
+    GithubFeatures: 'Funcionalidades do GitHub',
     DeployChecklist: 'Checklist de Deploy',
     Pomodoro: 'Pomodoro',
     Search: 'Busca',
@@ -282,7 +285,6 @@ function openWindow(type) {
     FakeDataGenerator: 'Gerador de Dados Falsos',
     Config: 'Configurações',
     ChatGPTApi: 'ChatGPT API',
-    StackOverflow: 'Stack Overflow',
     Kanban: 'Kanban',
   }
   const defaultSizes = {
@@ -292,6 +294,7 @@ function openWindow(type) {
     Docs: { width: 480, height: 500 },
     QuickNotes: { width: 620, height: 600 },
     CodeSnippets: { width: 600, height: 680 },
+    GithubFeatures: { width: 340, height: 400 },
     DeployChecklist: { width: 340, height: 520 },
     Pomodoro: { width: 400, height: 420 },
     Search: { width: 700, height: 500 },
@@ -1008,6 +1011,7 @@ watch(onboardingStep, (step) => {
               winTab.type === 'TodoList' ? 'text-yellow-400 hover:text-yellow-200' : '',
               winTab.type === 'Docs' ? 'text-pink-400 hover:text-pink-200' : '',
               winTab.type === 'QuickNotes' ? 'text-orange-400 hover:text-orange-200' : '',
+              winTab.type === 'GithubFeatures' ? 'text-gray-400 hover:text-gray-200' : '',
               winTab.type === 'CodeSnippets' ? 'text-purple-400 hover:text-purple-200' : '',
               winTab.type === 'DeployChecklist' ? 'text-teal-400 hover:text-teal-200' : '',
               winTab.type === 'Pomodoro' ? 'text-red-400 hover:text-red-200' : '',
