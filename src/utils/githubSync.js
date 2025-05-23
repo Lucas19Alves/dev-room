@@ -20,6 +20,17 @@ export async function ensureRepo(octokit, userLogin) {
 export async function saveDataToRepo(githubToken, userLogin, data) {
   const octokit = new Octokit({ auth: githubToken })
   await ensureRepo(octokit, userLogin)
+
+  // Sempre atualize o lastModified antes de salvar
+  let parsed
+  try {
+    parsed = JSON.parse(data)
+  } catch {
+    parsed = {}
+  }
+  parsed.lastModified = Date.now()
+  data = JSON.stringify(parsed)
+
   let sha
   try {
     const { data: fileData } = await octokit.repos.getContent({
