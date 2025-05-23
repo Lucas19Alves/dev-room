@@ -31,14 +31,36 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
   } catch (err) {
     if (err.status !== 404) throw err
   }
-  await octokit.repos.createOrUpdateFileContents({
-    owner: userLogin,
-    repo: REPO_NAME,
-    path: FILE_PATH,
-    message: 'Atualizando dados do Dev Room',
-    content: btoa(unescape(encodeURIComponent(data))),
-    sha
-  })
+
+  try {
+    await octokit.repos.createOrUpdateFileContents({
+      owner: userLogin,
+      repo: REPO_NAME,
+      path: FILE_PATH,
+      message: 'Atualizando dados do Dev Room',
+      content: btoa(unescape(encodeURIComponent(data))),
+      sha
+    })
+  } catch (err) {
+    // Se der conflito (409), tente buscar o SHA mais recente e tentar de novo
+    if (err.status === 409) {
+      const { data: fileData } = await octokit.repos.getContent({
+        owner: userLogin,
+        repo: REPO_NAME,
+        path: FILE_PATH
+      })
+      await octokit.repos.createOrUpdateFileContents({
+        owner: userLogin,
+        repo: REPO_NAME,
+        path: FILE_PATH,
+        message: 'Atualizando dados do Dev Room',
+        content: btoa(unescape(encodeURIComponent(data))),
+        sha: fileData.sha
+      })
+    } else {
+      throw err
+    }
+  }
 }
 
 // Carrega os dados do repositório do usuário
