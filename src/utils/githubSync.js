@@ -107,10 +107,3 @@ export async function loadDataFromRepo(githubToken, userLogin) {
     throw err
   }
 }
-
-// Sincroniza backup do GitHub para localStorage a cada 3s
-setInterval(async () => {
-  if (githubToken.value && githubUserLogin.value) {
-    await loadDataFromRepoAndSet()
-  }
-}, 3000)

@@ -610,7 +610,7 @@ setInterval(async () => {
       // Silencia erros de rede ou 404
     }
   }
-}, 10000)
+}, 3000)
 
 watch(onboardingStep, (step) => {
   if (step === 5 && githubToken.value) {
