@@ -36,7 +36,7 @@
           v-model="column.cards"
           group="kanban"
           item-key="id"
-          class="flex-1 min-h-[40px] flex flex-col gap-3"
+          class="flex flex-col gap-3 min-h-[40px]"
           :id="`kanban-cards-draggable-${column.id}`"
         >
           <template #item="{ element: card, index }">

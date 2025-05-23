@@ -303,7 +303,7 @@ function openWindow(type) {
     FakeDataGenerator: { width: 340, height: 400 },
     Config: { width: 340, height: 400 },
     ChatGPTApi: { width: 600, height: 600 },
-    Kanban: { width: 1000, height: 400 },
+    Kanban: { width: 1000, height: 600 },
   }
   let { width, height } = defaultSizes[type] || { width: 340, height: 220 }
 
@@ -618,6 +618,26 @@ watch(onboardingStep, (step) => {
     localStorage.setItem('dev-room-onboarding', 'ok')
   }
 })
+
+function copyPixKey() {
+  const key = '(77) 99115-6978'
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(key)
+  } else {
+    const el = document.createElement('textarea')
+    el.value = key
+    document.body.appendChild(el)
+    el.select()
+    try {
+      document.execCommand('copy')
+    } catch (e) {}
+    document.body.removeChild(el)
+  }
+  showPixToast.value = true
+  setTimeout(() => { showPixToast.value = false }, 1500)
+}
+
+const showPixToast = ref(false) // <-- Adicione esta linha
 </script>
 
 <template>
@@ -1147,6 +1167,20 @@ watch(onboardingStep, (step) => {
         <h3 class="text-lg font-bold mb-2" :style="{ color: 'var(--accent)' }">Me pague um café ☕</h3>
         <p class="mb-3 text-center">Apoie o projeto enviando qualquer valor via Pix!</p>
         <img src="/images/qrcode-pix.png" alt="QR Code Pix" class="w-48 h-48 object-contain mb-3 border rounded bg-white p-2" />
+        <div class="mb-3 w-full">
+          <label class="block text-sm font-semibold mb-1 text-center">Chave Pix (celular):</label>
+          <div class="flex items-center justify-center gap-2">
+            <span class="bg-gray-800 px-2 py-1 rounded select-all text-sm" id="pix-key">(77) 99115-6978</span>
+            <button
+              @click="copyPixKey"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-bold transition"
+              id="pix-copy-btn"
+            >
+              Copiar
+            </button>
+          </div>
+          <div class="text-xs text-gray-400 text-center mt-1">Lucas Alves</div>
+        </div>
         <button
           class="cursor-pointer mt-2 px-4 py-2 rounded font-bold transition"
           :style="{
@@ -1230,6 +1264,15 @@ watch(onboardingStep, (step) => {
             Cancelar
           </button>
         </div>
+      </div>
+    </transition>
+
+    <!-- Toast de copiado -->
+    <transition name="fade">
+      <div v-if="showPixToast"
+        class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded shadow-lg z-[9999] font-bold"
+        style="pointer-events: none;">
+        Copiado!
       </div>
     </transition>
 
