@@ -21,19 +21,14 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
   const octokit = new Octokit({ auth: githubToken })
   await ensureRepo(octokit, userLogin)
 
-  // Atualize o lastModified local
+  // Parse local data e atualize lastModified
   let parsed
-  try {
-    parsed = JSON.parse(data)
-  } catch {
-    parsed = {}
-  }
+  try { parsed = JSON.parse(data) } catch { parsed = {} }
   parsed.lastModified = Date.now()
   data = JSON.stringify(parsed)
 
-  // Busque o arquivo remoto e compare os lastModified
-  let sha, remoteLastModified = 0
-  let remoteContent = '{}'
+  // 1. Sempre busque o remoto antes de salvar
+  let sha, remoteLastModified = 0, remoteContent = '{}'
   try {
     const { data: fileData } = await octokit.repos.getContent({
       owner: userLogin,
@@ -42,20 +37,18 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
     })
     sha = fileData.sha
     remoteContent = decodeURIComponent(escape(atob(fileData.content)))
-    try {
-      remoteLastModified = JSON.parse(remoteContent).lastModified || 0
-    } catch {}
+    try { remoteLastModified = JSON.parse(remoteContent).lastModified || 0 } catch {}
   } catch (err) {
     if (err.status !== 404) throw err
   }
 
-  // Se o remoto for mais novo, não sobrescreva!
+  // 2. Se o remoto for mais novo, use ele como base (last-write-wins)
   if (remoteLastModified > parsed.lastModified) {
-    // Opcional: atualizar o localStorage aqui, se quiser
+    // Opcional: merge inteligente aqui, se quiser
     return false // Não salva, pois o remoto é mais novo
   }
 
-  // Salva normalmente com o SHA mais recente
+  // 3. Tente salvar normalmente
   try {
     await octokit.repos.createOrUpdateFileContents({
       owner: userLogin,
@@ -67,13 +60,21 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
     })
     return true
   } catch (err) {
-    // Se der conflito (409), tente buscar o SHA mais recente e tentar de novo
+    // 4. Se der 409, busque o remoto de novo, faça merge e tente salvar
     if (err.status === 409) {
       const { data: fileData } = await octokit.repos.getContent({
         owner: userLogin,
         repo: REPO_NAME,
         path: FILE_PATH
       })
+      const remoteContent = decodeURIComponent(escape(atob(fileData.content)))
+      let remoteParsed
+      try { remoteParsed = JSON.parse(remoteContent) } catch { remoteParsed = {} }
+      // Merge: sempre vence o lastModified mais recente
+      if ((remoteParsed.lastModified || 0) > parsed.lastModified) {
+        // Opcional: merge mais avançado aqui
+        return false
+      }
       await octokit.repos.createOrUpdateFileContents({
         owner: userLogin,
         repo: REPO_NAME,
@@ -106,3 +107,10 @@ export async function loadDataFromRepo(githubToken, userLogin) {
     throw err
   }
 }
+
+// Sincroniza backup do GitHub para localStorage a cada 3s
+setInterval(async () => {
+  if (githubToken.value && githubUserLogin.value) {
+    await loadDataFromRepoAndSet()
+  }
+}, 3000)
