@@ -398,6 +398,7 @@ function checkMobile() {
 
 const showPixModal = ref(false)
 
+
 // Estado do modo pausa
 const pauseMode = ref(false)
 const pauseStep = ref(0)
@@ -818,7 +819,7 @@ watch(onboardingStep, (step) => {
         id="mobile-menu-overlay"
       >
         <nav
-          class="absolute left-0 top-0 h-full w-64 shadow-2xl flex flex-col py-8 px-4"
+          class="absolute left-0 top-0 h-full w-64 shadow-2xl flex flex-col py-8 px-4 overflow-y-auto max-h-full"
           aria-label="Menu"
           :style="{
             background: 'var(--bg-panel)',
@@ -871,7 +872,7 @@ watch(onboardingStep, (step) => {
             <span v-if="isSyncing" class="ml-2 text-yellow-400">Sincronizando...</span>
           </div>
           <!-- Abas do menu mobile -->
-          <div class="flex flex-col gap-3" id="mobile-menu-tabs">
+          <div class="flex flex-col mb-12 gap-3" id="mobile-menu-tabs">
             <button v-for="tab in mobileTabs" :key="tab.type"
               @click="mobileActiveTab = tab.type; mobileMenuOpen = false"
               class="cursor-pointer flex items-center gap-3 px-3 py-2 rounded text-lg transition"
