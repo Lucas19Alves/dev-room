@@ -21,7 +21,7 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
   const octokit = new Octokit({ auth: githubToken })
   await ensureRepo(octokit, userLogin)
 
-  // Sempre atualize o lastModified antes de salvar
+  // Atualize o lastModified local
   let parsed
   try {
     parsed = JSON.parse(data)
@@ -31,7 +31,9 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
   parsed.lastModified = Date.now()
   data = JSON.stringify(parsed)
 
-  let sha
+  // Busque o arquivo remoto e compare os lastModified
+  let sha, remoteLastModified = 0
+  let remoteContent = '{}'
   try {
     const { data: fileData } = await octokit.repos.getContent({
       owner: userLogin,
@@ -39,10 +41,21 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
       path: FILE_PATH
     })
     sha = fileData.sha
+    remoteContent = decodeURIComponent(escape(atob(fileData.content)))
+    try {
+      remoteLastModified = JSON.parse(remoteContent).lastModified || 0
+    } catch {}
   } catch (err) {
     if (err.status !== 404) throw err
   }
 
+  // Se o remoto for mais novo, não sobrescreva!
+  if (remoteLastModified > parsed.lastModified) {
+    // Opcional: atualizar o localStorage aqui, se quiser
+    return false // Não salva, pois o remoto é mais novo
+  }
+
+  // Salva normalmente com o SHA mais recente
   try {
     await octokit.repos.createOrUpdateFileContents({
       owner: userLogin,
@@ -52,6 +65,7 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
       content: btoa(unescape(encodeURIComponent(data))),
       sha
     })
+    return true
   } catch (err) {
     // Se der conflito (409), tente buscar o SHA mais recente e tentar de novo
     if (err.status === 409) {
@@ -68,6 +82,7 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
         content: btoa(unescape(encodeURIComponent(data))),
         sha: fileData.sha
       })
+      return true
     } else {
       throw err
     }
