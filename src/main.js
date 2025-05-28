@@ -41,7 +41,7 @@ import App from './App.vue'
 import { library } from '@fortawesome/fontawesome-svg-core'
 import {
   faUser, faCoffee, faClock, faCog, faStopwatch, faMusic, faListCheck, faTerminal, faBook, faStickyNote,
-  faEyeSlash, faCode, faRocket, faSearch, faMagnifyingGlass, faComments, faPlug, faPalette, faTrash,
+  faEyeSlash, faCode, faRocket, faSearch, faMagnifyingGlass, faComments, faPlug, faPalette, faTrash, faPenToSquare,
   faBackwardStep, faShuffle, faPlay, faPause, faRepeat, faForwardStep, faDroplet, faDatabase, faCopy,
   faVolumeHigh, faVolumeLow, faXmark, faBars, faHeart, faUserGear, faCheck, faChair, faCookieBite,
   faWindowMaximize, faHandshake, faFaceSmileBeam, faMugHot, faArrowLeft, faArrowRight,
@@ -54,7 +54,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 library.add(
   faUser, faCoffee, faClock, faCog, faStopwatch, faMusic, faListCheck, faTerminal, faBook, faStickyNote,
-  faEyeSlash, faCode, faRocket, faSearch, faMagnifyingGlass, faComments, faPlug, faPalette, faTrash,
+  faEyeSlash, faCode, faRocket, faSearch, faMagnifyingGlass, faComments, faPlug, faPalette, faTrash, faPenToSquare,
   faBackwardStep, faShuffle, faPlay, faPause, faRepeat, faForwardStep, faDroplet, faDatabase, faCopy,
   faVolumeHigh, faVolumeLow, faXmark, faBars, faHeart, faUserGear, faCheck, faChair, faCookieBite,
   faWindowMaximize, faHandshake, faFaceSmileBeam, faMugHot, faArrowLeft, faArrowRight,
