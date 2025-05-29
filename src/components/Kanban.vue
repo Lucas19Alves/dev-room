@@ -5,14 +5,24 @@
         <font-awesome-icon icon="fa-solid fa-table-columns" class="text-blue-500" />
         Quadro Kanban
       </h2>
-      <button
-        @click="addColumn"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg shadow transition text-sm font-semibold flex items-center gap-1"
-        id="kanban-add-column-btn"
-      >
-        <font-awesome-icon icon="fa-solid fa-plus" />
-        Coluna
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          @click="loadFromTrello"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg shadow transition text-sm font-semibold flex items-center gap-1"
+          id="kanban-load-trello-btn"
+        >
+          <font-awesome-icon icon="fa-solid fa-table-columns"/>
+          Carregar do Trello
+        </button>
+        <button
+          @click="addColumn"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg shadow transition text-sm font-semibold flex items-center gap-1"
+          id="kanban-add-column-btn"
+        >
+          <font-awesome-icon icon="fa-solid fa-plus" />
+          Coluna
+        </button>
+      </div>
     </div>
     <div class="flex gap-6 overflow-x-auto pb-2" id="kanban-board">
       <div
@@ -173,6 +183,70 @@ function addCard(colIdx) {
 }
 function removeCard(colIdx, cardIdx) {
   columns.value[colIdx].cards.splice(cardIdx, 1)
+}
+
+async function loadFromTrello() {
+  const apiKey = prompt('Informe sua Trello API Key (https://trello.com/app-key) [Lembre-se de adicionar a URL de onde o projeto esta rodando nas Origens Permitidas]:')
+  if (!apiKey) return
+
+  if (!window.jQuery) {
+    await new Promise((resolve) => {
+      const script = document.createElement('script')
+      script.src = 'https://code.jquery.com/jquery-3.6.0.min.js'
+      script.onload = resolve
+      document.body.appendChild(script)
+    })
+  }
+
+  if (!window.Trello) {
+    await new Promise((resolve) => {
+      const script = document.createElement('script')
+      script.src = 'https://trello.com/1/client.js?key=' + apiKey
+      script.onload = resolve
+      document.body.appendChild(script)
+    })
+  }
+
+  await new Promise((resolve, reject) => {
+    window.Trello.authorize({
+      type: 'popup',
+      name: 'DevRoom Kanban',
+      scope: { read: true, write: false },
+      expiration: '1hour',
+      persist: true,
+      success: resolve,
+      error: reject
+    })
+  })
+
+  const boards = await window.Trello.get('/members/me/boards')
+  if (!boards.length) {
+    alert('Nenhum quadro encontrado na sua conta Trello.')
+    return
+  }
+
+  const boardNames = boards.map((b, i) => `${i + 1} - ${b.name}`).join('\n')
+  const idx = prompt(`Escolha o número do quadro para importar:\n${boardNames}`)
+  const boardIdx = parseInt(idx, 10) - 1
+  if (isNaN(boardIdx) || boardIdx < 0 || boardIdx >= boards.length) return
+
+  const boardId = boards[boardIdx].id
+
+  const lists = await window.Trello.get(`/boards/${boardId}/lists`)
+  const cards = await window.Trello.get(`/boards/${boardId}/cards`)
+
+  columns.value = lists.map(list => ({
+    id: generateId(),
+    title: list.name,
+    cards: cards
+      .filter(card => card.idList === list.id)
+      .map(card => ({
+        id: generateId(),
+        title: card.name,
+        description: card.desc
+      }))
+  }))
+  newCardTitles.value = columns.value.map(() => '')
 }
 </script>
 
