@@ -15,6 +15,7 @@ import StickyNotes from './components/StickyNotes.vue'
 import ChatGPTApi from './components/ChatGPTApi.vue'
 import GithubFeatures from './components/GithubFeatures.vue'
 import Kanban from './components/Kanban.vue'
+import Converter from './components/Converter.vue'
 import { ref, reactive, onMounted, onUnmounted, watch, watchEffect, computed } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
 import { inject } from "@vercel/analytics"
@@ -230,6 +231,7 @@ const windowComponents = {
   Config,
   ChatGPTApi,
   Kanban,
+  Converter,
 }
 
 watch(openWindows, (windows) => {
@@ -252,6 +254,7 @@ const mobileTabs = [
   { type: 'Search', label: 'Busca', icon: 'fa-solid fa-magnifying-glass' },
   { type: 'WaterReminder', label: 'Lembrete de Água', icon: 'fa-solid fa-droplet' },
   { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database' },
+  { type: 'Converter', label: 'Conversor de moedas', icon: 'fa-solid fa-dollar-sign' },
   { type: 'Config', label: 'Configurações', icon: 'fa-solid fa-gear' },
 ]
 
@@ -304,6 +307,7 @@ function openWindow(type) {
     Config: { width: 340, height: 400 },
     ChatGPTApi: { width: 600, height: 600 },
     Kanban: { width: 1000, height: 600 },
+    Converter: { width: 600, height: 300 },
   }
   let { width, height } = defaultSizes[type] || { width: 340, height: 220 }
 
@@ -997,7 +1001,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
 
       <!-- Dock desktop -->
       <div id="dock"
-        class="p-4 flex flex-wrap justify-center items-center rounded-xl shadow-2xl fixed left-1/2 -translate-x-1/2 bottom-6 w-[90vw] max-w-6xl border"
+        class="p-4 flex flex-wrap justify-center items-center rounded-xl shadow-2xl fixed left-1/2 -translate-x-1/2 bottom-6 w-[90vw] max-w-7xl border"
         :style="{
           background: 'var(--bg-panel)',
           color: 'var(--text-main)',
@@ -1042,6 +1046,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
               winTab.type === 'FakeDataGenerator' ? 'text-lime-400 hover:text-lime-200' : '',
               winTab.type === 'ChatGPTApi' ? 'text-emerald-400 hover:text-emerald-200' : '',
               winTab.type === 'Kanban' ? 'text-blue-400 hover:text-blue-200' : '',
+              winTab.type === 'Converter' ? 'text-blue-400 hover:text-blue-200' : '',
             ]" class="text-2xl" />
             <span class="dock-tooltip group-hover:opacity-100">{{ winTab.label }}</span>
             <span
