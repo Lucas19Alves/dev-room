@@ -31,16 +31,6 @@ Tenha tudo o que precisa para organizar seu dia de trabalho em um só lugar: not
 
 [DevRoom](https://dev-room-three.vercel.app/)
 
-## 🚀 Instalação
-
-```bash
-git clone https://github.com/Lucas19Alves/dev-room
-cd dev-room
-npm install
-npm run dev
-```
-
-Acesse em [http://localhost:5173](http://localhost:5173)
 
 ## 🛠️ Tecnologias
 
@@ -50,41 +40,6 @@ Acesse em [http://localhost:5173](http://localhost:5173)
 - [highlight.js](https://highlightjs.org/) (para snippets)
 - [Font Awesome](https://fontawesome.com/) (ícones)
 
-## 🎨 Temas
-
-Personalize o visual do Dev Room com temas como:
-- Default
-- Dark
-- Solarized
-- Dracula
-- Gruvbox
-- Nord
-
-## 📁 Estrutura
-
-```
-src/
-  components/
-    Window.vue
-    QuickNotes.vue
-    TodoList.vue
-    DeployChecklist.vue
-    CodeSnippets.vue
-    MusicPlayer.vue
-    Pomodoro.vue
-    Timer.vue
-    WaterReminder.vue
-    Search.vue
-    Themes.vue
-    ChatGPT.vue
-    ...
-  App.vue
-  style.css
-```
-
-## 📋 Licença
-
-MIT
 
 ---
 
