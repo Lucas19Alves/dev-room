@@ -1175,7 +1175,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
         <div class="mb-3 w-full">
           <label class="block text-sm font-semibold mb-1 text-center">Chave Pix (celular):</label>
           <div class="flex items-center justify-center gap-2">
-            <span class="bg-gray-800 px-2 py-1 rounded select-all text-sm" id="pix-key">(77) 99115-6978</span>
+            <span class="bg-gray-800 px-2 py-1 rounded select-all text-sm" id="pix-key">(11) 98192-7567</span>
             <button
               @click="copyPixKey"
               class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-bold transition"
