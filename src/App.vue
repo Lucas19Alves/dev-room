@@ -38,6 +38,7 @@ const onboardingDone = ref(localStorage.getItem('dev-room-onboarding') === 'ok')
 const onboardingStep = ref(0)
 const checkedOnboarding = ref(false)
 const firstLoginModal = ref(localStorage.getItem('dev-room-first-login') !== 'ok' && localStorage.getItem('dev-room-first-login') !== 'skip')
+const initialModalVisible = computed(() => !onboardingDone.value || firstLoginModal.value)
 
 // Salva nome do usuário e avança onboarding
 function saveName() {
@@ -572,14 +573,23 @@ function confirmLogoutGitHub() {
 
 function loginWithGitHub() {
   const clientId = 'Ov23liLXp3BH07oDymH4'
-  const redirectUri = window.location.origin
-  const scope = 'repo'
-  window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`
+  // O GitHub usa a callback cadastrada no OAuth App; isso evita divergência
+  // entre localhost, preview e o domínio de produção.
+  const state = crypto.randomUUID()
+  sessionStorage.setItem('centralos-github-oauth-state', state)
+  const params = new URLSearchParams({ client_id: clientId, scope: 'repo', state })
+  window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`
 }
 
 async function handleGitHubCallback() {
   const urlParams = new URLSearchParams(window.location.search)
   const code = urlParams.get('code')
+  const returnedState = urlParams.get('state')
+  const expectedState = sessionStorage.getItem('centralos-github-oauth-state')
+  if (code && (!expectedState || returnedState !== expectedState)) {
+    window.history.replaceState({}, document.title, window.location.pathname)
+    return
+  }
   if (code) {
     const res = await fetch('/api/github-callback', {
       method: 'POST',
@@ -595,6 +605,7 @@ async function handleGitHubCallback() {
       onboardingDone.value = true
       localStorage.setItem('dev-room-onboarding', 'ok')
       await loadDataFromRepoAndSet()
+      sessionStorage.removeItem('centralos-github-oauth-state')
       window.history.replaceState({}, document.title, window.location.pathname)
     }
   }
@@ -611,12 +622,15 @@ async function fetchGitHubUserName() {
 }
 
 async function syncDataToRepo() {
-  if (!githubToken.value || !githubUserLogin.value) return
+  if (!githubToken.value || !githubUserLogin.value || isSyncing.value || document.hidden) return
+  isSyncing.value = true
   try {
     await saveDataToRepo(githubToken.value, githubUserLogin.value, localStorage.getItem('dev-room-data') || '{}')
     // Backup salvo no GitHub
   } catch (err) {
     // Erro ao salvar backup no GitHub
+  } finally {
+    isSyncing.value = false
   }
 }
 
@@ -658,6 +672,7 @@ function handleStorageSync(event) {
 // Sincroniza backup local com GitHub a cada 2s se houver alteração
 let lastData = localStorage.getItem('dev-room-data')
 syncPushIntervalId = window.setInterval(() => {
+  if (document.hidden) return
   if (githubToken.value && githubUserLogin.value) {
     const currentData = localStorage.getItem('dev-room-data')
     if (currentData !== lastData) {
@@ -665,11 +680,11 @@ syncPushIntervalId = window.setInterval(() => {
       syncDataToRepo()
     }
   }
-}, 2500)
+}, 5000)
 
 // Sincroniza backup do GitHub para localStorage a cada 10s
 syncPullIntervalId = window.setInterval(async () => {
-  if (githubToken.value && githubUserLogin.value) {
+  if (!document.hidden && githubToken.value && githubUserLogin.value && !isSyncing.value) {
     try {
       const repoContent = await loadDataFromRepo(githubToken.value, githubUserLogin.value)
       const repoData = JSON.parse(repoContent || '{}')
@@ -697,7 +712,7 @@ syncPullIntervalId = window.setInterval(async () => {
       // Silencia erros de rede ou 404
     }
   }
-}, 10000)
+}, 30000)
 
 watch(onboardingStep, (step) => {
   if (step === 5 && githubToken.value) {
@@ -1114,7 +1129,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
         @mouseenter="dockReveal = true"
         id="dock-reveal-zone"
       ></div>
-      <div id="dock"
+      <div v-if="!initialModalVisible" id="dock"
         class="p-2 flex justify-center items-center shadow-2xl fixed left-1/2 bottom-3 w-fit max-w-[94vw] border z-[9000]"
         :class="{ 'dock-auto-hidden': isDockObstructed && !dockReveal }"
         :style="{
@@ -1312,7 +1327,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
     <transition name="fade">
       <div v-if="showLoginModal" class="fixed inset-0 z-[999] flex items-center justify-center"
         style="background: rgba(0,0,0,0.85);">
-        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-full"
+        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)] overflow-y-auto"
           :style="{ borderColor: 'var(--accent)' }">
           <font-awesome-icon icon="fa-brands fa-github" class="text-5xl mb-4 text-gray-300" />
           <h2 class="text-2xl font-bold mb-4 text-center">Login via GitHub</h2>
@@ -1343,7 +1358,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
     <transition name="fade">
       <div v-if="showLogoutModal" class="fixed inset-0 z-[999] flex items-center justify-center"
         style="background: rgba(0,0,0,0.85);">
-        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-full"
+        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)] overflow-y-auto"
           :style="{ borderColor: 'var(--accent)' }">
           <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-5xl mb-4 text-red-400" />
           <h2 class="text-2xl font-bold mb-4 text-center">Sair da sincronização</h2>

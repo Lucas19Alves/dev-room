@@ -279,6 +279,36 @@ body {
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
 }
 
+#onboarding-content {
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  border-radius: 24px !important;
+  padding: clamp(1.25rem, 4vw, 2rem) !important;
+  background: var(--bg-panel) !important;
+  color: var(--text-main) !important;
+}
+
+#onboarding-content :is(h1, h2, h3, p, li, label, span) {
+  color: var(--text-main);
+}
+
+#onboarding-content :is(.text-white, button) {
+  color: inherit;
+}
+
+#onboarding-content button {
+  color: #fff;
+}
+
+#onboarding-content button {
+  min-height: 2.75rem;
+  width: min(100%, 22rem);
+  margin-inline: auto;
+}
+
+#onboarding-content li { line-height: 1.55; }
+
 #statusBar,
 #mobile-topbar {
   border-top: 0 !important;
