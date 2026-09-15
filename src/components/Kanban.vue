@@ -162,8 +162,8 @@ function removeCard(colIdx, cardIdx) {
 
 <style scoped>
 #kanban-main {
-  min-width: 340px;
-  min-height: 340px;
+  min-width: 0;
+  min-height: 100%;
 }
 
 #kanban-board {

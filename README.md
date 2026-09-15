@@ -1,11 +1,11 @@
-# Dev Room
+# CentralOS
 
 Um ambiente de produtividade para desenvolvedores, inspirado em um "desktop virtual", feito em Vue 3 + Vite.  
 Tenha tudo o que precisa para organizar seu dia de trabalho em um só lugar: notas rápidas, checklist de deploy, snippets de código, player de música lo-fi, Pomodoro, temas customizáveis, integração com IA e muito mais!
 
 ## ✨ Novidades
 
-- **Login e Sincronização via GitHub:** Salve e sincronize seus dados de forma segura no seu próprio repositório privado, acessando o Dev Room em qualquer dispositivo.
+- **Login e Sincronização via GitHub:** Salve e sincronize seus dados de forma segura no seu próprio repositório privado, acessando o CentralOS em qualquer dispositivo.
 - **Integração com IA (ChatGPT via API):** Converse com a IA diretamente do app, basta inserir sua chave da OpenAI.
 - **Design aprimorado:** Interface mais moderna, responsiva e intuitiva.
 - **Correções de bugs e melhorias de performance.
@@ -29,7 +29,9 @@ Tenha tudo o que precisa para organizar seu dia de trabalho em um só lugar: not
 
 ## 🖥️ Acesse em
 
-[DevRoom](https://dev-room-three.vercel.app/)
+[CentralOS](https://dev-room-three.vercel.app/)
+
+[Repositório no GitHub](https://github.com/Lucas19Alves/CentralOS)
 
 
 ## 🛠️ Tecnologias

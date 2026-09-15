@@ -1,6 +1,6 @@
 {
-  "name": "Dev Room",
-  "short_name": "Dev Room",
+  "name": "CentralOS",
+  "short_name": "CentralOS",
   "description": "Seu ambiente integrado de produtividade para desenvolvedores.",
   "start_url": "/",
   "display": "standalone",

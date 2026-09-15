@@ -1,7 +1,10 @@
-import { Octokit } from '@octokit/rest'
-
 const REPO_NAME = 'dev-room-data'
 const FILE_PATH = 'dev-room-data.json'
+
+async function createOctokit(githubToken) {
+  const { Octokit } = await import('@octokit/rest')
+  return new Octokit({ auth: githubToken })
+}
 
 // Garante que o repositório existe, senão cria
 export async function ensureRepo(octokit, userLogin) {
@@ -11,14 +14,14 @@ export async function ensureRepo(octokit, userLogin) {
     await octokit.repos.createForAuthenticatedUser({
       name: REPO_NAME,
       private: true,
-      description: 'Backup dos dados do Dev Room'
+      description: 'Backup dos dados do CentralOS'
     })
   }
 }
 
 // Salva os dados no repositório do usuário
 export async function saveDataToRepo(githubToken, userLogin, data) {
-  const octokit = new Octokit({ auth: githubToken })
+  const octokit = await createOctokit(githubToken)
   await ensureRepo(octokit, userLogin)
 
   // Parse local data e atualize lastModified
@@ -54,7 +57,7 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
       owner: userLogin,
       repo: REPO_NAME,
       path: FILE_PATH,
-      message: 'Atualizando dados do Dev Room',
+      message: 'Atualizando dados do CentralOS',
       content: btoa(unescape(encodeURIComponent(data))),
       sha
     })
@@ -79,7 +82,7 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
         owner: userLogin,
         repo: REPO_NAME,
         path: FILE_PATH,
-        message: 'Atualizando dados do Dev Room',
+        message: 'Atualizando dados do CentralOS',
         content: btoa(unescape(encodeURIComponent(data))),
         sha: fileData.sha
       })
@@ -92,7 +95,7 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
 
 // Carrega os dados do repositório do usuário
 export async function loadDataFromRepo(githubToken, userLogin) {
-  const octokit = new Octokit({ auth: githubToken })
+  const octokit = await createOctokit(githubToken)
   try {
     const { data: fileData } = await octokit.repos.getContent({
       owner: userLogin,
