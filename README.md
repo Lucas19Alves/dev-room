@@ -2,9 +2,13 @@
 
 Uma plataforma de espaços de trabalho orientados a objetivos. O usuário escolhe um modelo, define o objetivo, seleciona os componentes e entra em um **Flow** com conteúdo e histórico próprios.
 
+<<<<<<< HEAD
 ## Executar
 
 Use Node.js 22.13+ e npm.
+=======
+<img width="1713" height="941" alt="centralos" src="https://github.com/user-attachments/assets/5dd813d7-bfe4-455b-9bda-78a9af351f70" />
+>>>>>>> 1b022dfd9158acc852da08782075d3a677df1c15
 
 ```sh
 npm ci
@@ -20,7 +24,11 @@ npm test
 npm run test:e2e
 ```
 
+<<<<<<< HEAD
 Na primeira execução dos testes de navegador, execute `npx playwright install chromium`.
+=======
+[CentralOS](https://centralos-main.vercel.app/)
+>>>>>>> 1b022dfd9158acc852da08782075d3a677df1c15
 
 ## Experiência
 
