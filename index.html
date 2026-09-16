@@ -1,77 +1,26 @@
 <!doctype html>
-<html lang="pt-br">
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-  <title>CentralOS</title>
-
-  <!-- Meta tags essenciais -->
-  <meta name="description" content="CentralOS: seu ambiente integrado de produtividade para desenvolvedores. Organize tarefas, notas, timers, snippets e muito mais em um só lugar!">
-  <meta name="keywords" content="dev, produtividade, tarefas, notas, snippets, timer, pomodoro, checklist, desenvolvedor, ferramentas, workspace, código">
-  <meta name="author" content="Lucas Alves">
-
-  <!-- Open Graph para compartilhamento em redes sociais -->
-  <meta property="og:title" content="CentralOS">
-  <meta property="og:description" content="Ambiente integrado de produtividade para desenvolvedores.">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://dev-room-three.vercel.app/">
-  <meta property="og:image" content="https://dev-room-three.vercel.app/images/og-image.png">
-
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="CentralOS">
-  <meta name="twitter:description" content="Ambiente integrado de produtividade para desenvolvedores.">
-  <meta name="twitter:image" content="https://dev-room-three.vercel.app/images/og-image.png">
-
-  <!-- PWA e Sugestão de instalação -->
-  <meta name="theme-color" content="#18181b">
-  <link rel="manifest" href="/manifest.webmanifest">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="CentralOS">
-  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
-
-  <!-- Script para papel de parede (executa antes de qualquer coisa) -->
-  <script>
-    (function() {
-      // Tenta restaurar o papel de parede o mais cedo possível
-      const WALLPAPER_KEY = 'dev-room-wallpaper';
-      const savedWallpaper = localStorage.getItem(WALLPAPER_KEY);
-      
-      if (savedWallpaper) {
-        // Cria um estilo inline para aplicar imediatamente
-        const style = document.createElement('style');
-        style.textContent = `
-          html, body {
-            background-image: url('${savedWallpaper}') !important;
-            background-size: cover !important;
-            background-position: center center !important;
-            background-repeat: no-repeat !important;
-            background-attachment: fixed !important;
-          }
-          html.has-wallpaper, body.has-wallpaper {
-            background-image: url('${savedWallpaper}') !important;
-            background-size: cover !important;
-            background-position: center center !important;
-            background-repeat: no-repeat !important;
-            background-attachment: fixed !important;
-          }
-        `;
-        style.id = 'wallpaper-style';
-        document.head.appendChild(style);
-        
-        // Adicionar classe para CSS
-        document.documentElement.classList.add('has-wallpaper');
-      }
-    })();
-  </script>
-</head>
-
-<body>
-  <div id="app"></div>
-  <script type="module" src="/src/main.js"></script>
-</body>
-
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.ico" />
+    <title>CentralOS — Seu espaço. Seu ritmo.</title>
+    <meta
+      name="description"
+      content="Seu espaço digital se adapta ao que você quer fazer. Crie Flows para estudar, programar e organizar sua rotina, com ferramentas e contexto no mesmo lugar."
+    />
+    <meta property="og:title" content="CentralOS — Encontre seu Flow" />
+    <meta
+      property="og:description"
+      content="Escolha seu objetivo. Personalize seu espaço. Continue de onde parou."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#294a38" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>

@@ -1,11 +1,11 @@
 {
   "name": "CentralOS",
   "short_name": "CentralOS",
-  "description": "Seu ambiente integrado de produtividade para desenvolvedores.",
+  "description": "Escolha seu objetivo. Personalize seu espaço. Encontre seu Flow.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#18181b",
-  "theme_color": "#18181b",
+  "background_color": "#f8faf8",
+  "theme_color": "#294a38",
   "orientation": "portrait",
   "icons": [
     {
