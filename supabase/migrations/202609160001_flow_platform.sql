@@ -1,4 +1,4 @@
--- CentralOS 2: private account snapshots with optimistic concurrency.
+-- Noma: private account snapshots with optimistic concurrency.
 create table public.flow_accounts (
   user_id uuid primary key references auth.users(id) on delete cascade,
   payload jsonb not null check (jsonb_typeof(payload) = 'object'),

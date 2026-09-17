@@ -6,7 +6,7 @@ export default defineConfig({
     viewport: { width: 1440, height: 1000 },
   },
   webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 5179",
+    command: "npm run dev -- --mode e2e --host 127.0.0.1 --port 5179",
     url: "http://127.0.0.1:5179",
     reuseExistingServer: !process.env.CI,
   },

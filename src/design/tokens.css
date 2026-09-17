@@ -1,0 +1,32 @@
+:root {
+  --noma-ink: #263b36;
+  --noma-ink-soft: #60706a;
+  --noma-ink-muted: #7b8c84;
+  --noma-surface: #ffffff;
+  --noma-canvas: #f8faf8;
+  --noma-surface-soft: #f2f6ef;
+  --noma-border: #dfe7df;
+  --noma-border-strong: #cbd8cb;
+  --noma-brand: #294a38;
+  --noma-brand-hover: #203e30;
+  --noma-brand-soft: #e9f2e7;
+  --noma-success: #4f7c55;
+  --noma-warning: #8a6b34;
+  --noma-danger: #a64f49;
+  --noma-info: #4d6f82;
+  --noma-focus: #69a77e;
+  --noma-radius-sm: 7px;
+  --noma-radius-md: 10px;
+  --noma-radius-lg: 15px;
+  --noma-shadow-sm: 0 2px 10px rgb(41 74 56 / 6%);
+  --noma-shadow-lg: 0 24px 70px rgb(41 74 56 / 16%);
+  --noma-space-1: 4px;
+  --noma-space-2: 8px;
+  --noma-space-3: 12px;
+  --noma-space-4: 16px;
+  --noma-space-5: 20px;
+  --noma-space-6: 24px;
+  --noma-space-8: 32px;
+  --noma-control-height: 42px;
+  --noma-transition: 160ms ease;
+}

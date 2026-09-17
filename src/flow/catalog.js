@@ -1,90 +1,67 @@
+import {
+  createFlowInstance,
+  emptyAccount,
+  toPublicDefinition,
+} from "./model.js";
+
 export const components = [
-  {
-    id: "focus",
-    name: "Pomodoro",
-    icon: "◷",
-    description: "Um intervalo de cada vez.",
+  ["focus", "Pomodoro", "◷", "Um intervalo de cada vez."],
+  ["tasks", "Checklist", "☑", "Transforme objetivos em próximos passos."],
+  ["notes", "Notas", "▤", "Suas ideias, sempre por perto."],
+  ["links", "Links", "↗", "Referências para o seu objetivo."],
+  ["music", "Música", "♫", "Uma trilha para entrar no ritmo."],
+  ["kanban", "Kanban", "▥", "Visualize cada etapa do trabalho."],
+  ["snippets", "Snippets", "⌘", "Trechos de código para reutilizar."],
+  ["playground", "Playground", "⌨", "Experimente HTML, CSS e JavaScript."],
+  ["converter", "Conversor", "⇄", "Conversões úteis sem sair do Flow."],
+  ["water", "Hidratação", "♧", "Lembre de fazer uma pausa."],
+  ["deploy", "Checklist de deploy", "↑", "Prepare a entrega do seu projeto."],
+  ["fake", "Dados de teste", "⌗", "Gere dados para protótipos."],
+  ["timer", "Cronômetro", "◴", "Meça o tempo de uma atividade."],
+].map(([id, name, icon, description]) => ({ id, name, icon, description }));
+
+const definition = (value) => ({
+  schemaVersion: 2,
+  kind: "flow_definition",
+  version: 1,
+  visibility: "official",
+  onboarding: {
+    intro: value.description,
+    steps: [
+      "Defina seu objetivo",
+      "Escolha os componentes",
+      "Prepare o primeiro passo",
+    ],
   },
-  {
-    id: "tasks",
-    name: "Checklist",
-    icon: "☑",
-    description: "Transforme objetivos em próximos passos.",
+  properties: {},
+  goals: [],
+  stages: [],
+  metrics: [
+    { id: "minutes", label: "Tempo dedicado", unit: "min", aggregation: "sum" },
+    {
+      id: "sessions",
+      label: "Sessões concluídas",
+      unit: "sessão",
+      aggregation: "count",
+    },
+  ],
+  instructions: { summary: value.description, prompts: [] },
+  review: {
+    cadenceDays: 7,
+    prompts: ["O que avançou?", "Qual é o próximo passo?"],
   },
-  {
-    id: "notes",
-    name: "Notas",
-    icon: "▤",
-    description: "Suas ideias, sempre por perto.",
-  },
-  {
-    id: "links",
-    name: "Links",
-    icon: "↗",
-    description: "Referências para o seu objetivo.",
-  },
-  {
-    id: "music",
-    name: "Música",
-    icon: "♫",
-    description: "Uma trilha para entrar no ritmo.",
-  },
-  {
-    id: "kanban",
-    name: "Kanban",
-    icon: "▥",
-    description: "Visualize cada etapa do trabalho.",
-  },
-  {
-    id: "snippets",
-    name: "Snippets",
-    icon: "⌘",
-    description: "Trechos de código para reutilizar.",
-  },
-  {
-    id: "playground",
-    name: "Playground",
-    icon: "⌨",
-    description: "Experimente HTML, CSS e JavaScript.",
-  },
-  {
-    id: "converter",
-    name: "Conversor",
-    icon: "⇄",
-    description: "Conversões úteis sem sair do Flow.",
-  },
-  {
-    id: "water",
-    name: "Hidratação",
-    icon: "♧",
-    description: "Lembre de fazer uma pausa.",
-  },
-  {
-    id: "deploy",
-    name: "Checklist de deploy",
-    icon: "↑",
-    description: "Prepare a entrega do seu projeto.",
-  },
-  {
-    id: "fake",
-    name: "Dados de teste",
-    icon: "⌗",
-    description: "Gere dados para protótipos.",
-  },
-  {
-    id: "timer",
-    name: "Cronômetro",
-    icon: "◴",
-    description: "Meça o tempo de uma atividade.",
-  },
-];
+  initialData: {},
+  ...value,
+});
+
 export const templates = [
-  {
+  definition({
     id: "enem",
     name: "Meu próximo passo: ENEM",
     category: "Estudos",
     icon: "✳",
     color: "mint",
+    objective: "Construir uma rotina sustentável de preparação para o ENEM.",
     description:
       "Da revisão à redação. Um espaço para chegar mais perto da sua aprovação.",
     components: ["focus", "tasks", "notes", "links", "music"],
@@ -95,26 +72,28 @@ export const templates = [
       "Anotar dúvidas para a próxima revisão",
     ],
     tag: "COMECE POR AQUI",
-  },
-  {
+  }),
+  definition({
     id: "code",
     name: "Do código ao deploy",
     category: "Programação",
     icon: "⌘",
     color: "lavender",
+    objective: "Levar uma ideia de software até uma entrega validada.",
     description:
       "Menos abas abertas. Mais espaço para construir sua próxima ideia.",
     components: ["focus", "kanban", "snippets", "notes", "playground"],
     focus: 50,
     tasks: [],
     tag: "DEEP WORK",
-  },
-  {
+  }),
+  definition({
     id: "week",
     name: "Uma semana mais leve",
     category: "Organização",
     icon: "◈",
     color: "peach",
+    objective: "Organizar prioridades com espaço realista para descanso.",
     description: "Tire os planos da cabeça e dê um lugar para cada prioridade.",
     components: ["tasks", "notes", "links"],
     focus: 25,
@@ -123,13 +102,14 @@ export const templates = [
       "Reservar um momento de descanso",
     ],
     tag: "ENCONTRE SEU RITMO",
-  },
-  {
+  }),
+  definition({
     id: "job",
     name: "Seu próximo capítulo",
     category: "Carreira",
     icon: "↗",
     color: "blue",
+    objective: "Conduzir uma busca de trabalho organizada e consciente.",
     description:
       "Organize vagas, prepare entrevistas e acompanhe suas candidaturas.",
     components: ["kanban", "tasks", "notes", "links"],
@@ -139,86 +119,43 @@ export const templates = [
       "Selecionar vagas alinhadas ao meu perfil",
     ],
     tag: "NOVAS POSSIBILIDADES",
-  },
-  {
+  }),
+  definition({
     id: "college",
     name: "Faculdade em dia",
     category: "Estudos",
     icon: "▧",
     color: "yellow",
+    objective:
+      "Concluir trabalhos acadêmicos com contexto e referências reunidos.",
     description:
       "Referências, entregas e ideias reunidas para o seu próximo trabalho.",
     components: ["focus", "tasks", "notes", "links"],
     focus: 50,
     tasks: ["Organizar referências", "Escrever o primeiro rascunho"],
     tag: "IDEIAS EM MOVIMENTO",
-  },
-  {
+  }),
+  definition({
     id: "blank",
     name: "Do seu jeito",
     category: "Personalizado",
     icon: "+",
     color: "plain",
+    objective: "Criar um espaço próprio para um objetivo específico.",
     description:
       "Uma tela em branco. Escolha os componentes e encontre seu próprio Flow.",
     components: [],
     focus: 25,
     tasks: [],
     tag: "CRIE DO ZERO",
-  },
+  }),
 ];
+
 export const clone = (value) => JSON.parse(JSON.stringify(value));
-export function makeFlow(template, name = template.name) {
-  const selected = [...new Set(template.components)].filter((id) =>
-    components.some((c) => c.id === id),
-  );
-  return {
-    id: crypto.randomUUID(),
-    name: name.trim().slice(0, 100) || template.name,
-    category: template.category || "Personalizado",
-    color: template.color || "mint",
-    icon: template.icon || "✳",
-    components: selected,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    data: {
-      tasks: (template.tasks || []).map((text) => ({
-        id: crypto.randomUUID(),
-        text,
-        done: false,
-      })),
-      notesText: "",
-      links: [],
-      focusMinutes: Math.max(1, Math.min(180, Number(template.focus) || 25)),
-    },
-    sessions: [],
-  };
-}
-export function publicTemplate(flow) {
-  // Only the layout/configuration is shared. Notes, tasks, URLs and history stay private.
-  return {
-    name: flow.name,
-    category: flow.category,
-    color: flow.color,
-    icon: flow.icon,
-    components: flow.components.filter((id) =>
-      components.some((c) => c.id === id),
-    ),
-    focus: flow.data.focusMinutes || 25,
-    tasks: [],
-    description: `Um Flow de ${flow.category.toLowerCase()} com ${flow.components.length} componentes.`,
-    tag: "DA COMUNIDADE",
-  };
-}
-export function emptyAccount() {
-  return {
-    version: 2,
-    name: "",
-    onboarded: false,
-    flows: [],
-    activeSession: null,
-  };
-}
+export const makeFlow = createFlowInstance;
+export const publicTemplate = toPublicDefinition;
+export { emptyAccount };
+
 export function safeUrl(value) {
   try {
     const url = new URL(value);

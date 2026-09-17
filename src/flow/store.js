@@ -1,7 +1,9 @@
 import { reactive, nextTick } from "vue";
-import { readAccount, writeAccount } from "./database";
-import { emptyAccount, makeFlow, templates, clone } from "./catalog";
-import { supabase } from "./supabase";
+import { readAccount, writeAccount } from "./database.js";
+import { emptyAccount, makeFlow, templates, clone } from "./catalog.js";
+import { migrateAccount } from "./model.js";
+import { supabase } from "./supabase.js";
+const E2E_MODE = import.meta.env.VITE_E2E_MODE === "true";
 export const store = reactive({
   ready: false,
   account: emptyAccount(),
@@ -10,7 +12,9 @@ export const store = reactive({
   error: "",
   conflict: false,
   pending: 0,
-  remoteVersion: 0, recovery: new URLSearchParams(location.hash.slice(1)).get("type") === "recovery",
+  remoteVersion: 0,
+  recovery:
+    new URLSearchParams(location.hash.slice(1)).get("type") === "recovery",
 });
 let accountKey = "guest",
   revision = 0,
@@ -41,9 +45,10 @@ export function changed() {
   persist()
     .then(() => {
       if (savedGeneration === generation)
-        store.status = store.user
-          ? "Alterações pendentes"
-          : "Salvo neste dispositivo";
+        store.status =
+          store.user && !E2E_MODE
+            ? "Alterações pendentes"
+            : "Salvo neste dispositivo";
     })
     .catch(() => {
       store.status = "Falha ao salvar";
@@ -52,7 +57,7 @@ export function changed() {
   if (store.user) syncTimer = setTimeout(syncNow, 1200);
 }
 export async function syncNow() {
-  if (!supabase || !store.user || syncing || store.conflict) return;
+  if (E2E_MODE || !supabase || !store.user || syncing || store.conflict) return;
   syncing = true;
   const key = accountKey,
     version = generation;
@@ -84,7 +89,7 @@ export async function syncNow() {
         version === generation &&
         data.revision !== revision
       ) {
-        store.account = data.payload;
+        store.account = migrateAccount(data.payload);
         revision = data.revision;
         store.remoteVersion++;
       }
@@ -112,7 +117,7 @@ export async function loadCloudVersion() {
     .eq("user_id", store.user.id)
     .single();
   if (error) throw error;
-  store.account = data.payload;
+  store.account = migrateAccount(data.payload);
   revision = data.revision;
   dirty = false;
   store.conflict = false;
@@ -133,27 +138,45 @@ async function loadUser(user) {
   accountKey = user ? `user:${user.id}` : "guest";
   store.account = emptyAccount();
   const saved = await readAccount(accountKey);
-  store.account = saved?.account || emptyAccount(); if (!store.account.name && user) store.account.name = user.user_metadata?.display_name || "";
+  store.account = migrateAccount(saved?.account);
+  if (!store.account.name && user)
+    store.account.name = user.user_metadata?.display_name || "";
   revision = saved?.revision || 0;
   dirty = saved?.dirty || false;
   store.conflict = false;
   store.error = "";
   generation++;
-  if (!saved && !user) {
-    const legacy = localStorage.getItem("dev-room-data");
-    if (legacy) {
+  if (!saved) {
+    const legacyEntry = Array.from(
+      { length: localStorage.length },
+      (_, index) => localStorage.key(index),
+    )
+      .map((key) => [key, localStorage.getItem(key)])
+      .find(([, value]) => {
+        try {
+          const parsed = JSON.parse(value);
+          return (
+            parsed &&
+            typeof parsed === "object" &&
+            (Array.isArray(parsed.tasks) ||
+              Array.isArray(parsed.notes) ||
+              typeof parsed.nome === "string")
+          );
+        } catch {
+          return false;
+        }
+      });
+    if (legacyEntry) {
       try {
-        const old = JSON.parse(legacy);
+        const old = JSON.parse(legacyEntry[1]);
         const flow = makeFlow(templates[0], "Meu espaço anterior");
-        flow.category = "Personalizado";
-        flow.data = {
-          ...flow.data,
-          ...old,
-          notesText: (old.notes || []).map((n) => n.text).join("\n\n"),
+        flow.identity.category = "Personalizado";
+        flow.componentData.tasks = { items: old.tasks || [] };
+        flow.componentData.notes = {
+          text: (old.notes || []).map((note) => note.text).join("\n\n"),
         };
         store.account.flows.push(flow);
-        store.account.name =
-          old.nome || localStorage.getItem("dev-room-nome") || "";
+        store.account.name = old.nome || "";
         dirty = true;
       } catch {
         store.error =
@@ -168,17 +191,17 @@ async function loadUser(user) {
 }
 export async function initialize() {
   try {
-    if (navigator.locks && !store.ready && !window.__centralosLock) {
+    if (navigator.locks && !store.ready && !window.__nomaLock) {
       const acquired = await new Promise((resolve) =>
         navigator.locks.request(
-          "centralos-writer",
+          "noma-writer",
           { ifAvailable: true },
           (lock) => {
             if (!lock) {
               resolve(false);
               return;
             }
-            window.__centralosLock = true;
+            window.__nomaLock = true;
             resolve(true);
             return new Promise(() => {});
           },
@@ -186,15 +209,25 @@ export async function initialize() {
       );
       if (!acquired)
         throw new Error(
-          "O CentralOS já está aberto em outra aba. Feche a outra aba e tente novamente para proteger suas alterações.",
+          "O Noma já está aberto em outra aba. Feche a outra aba e tente novamente para proteger suas alterações.",
         );
+    }
+    if (E2E_MODE) {
+      await loadUser({
+        id: "e2e-user",
+        email: "teste@noma.local",
+        user_metadata: { display_name: "Pessoa de teste" },
+      });
+      store.status = "Salvo neste dispositivo";
+      return;
     }
     const session = supabase
       ? await supabase.auth.getSession()
       : { data: { session: null } };
     if (session.error) throw session.error;
     await loadUser(session.data.session?.user || null);
-    supabase?.auth.onAuthStateChange((event, session) => { if (event === "PASSWORD_RECOVERY") store.recovery = true;
+    supabase?.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") store.recovery = true;
       if (
         ["SIGNED_IN", "SIGNED_OUT", "PASSWORD_RECOVERY"].includes(event) &&
         (session?.user?.id || null) !== (store.user?.id || null)
@@ -240,8 +273,7 @@ export function exportBackup() {
   const url = URL.createObjectURL(blob),
     a = document.createElement("a");
   a.href = url;
-  a.download = "centralos-backup.json";
+  a.download = "noma-backup.json";
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-

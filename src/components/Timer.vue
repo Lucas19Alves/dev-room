@@ -1,13 +1,105 @@
 <script setup>
-import {ref,computed,onMounted,onUnmounted} from 'vue'
-import {useAppStorage} from '../composables/useAppStorage'
-import {playSound,notify} from '../utils/notify'
-const {state:timer}=useAppStorage('timer',{inputMinutes:5,inputSeconds:0,totalSeconds:300,elapsed:0,running:false,endTimestamp:null})
-const now=ref(Date.now()),message=ref('')
-const remaining=computed(()=>timer.value.running ? Math.max(0,Math.ceil((timer.value.endTimestamp-now.value)/1000)) : Math.max(0,timer.value.totalSeconds-timer.value.elapsed))
-const format=computed(()=>`${String(Math.floor(remaining.value/60)).padStart(2,'0')}:${String(remaining.value%60).padStart(2,'0')}`)
-function configure(){timer.value.totalSeconds=Math.max(0,Math.min(999,Number(timer.value.inputMinutes)||0))*60+Math.max(0,Math.min(59,Number(timer.value.inputSeconds)||0));timer.value.elapsed=0;timer.value.running=false;timer.value.endTimestamp=null;message.value=''}
-function toggle(){now.value=Date.now();if(timer.value.running){timer.value.elapsed=timer.value.totalSeconds-remaining.value;timer.value.running=false}else{if(!remaining.value)timer.value.elapsed=0;timer.value.endTimestamp=Date.now()+(timer.value.totalSeconds-timer.value.elapsed)*1000;timer.value.running=true}}
-let tick;onMounted(()=>{tick=setInterval(()=>{now.value=Date.now();if(timer.value.running&&remaining.value===0){timer.value.running=false;timer.value.elapsed=timer.value.totalSeconds;message.value='Tempo concluído. Um passo a mais na sua jornada.';playSound('/sounds/notify.mp3');notify('Tempo concluído!')}},250)});onUnmounted(()=>clearInterval(tick))
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { useFlowComponentStorage } from "../composables/useFlowComponentStorage";
+import { playSound, notify } from "../utils/notify";
+const { state: timer } = useFlowComponentStorage("timer", {
+  inputMinutes: 5,
+  inputSeconds: 0,
+  totalSeconds: 300,
+  elapsed: 0,
+  running: false,
+  endTimestamp: null,
+});
+const now = ref(Date.now()),
+  message = ref("");
+const remaining = computed(() =>
+  timer.value.running
+    ? Math.max(0, Math.ceil((timer.value.endTimestamp - now.value) / 1000))
+    : Math.max(0, timer.value.totalSeconds - timer.value.elapsed),
+);
+const format = computed(
+  () =>
+    `${String(Math.floor(remaining.value / 60)).padStart(2, "0")}:${String(remaining.value % 60).padStart(2, "0")}`,
+);
+function configure() {
+  timer.value.totalSeconds =
+    Math.max(0, Math.min(999, Number(timer.value.inputMinutes) || 0)) * 60 +
+    Math.max(0, Math.min(59, Number(timer.value.inputSeconds) || 0));
+  timer.value.elapsed = 0;
+  timer.value.running = false;
+  timer.value.endTimestamp = null;
+  message.value = "";
+}
+function toggle() {
+  now.value = Date.now();
+  if (timer.value.running) {
+    timer.value.elapsed = timer.value.totalSeconds - remaining.value;
+    timer.value.running = false;
+  } else {
+    if (!remaining.value) timer.value.elapsed = 0;
+    timer.value.endTimestamp =
+      Date.now() + (timer.value.totalSeconds - timer.value.elapsed) * 1000;
+    timer.value.running = true;
+  }
+}
+let tick;
+onMounted(() => {
+  tick = setInterval(() => {
+    now.value = Date.now();
+    if (timer.value.running && remaining.value === 0) {
+      timer.value.running = false;
+      timer.value.elapsed = timer.value.totalSeconds;
+      message.value = "Tempo concluído. Um passo a mais na sua jornada.";
+      playSound("/sounds/notify.mp3");
+      notify("Tempo concluído!");
+    }
+  }, 250);
+});
+onUnmounted(() => clearInterval(tick));
 </script>
-<template><div class="tool-body timer-tool" id="timer-main"><p class="tool-caption">Reserve um tempo para o que importa.</p><div class="tool-timer-display" id="timer-display">{{ format }}</div><form class="tool-row timer-settings" @submit.prevent="configure"><label class="tool-field">Minutos<input v-model.number="timer.inputMinutes" type="number" min="0" max="999" aria-label="Minutos do temporizador"></label><span>:</span><label class="tool-field">Segundos<input v-model.number="timer.inputSeconds" type="number" min="0" max="59" aria-label="Segundos do temporizador"></label><button class="outline">Definir</button></form><div class="tool-centered-actions"><button class="dark-button" :disabled="!timer.totalSeconds" @click="toggle">{{ timer.running ? 'Ⅱ Pausar' : '▶ Iniciar temporizador' }}</button><button class="outline" @click="timer.running=false;timer.elapsed=0;message=''">Reiniciar</button></div><p v-if="message" class="tool-feedback" role="status">{{ message }}</p><p v-else class="tool-hint">O tempo continua mesmo se você trocar de Flow.</p></div></template>
+<template>
+  <div class="tool-body timer-tool" id="timer-main">
+    <p class="tool-caption">Reserve um tempo para o que importa.</p>
+    <div class="tool-timer-display" id="timer-display">{{ format }}</div>
+    <form class="tool-row timer-settings" @submit.prevent="configure">
+      <label class="tool-field"
+        >Minutos<input
+          v-model.number="timer.inputMinutes"
+          type="number"
+          min="0"
+          max="999"
+          aria-label="Minutos do temporizador" /></label
+      ><span>:</span
+      ><label class="tool-field"
+        >Segundos<input
+          v-model.number="timer.inputSeconds"
+          type="number"
+          min="0"
+          max="59"
+          aria-label="Segundos do temporizador" /></label
+      ><button class="outline">Definir</button>
+    </form>
+    <div class="tool-centered-actions">
+      <button
+        class="dark-button"
+        :disabled="!timer.totalSeconds"
+        @click="toggle"
+      >
+        {{ timer.running ? "Ⅱ Pausar" : "▶ Iniciar temporizador" }}</button
+      ><button
+        class="outline"
+        @click="
+          timer.running = false;
+          timer.elapsed = 0;
+          message = '';
+        "
+      >
+        Reiniciar
+      </button>
+    </div>
+    <p v-if="message" class="tool-feedback" role="status">{{ message }}</p>
+    <p v-else class="tool-hint">
+      O tempo continua mesmo se você trocar de Flow.
+    </p>
+  </div>
+</template>

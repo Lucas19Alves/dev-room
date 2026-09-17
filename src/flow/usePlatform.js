@@ -25,7 +25,8 @@ import {
   importGuest,
 } from "./store";
 import { supabase } from "./supabase";
-import { bindStorage } from "../utils/storage";
+import { bindFlowStorage } from "../utils/storage";
+import { componentData, componentIds } from "./model";
 export function usePlatform() {
   const tools = {
     music: defineAsyncComponent(() => import("../components/MusicPlayer.vue")),
@@ -75,19 +76,23 @@ export function usePlatform() {
   function focusField(field, fallback) {
     return computed({
       get: () =>
-        active.value?.data.focusState?.[field] ??
+        active.value?.componentData?.focus?.state?.[field] ??
         (field === "left"
-          ? (active.value?.data.focusMinutes || 25) * 60
+          ? (active.value?.properties?.focusMinutes || 25) * 60
           : fallback),
       set: (value) => {
         if (!active.value) return;
-        active.value.data.focusState ||= {
+        const focus = componentData(active.value, "focus", {
+          minutes: 25,
+          state: null,
+        });
+        focus.state ||= {
           running: false,
           end: 0,
-          left: (active.value.data.focusMinutes || 25) * 60,
+          left: (active.value.properties.focusMinutes || 25) * 60,
           break: false,
         };
-        active.value.data.focusState[field] = value;
+        focus.state[field] = value;
         changed();
       },
     });
@@ -118,9 +123,9 @@ export function usePlatform() {
       .flatMap((f) =>
         f.sessions.map((s) => ({
           ...s,
-          name: f.name,
-          color: f.color,
-          category: f.category,
+          name: f.identity.name,
+          color: f.identity.color,
+          category: f.identity.category,
         })),
       )
       .sort((a, b) => b.endedAt - a.endedAt),
@@ -129,7 +134,9 @@ export function usePlatform() {
     Math.floor(sessions.value.reduce((sum, s) => sum + s.seconds, 0) / 60),
   );
   const completed = computed(
-    () => active.value?.data.tasks?.filter((t) => t.done).length || 0,
+    () =>
+      active.value?.componentData?.tasks?.items?.filter((t) => t.done).length ||
+      0,
   );
   const session = computed(() => store.account.activeSession);
   const seconds = computed(() =>
@@ -219,13 +226,12 @@ export function usePlatform() {
     linkUrl.value = "";
     activeId.value = null;
     await nextTick();
-    bindStorage(
-      () => store.account.flows.find((f) => f.id === flow.id)?.data || {},
+    bindFlowStorage(
+      () => store.account.flows.find((f) => f.id === flow.id) || null,
       (value) => {
         const current = store.account.flows.find((f) => f.id === flow.id);
         if (current) {
-          current.data = value;
-          current.updatedAt = Date.now();
+          Object.assign(current, value, { updatedAt: Date.now() });
           changed();
         }
       },
@@ -239,8 +245,9 @@ export function usePlatform() {
   }
   function addTask() {
     if (!newTask.value.trim()) return;
-    active.value.data.tasks ||= [];
-    active.value.data.tasks.push({
+    const tasks = componentData(active.value, "tasks", { items: [] });
+    tasks.items ||= [];
+    tasks.items.push({
       id: crypto.randomUUID(),
       text: newTask.value.trim(),
       done: false,
@@ -252,8 +259,9 @@ export function usePlatform() {
     const url = safeUrl(linkUrl.value);
     if (!url)
       return notify("Insira um link válido começando com https:// ou http://.");
-    active.value.data.links ||= [];
-    active.value.data.links.push({
+    const links = componentData(active.value, "links", { items: [] });
+    links.items ||= [];
+    links.items.push({
       id: crypto.randomUUID(),
       title: linkTitle.value.trim() || new URL(url).hostname,
       url,
@@ -263,16 +271,33 @@ export function usePlatform() {
     update();
   }
   function editComponents(id) {
-    const ids = active.value.components;
-    const index = ids.indexOf(id);
-    index < 0 ? ids.push(id) : ids.splice(index, 1);
+    const index = active.value.components.findIndex(
+      (component) => component.type === id,
+    );
+    if (index < 0)
+      active.value.components.push({
+        id,
+        type: id,
+        order: active.value.components.length,
+        enabled: true,
+        config: {},
+      });
+    else active.value.components.splice(index, 1);
+    active.value.components.forEach(
+      (component, order) => (component.order = order),
+    );
     update();
   }
   function moveComponent(index, direction) {
-    const ids = active.value.components;
     const target = index + direction;
-    if (target < 0 || target >= ids.length) return;
-    [ids[index], ids[target]] = [ids[target], ids[index]];
+    if (target < 0 || target >= active.value.components.length) return;
+    [active.value.components[index], active.value.components[target]] = [
+      active.value.components[target],
+      active.value.components[index],
+    ];
+    active.value.components.forEach(
+      (component, order) => (component.order = order),
+    );
     update();
   }
   function toggleSession() {
@@ -315,12 +340,12 @@ export function usePlatform() {
       pomodoros: session.value.pomodoros,
       tasks: Math.max(
         0,
-        (flow.data.tasks || []).filter((t) => t.done).length -
+        (flow.componentData.tasks?.items || []).filter((t) => t.done).length -
           session.value.baseline,
       ),
     };
     flow.sessions.push(record);
-    summary.value = { ...record, name: flow.name };
+    summary.value = { ...record, name: flow.identity.name };
     store.account.activeSession = null;
     focusRunning.value = false;
     changed();
@@ -343,7 +368,7 @@ export function usePlatform() {
   function resetFocus() {
     focusRunning.value = false;
     focusBreak.value = false;
-    focusLeft.value = (active.value?.data.focusMinutes || 25) * 60;
+    focusLeft.value = (active.value?.properties.focusMinutes || 25) * 60;
   }
   function downloadCard() {
     const canvas = document.createElement("canvas");
@@ -354,7 +379,7 @@ export function usePlatform() {
     ctx.fillRect(0, 0, 1200, 630);
     ctx.fillStyle = "#bff5cd";
     ctx.font = "24px sans-serif";
-    ctx.fillText("CENTRAL OS  /  MEU FLOW", 80, 90);
+    ctx.fillText("NOMA  /  MEU FLOW", 80, 90);
     ctx.font = "bold 78px sans-serif";
     ctx.fillText(
       `${Math.floor(summary.value.seconds / 60)} min de dedicação`,
@@ -373,7 +398,7 @@ export function usePlatform() {
     ctx.fillStyle = "#a1bcb4";
     ctx.fillText("Um próximo passo, todos os dias.", 80, 560);
     const a = document.createElement("a");
-    a.download = "meu-flow.png";
+    a.download = "meu-flow-noma.png";
     a.href = canvas.toDataURL();
     a.click();
   }
@@ -496,7 +521,9 @@ export function usePlatform() {
   onMounted(async () => {
     document.addEventListener("keydown", trapDialog);
 
-    const shared = new URLSearchParams(location.search).get("flow") || sessionStorage.getItem("centralos-intended-flow");
+    const shared =
+      new URLSearchParams(location.search).get("flow") ||
+      sessionStorage.getItem("noma-intended-flow");
     if (shared && supabase)
       await perform(async () => {
         const { data, error } = await supabase
@@ -507,22 +534,31 @@ export function usePlatform() {
         if (error) throw error;
         if (!Array.isArray(data.blueprint?.components))
           throw new Error("Modelo inválido.");
-        choose(data.blueprint); sessionStorage.removeItem("centralos-intended-flow");
+        choose(data.blueprint);
+        sessionStorage.removeItem("noma-intended-flow");
       });
-    else if (sessionStorage.getItem("centralos-intended-template")) { const template = templates.find(t => t.id === sessionStorage.getItem("centralos-intended-template")); sessionStorage.removeItem("centralos-intended-template"); if(template) choose(template); } else if (store.account.onboarded) page.value = "flows";
+    else if (sessionStorage.getItem("noma-intended-template")) {
+      const template = templates.find(
+        (t) => t.id === sessionStorage.getItem("noma-intended-template"),
+      );
+      sessionStorage.removeItem("noma-intended-template");
+      if (template) choose(template);
+    } else if (store.account.onboarded) page.value = "flows";
     ticker = setInterval(() => {
       now.value = Date.now();
       for (const flow of store.account.flows) {
-        const state = flow.data.focusState;
+        const state = flow.componentData.focus?.state;
         if (state?.running && now.value >= state.end) {
           state.running = false;
           if (!state.break && session.value?.flowId === flow.id)
             session.value.pomodoros++;
           state.break = !state.break;
-          state.left = state.break ? 300 : (flow.data.focusMinutes || 25) * 60;
+          state.left = state.break
+            ? 300
+            : (flow.properties.focusMinutes || 25) * 60;
           changed();
           notify(
-            `${flow.name}: ${state.break ? "ciclo concluído. Faça uma pausa de 5 minutos." : "pausa concluída."}`,
+            `${flow.identity.name}: ${state.break ? "ciclo concluído. Faça uma pausa de 5 minutos." : "pausa concluída."}`,
           );
         }
       }
@@ -554,6 +590,7 @@ export function usePlatform() {
   );
   return {
     components,
+    componentIds,
     templates,
     store,
     supabase,
@@ -620,4 +657,3 @@ export function usePlatform() {
     copyLink,
   };
 }
-

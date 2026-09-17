@@ -23,7 +23,7 @@ test("create, isolate, persist, customize and complete a session", async ({
 }) => {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/");
+  await page.goto("/app");
   await expect(
     page.getByRole("heading", { name: "O que você quer fazer hoje?" }),
   ).toBeVisible();
@@ -47,7 +47,7 @@ test("create, isolate, persist, customize and complete a session", async ({
   ).toBeVisible();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Baixar cartão" }).click();
-  expect((await download).suggestedFilename()).toBe("meu-flow.png");
+  expect((await download).suggestedFilename()).toBe("meu-flow-noma.png");
   await page.getByLabel("Fechar diálogo").click();
   await page.getByLabel("Descobrir Flows", { exact: true }).click();
   await create(page, "Trabalho B");
@@ -84,11 +84,14 @@ test("create, isolate, persist, customize and complete a session", async ({
   await expect(page.getByRole("button", { name: "Ver cartão" })).toHaveCount(1);
   expect(errors).toEqual([]);
 });
-test("mobile discovery and setup remains usable", async ({ page }) => {
+test("landing and mobile setup remain usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "O que você quer fazer hoje?" }),
+    page.getByRole("heading", { level: 1, name: /Um lugar para/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("banner").getByRole("link", { name: "Noma — início" }),
   ).toBeVisible();
   await page.screenshot({
     path: "test-results/discovery-mobile.png",
@@ -99,6 +102,7 @@ test("mobile discovery and setup remains usable", async ({ page }) => {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
+  await page.goto("/app");
   await create(page, "Mobile");
   expect(
     await page.evaluate(
@@ -110,9 +114,9 @@ test("legacy data migrates once without deleting the source", async ({
   page,
 }) => {
   await page.addInitScript(() => {
-    if (!localStorage.getItem("dev-room-data"))
+    if (!localStorage.getItem("legacy-workspace"))
       localStorage.setItem(
-        "dev-room-data",
+        "legacy-workspace",
         JSON.stringify({
           nome: "Legado",
           tasks: [{ id: 1, text: "Tarefa antiga", done: false }],
@@ -120,7 +124,7 @@ test("legacy data migrates once without deleting the source", async ({
         }),
       );
   });
-  await page.goto("/");
+  await page.goto("/app");
   await page.getByLabel("Meus Flows", { exact: true }).click();
   await page.getByRole("button", { name: "Entrar no Flow" }).click();
   await expect(page.getByLabel("Notas deste Flow")).toHaveValue("Nota antiga");
@@ -134,14 +138,14 @@ test("legacy data migrates once without deleting the source", async ({
     page.getByRole("button", { name: "Entrar no Flow" }),
   ).toHaveCount(1);
   expect(
-    await page.evaluate(() => !!localStorage.getItem("dev-room-data")),
+    await page.evaluate(() => !!localStorage.getItem("legacy-workspace")),
   ).toBeTruthy();
 });
 
 test("focus cycle survives navigation and reload; pausing stops elapsed time", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/app");
   await page
     .getByRole("button", { name: "Encontrar meu primeiro Flow" })
     .click();
@@ -170,7 +174,7 @@ test("all reusable components mount and developer content stays in its Flow", as
 }) => {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/");
+  await page.goto("/app");
   await create(page, "Ferramentas");
   await page.getByRole("button", { name: "Componentes", exact: false }).click();
   for (const name of [
@@ -191,6 +195,17 @@ test("all reusable components mount and developer content stays in its Flow", as
   await page.locator("#fakedata-generate-btn").click();
   await expect(page.locator("#fakedata-result-text")).not.toBeEmpty();
   await page.getByLabel("HTML", { exact: true }).fill("<h1>Privado A</h1>");
+  await page.screenshot({
+    path: "test-results/tools-desktop.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByLabel("Descobrir Flows", { exact: true }).click();
   await create(page, "Outro espaço");
   await page.getByRole("button", { name: "Componentes", exact: false }).click();
@@ -210,12 +225,12 @@ test("a second tab cannot silently overwrite local work", async ({
   page,
   context,
 }) => {
-  await page.goto("/");
+  await page.goto("/app");
   await expect(
     page.getByRole("heading", { name: "O que você quer fazer hoje?" }),
   ).toBeVisible();
   const second = await context.newPage();
-  await second.goto("/");
+  await second.goto("/app");
   await expect(second.getByRole("alert")).toContainText("outra aba");
   await page.close();
   await second.getByRole("button", { name: "Tentar novamente" }).click();

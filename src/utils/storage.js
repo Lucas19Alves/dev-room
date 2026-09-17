@@ -1,11 +1,21 @@
-// Compatibility adapter for existing tools. The owning Flow is bound at mount time.
-let context = { read: () => ({}), write: () => {} };
-export function bindStorage(read, write) {
+const clone = (value) => JSON.parse(JSON.stringify(value));
+let context = { read: () => null, write: () => {} };
+
+export function bindFlowStorage(read, write) {
   context = { read, write };
 }
-export function getDevRoomData() {
-  return JSON.parse(JSON.stringify(context.read()));
+
+export function readComponentData(type, fallback) {
+  const flow = context.read();
+  const value = flow?.componentData?.[type];
+  return clone(value === undefined ? fallback : value);
 }
-export function setDevRoomData(data) {
-  context.write(JSON.parse(JSON.stringify(data)));
+
+export function writeComponentData(type, value) {
+  const flow = context.read();
+  if (!flow) return;
+  flow.componentData ||= {};
+  flow.componentData[type] = clone(value);
+  flow.updatedAt = Date.now();
+  context.write(flow);
 }

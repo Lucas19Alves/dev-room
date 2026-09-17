@@ -1,5 +1,5 @@
 {
-  "name": "centralos",
+  "name": "noma",
   "private": true,
   "version": "2.0.0",
   "type": "module",
@@ -9,23 +9,13 @@
     "preview": "vite preview",
     "test": "node --test tests/core.test.js",
     "test:e2e": "playwright test",
-    "format": "prettier --write src/flow src/App.vue src/style.css"
+    "format": "prettier --write \"src/**/*.{js,vue,css}\" \"tests/**/*.js\" \"*.{js,json,html,md}\" \"public/manifest.webmanifest\""
   },
   "dependencies": {
     "@faker-js/faker": "^10.6.0",
-    "@fortawesome/fontawesome-svg-core": "^6.7.2",
-    "@fortawesome/free-brands-svg-icons": "^6.7.2",
-    "@fortawesome/free-solid-svg-icons": "^6.7.2",
-    "@fortawesome/vue-fontawesome": "^3.0.8",
     "@supabase/supabase-js": "^2.116.0",
-    "@tailwindcss/vite": "^4.1.7",
-    "@vercel/analytics": "^1.5.0",
-    "@vercel/speed-insights": "^1.2.0",
     "highlight.js": "^11.11.1",
-    "interactjs": "^1.10.27",
-    "tailwindcss": "^4.1.7",
     "vue": "^3.5.13",
-    "vue-router": "^4.5.1",
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {

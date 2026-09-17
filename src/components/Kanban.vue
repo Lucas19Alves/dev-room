@@ -1,12 +1,144 @@
 <script setup>
-import { computed, ref } from 'vue'
-import draggable from 'vuedraggable'
-import { useAppStorage } from '../composables/useAppStorage'
-const {state:columns}=useAppStorage('kanban-board',[{id:crypto.randomUUID(),title:'A fazer',cards:[]},{id:crypto.randomUUID(),title:'Em andamento',cards:[]},{id:crypto.randomUUID(),title:'Concluído',cards:[]}])
-const titles=ref({}),pendingDelete=ref(null)
-const count=computed(()=>columns.value.reduce((n,c)=>n+c.cards.length,0))
-function addCard(column){ const title=titles.value[column.id]?.trim();if(!title)return;column.cards.push({id:crypto.randomUUID(),title,description:''});titles.value[column.id]='' }
-function removeColumn(column){ if(column.cards.length && pendingDelete.value!==column.id){pendingDelete.value=column.id;return}columns.value=columns.value.filter(c=>c.id!==column.id);pendingDelete.value=null }
-function moveCard(column,card,target){const destination=columns.value.find(c=>c.id===target);if(!destination)return;column.cards=column.cards.filter(c=>c.id!==card.id);destination.cards.push(card)}
+import { computed, ref } from "vue";
+import draggable from "vuedraggable";
+import { useFlowComponentStorage } from "../composables/useFlowComponentStorage";
+import ToolLayout from "./ui/ToolLayout.vue";
+const { state: columns } = useFlowComponentStorage("kanban", [
+  { id: crypto.randomUUID(), title: "A fazer", cards: [] },
+  { id: crypto.randomUUID(), title: "Em andamento", cards: [] },
+  { id: crypto.randomUUID(), title: "Concluído", cards: [] },
+]);
+const titles = ref({}),
+  pendingDelete = ref(null);
+const count = computed(() =>
+  columns.value.reduce((n, c) => n + c.cards.length, 0),
+);
+function addCard(column) {
+  const title = titles.value[column.id]?.trim();
+  if (!title) return;
+  column.cards.push({ id: crypto.randomUUID(), title, description: "" });
+  titles.value[column.id] = "";
+}
+function removeColumn(column) {
+  if (column.cards.length && pendingDelete.value !== column.id) {
+    pendingDelete.value = column.id;
+    return;
+  }
+  columns.value = columns.value.filter((c) => c.id !== column.id);
+  pendingDelete.value = null;
+}
+function moveCard(column, card, target) {
+  const destination = columns.value.find((c) => c.id === target);
+  if (!destination) return;
+  column.cards = column.cards.filter((c) => c.id !== card.id);
+  destination.cards.push(card);
+}
 </script>
-<template><div class="tool-body" id="kanban-main"><div class="tool-toolbar"><p class="tool-caption">{{ count }} tarefas · cada ideia no seu próximo estágio.</p><button class="outline" @click="columns.push({id:crypto.randomUUID(),title:'Nova etapa',cards:[]})">＋ Nova coluna</button></div><div class="kanban-grid" id="kanban-board"><section v-for="column in columns" :key="column.id" class="kanban-column"><div class="kanban-heading"><span class="kanban-dot"></span><input v-model="column.title" aria-label="Nome da coluna" maxlength="40"><small>{{ column.cards.length }}</small><button class="tool-icon" :aria-label="`Excluir coluna ${column.title}`" @click="removeColumn(column)">×</button></div><div v-if="pendingDelete===column.id" class="tool-inline-warning">Excluir esta coluna e suas tarefas?<button @click="removeColumn(column)">Excluir</button><button @click="pendingDelete=null">Cancelar</button></div><draggable v-model="column.cards" group="kanban" item-key="id" handle=".card-grip" class="kanban-items" ghost-class="kanban-ghost"><template #item="{element:card}"><article class="kanban-task"><div class="tool-row"><span class="card-grip" title="Arrastar tarefa">⠿</span><input v-model="card.title" aria-label="Título da tarefa Kanban"><button class="tool-icon" aria-label="Excluir tarefa Kanban" @click="column.cards=column.cards.filter(c=>c.id!==card.id)">×</button></div><textarea v-model="card.description" placeholder="Uma nota sobre este passo…" aria-label="Descrição da tarefa" rows="2"></textarea><select :value="column.id" aria-label="Mover tarefa para coluna" @change="moveCard(column,card,$event.target.value)"><option v-for="target in columns" :key="target.id" :value="target.id">{{ target.title }}</option></select></article></template></draggable><p v-if="!column.cards.length" class="tool-empty compact">Espaço para o próximo passo.</p><form class="inline-form" @submit.prevent="addCard(column)"><input v-model="titles[column.id]" placeholder="Nova tarefa…" :aria-label="`Nova tarefa em ${column.title}`"><button :aria-label="`Adicionar tarefa em ${column.title}`">＋</button></form></section></div></div></template>
+<template>
+  <ToolLayout
+    :caption="`${count} tarefas · cada ideia no seu próximo estágio.`"
+    id="kanban-main"
+    ><template #actions
+      ><button
+        class="outline"
+        @click="
+          columns.push({
+            id: crypto.randomUUID(),
+            title: 'Nova etapa',
+            cards: [],
+          })
+        "
+      >
+        ＋ Nova coluna
+      </button></template
+    >
+    <div class="kanban-grid" id="kanban-board">
+      <section v-for="column in columns" :key="column.id" class="kanban-column">
+        <div class="kanban-heading">
+          <span class="kanban-dot"></span
+          ><input
+            v-model="column.title"
+            aria-label="Nome da coluna"
+            maxlength="40"
+          /><small>{{ column.cards.length }}</small
+          ><button
+            class="tool-icon"
+            :aria-label="`Excluir coluna ${column.title}`"
+            @click="removeColumn(column)"
+          >
+            ×
+          </button>
+        </div>
+        <div
+          v-if="pendingDelete === column.id"
+          class="tool-inline-warning"
+          role="alert"
+        >
+          Excluir esta coluna e suas tarefas?<button
+            @click="removeColumn(column)"
+          >
+            Excluir</button
+          ><button @click="pendingDelete = null">Cancelar</button>
+        </div>
+        <draggable
+          v-model="column.cards"
+          group="kanban"
+          item-key="id"
+          handle=".card-grip"
+          class="kanban-items"
+          ghost-class="kanban-ghost"
+          ><template #item="{ element: card }"
+            ><article class="kanban-task">
+              <div class="tool-row">
+                <span class="card-grip" title="Arrastar tarefa">⠿</span
+                ><input
+                  v-model="card.title"
+                  aria-label="Título da tarefa Kanban"
+                /><button
+                  class="tool-icon"
+                  aria-label="Excluir tarefa Kanban"
+                  @click="
+                    column.cards = column.cards.filter((c) => c.id !== card.id)
+                  "
+                >
+                  ×
+                </button>
+              </div>
+              <textarea
+                v-model="card.description"
+                placeholder="Uma nota sobre este passo…"
+                aria-label="Descrição da tarefa"
+                rows="2"
+              ></textarea
+              ><select
+                :value="column.id"
+                aria-label="Mover tarefa para coluna"
+                @change="moveCard(column, card, $event.target.value)"
+              >
+                <option
+                  v-for="target in columns"
+                  :key="target.id"
+                  :value="target.id"
+                >
+                  {{ target.title }}
+                </option>
+              </select>
+            </article></template
+          ></draggable
+        >
+        <p v-if="!column.cards.length" class="tool-empty compact">
+          Espaço para o próximo passo.
+        </p>
+        <form class="inline-form" @submit.prevent="addCard(column)">
+          <input
+            v-model="titles[column.id]"
+            placeholder="Nova tarefa…"
+            :aria-label="`Nova tarefa em ${column.title}`"
+          /><button :aria-label="`Adicionar tarefa em ${column.title}`">
+            ＋
+          </button>
+        </form>
+      </section>
+    </div></ToolLayout
+  >
+</template>

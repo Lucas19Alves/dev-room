@@ -1,7 +1,7 @@
 {
-  "name": "CentralOS",
-  "short_name": "CentralOS",
-  "description": "Escolha seu objetivo. Personalize seu espaço. Encontre seu Flow.",
+  "name": "Noma",
+  "short_name": "Noma",
+  "description": "Um Flow preparado para o que você quer realizar.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8faf8",
@@ -9,13 +9,13 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
-      "sizes": "192x192",
+      "src": "/icons/n-logo.png",
+      "sizes": "2000x2000",
       "type": "image/png"
     },
     {
-      "src": "/icons/icon-512x512.png",
-      "sizes": "512x512",
+      "src": "/icons/n-logo.png",
+      "sizes": "2000x2000",
       "type": "image/png"
     }
   ]

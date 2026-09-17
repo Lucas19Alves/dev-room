@@ -1,7 +1,11 @@
 <script setup>
 import { usePlatform } from "./flow/usePlatform";
+import BrandLogo from "./components/ui/BrandLogo.vue";
+import ProductState from "./components/ui/ProductState.vue";
+import NModal from "./components/ui/NModal.vue";
 const {
   components,
+  componentIds,
   templates,
   store,
   supabase,
@@ -71,13 +75,13 @@ const {
 <template>
   <div class="platform">
     <aside class="sidebar" :inert="modal ? true : undefined">
-      <a class="brand" href="#" @click.prevent="navigate('explore')"
-        ><span class="brand-mark">c<span>o</span></span
-        ><span
-          >central<span class="brand-os">OS</span
-          ><small>SEU ESPAÇO. SEU RITMO.</small></span
-        ></a
-      >
+      <a
+        class="brand"
+        href="#"
+        aria-label="Noma — descobrir Flows"
+        @click.prevent="navigate('explore')"
+        ><BrandLogo
+      /></a>
       <div class="workspace-label">ESPAÇO PESSOAL <span>⌄</span></div>
       <nav aria-label="Navegação principal">
         <button
@@ -117,7 +121,7 @@ const {
           :key="flow.id"
           @click="openFlow(flow)"
         >
-          <i :class="flow.color"></i>{{ flow.name }}
+          <i :class="flow.identity.color"></i>{{ flow.identity.name }}
         </button>
       </div>
       <div class="sidebar-bottom">
@@ -149,7 +153,7 @@ const {
             {
               explore: "Descobrir Flows",
               flows: "Meus Flows",
-              workspace: active?.name,
+              workspace: active?.identity.name,
               history: "Minha jornada",
               community: "Comunidade",
             }[page]
@@ -177,16 +181,19 @@ const {
           Tentar novamente
         </button>
       </div>
-      <div v-if="!store.ready" class="empty">
-        <h2>
-          {{
-            store.error
-              ? "Não foi possível abrir seu espaço"
-              : "Preparando seu espaço…"
-          }}
-        </h2>
-        <button v-if="store.error" @click="initialize">Tentar novamente</button>
-      </div>
+      <ProductState
+        v-if="!store.ready"
+        :kind="store.error ? 'error' : 'loading'"
+        :title="
+          store.error
+            ? 'Não foi possível abrir seu espaço'
+            : 'Preparando seu espaço…'
+        "
+        :description="store.error"
+        ><button v-if="store.error" class="outline" @click="initialize">
+          Tentar novamente
+        </button></ProductState
+      >
       <div v-else class="content">
         <template v-if="page === 'explore' || page === 'community'">
           <div class="eyebrow">MENOS DISTRAÇÕES. MAIS POSSIBILIDADES.</div>
@@ -310,7 +317,7 @@ const {
                 </div>
                 <div class="card-footer">
                   <span>{{
-                    template.owner ? "Comunidade CentralOS" : "Por CentralOS"
+                    template.owner ? "Comunidade Noma" : "Por Noma"
                   }}</span
                   ><button @click="choose(template)">
                     {{ template.id === "blank" ? "Criar Flow" : "Usar Flow" }} ↗
@@ -383,7 +390,8 @@ const {
               <span class="eyebrow">UMA SESSÃO EM ANDAMENTO</span>
               <h2>
                 {{
-                  store.account.flows.find((f) => f.id === session.flowId)?.name
+                  store.account.flows.find((f) => f.id === session.flowId)
+                    ?.identity.name
                 }}
               </h2>
               <p>{{ clock(seconds) }} de dedicação até agora.</p>
@@ -405,16 +413,19 @@ const {
               :key="flow.id"
               class="saved-flow"
             >
-              <span class="flow-icon" :class="flow.color">{{ flow.icon }}</span
-              ><small>{{ flow.category }}</small>
-              <h2>{{ flow.name }}</h2>
+              <span class="flow-icon" :class="flow.identity.color">{{
+                flow.identity.icon
+              }}</span
+              ><small>{{ flow.identity.category }}</small>
+              <h2>{{ flow.identity.name }}</h2>
               <p>
-                {{ flow.components.length }} componentes ·
+                {{ componentIds(flow).length }} componentes ·
                 {{ flow.sessions.length }} sessões
               </p>
               <p>
                 {{
-                  (flow.data.tasks || []).filter((t) => !t.done).length
+                  (flow.componentData.tasks?.items || []).filter((t) => !t.done)
+                    .length
                 }}
                 tarefas restantes
               </p>
@@ -438,14 +449,12 @@ const {
           </div>
         </template>
         <template v-else-if="page === 'workspace' && active">
-          <div class="eyebrow">
-            {{ active.category }} / SEU AMBIENTE DE TRABALHO
-          </div>
+          <div class="eyebrow">{{ active.identity.category }} / SEU FLOW</div>
           <div class="page-heading">
             <div>
               <input
                 class="flow-title"
-                v-model="active.name"
+                v-model="active.identity.name"
                 maxlength="100"
                 aria-label="Nome do Flow"
                 @change="update"
@@ -506,13 +515,13 @@ const {
               <button
                 v-for="component in components"
                 :key="component.id"
-                :class="{ chosen: active.components.includes(component.id) }"
+                :class="{ chosen: componentIds(active).includes(component.id) }"
                 @click="editComponents(component.id)"
               >
                 <span>{{ component.icon }}</span
                 ><strong>{{ component.name }}</strong
                 ><small>{{
-                  active.components.includes(component.id)
+                  componentIds(active).includes(component.id)
                     ? "Adicionado ✓"
                     : "Adicionar +"
                 }}</small>
@@ -525,7 +534,7 @@ const {
           </section>
           <div class="workspace-grid">
             <section
-              v-for="(id, index) in active.components"
+              v-for="(id, index) in componentIds(active)"
               :key="`${active.id}:${id}`"
               class="tool-panel"
               :class="{ 'wide-panel': ['kanban', 'playground'].includes(id) }"
@@ -543,7 +552,7 @@ const {
                   >
                     ↑</button
                   ><button
-                    :disabled="index === active.components.length - 1"
+                    :disabled="index === componentIds(active).length - 1"
                     aria-label="Mover componente para baixo"
                     @click="moveComponent(index, 1)"
                   >
@@ -574,14 +583,17 @@ const {
                 <label
                   >Duração do foco
                   <input
-                    v-model.number="active.data.focusMinutes"
+                    v-model.number="active.properties.focusMinutes"
                     type="number"
                     min="1"
                     max="180"
                     @change="
-                      active.data.focusMinutes = Math.max(
+                      active.properties.focusMinutes = Math.max(
                         1,
-                        Math.min(180, Number(active.data.focusMinutes) || 25),
+                        Math.min(
+                          180,
+                          Number(active.properties.focusMinutes) || 25,
+                        ),
                       );
                       resetFocus();
                       update();
@@ -592,7 +604,8 @@ const {
               </div>
               <div v-else-if="id === 'tasks'" class="tool-content">
                 <p class="subtle">
-                  {{ completed }} de {{ active.data.tasks?.length || 0 }} passos
+                  {{ completed }} de
+                  {{ active.componentData.tasks?.items?.length || 0 }} passos
                   concluídos
                 </p>
                 <form class="inline-form" @submit.prevent="addTask">
@@ -605,7 +618,7 @@ const {
                   </button>
                 </form>
                 <div
-                  v-for="task in active.data.tasks"
+                  v-for="task in active.componentData.tasks?.items"
                   :key="task.id"
                   class="task-row"
                 >
@@ -622,22 +635,26 @@ const {
                   /><button
                     aria-label="Excluir tarefa"
                     @click="
-                      active.data.tasks = active.data.tasks.filter(
-                        (t) => t.id !== task.id,
-                      );
+                      active.componentData.tasks.items =
+                        active.componentData.tasks.items.filter(
+                          (t) => t.id !== task.id,
+                        );
                       update();
                     "
                   >
                     ×
                   </button>
                 </div>
-                <p v-if="!active.data.tasks?.length" class="hint">
+                <p
+                  v-if="!active.componentData.tasks?.items?.length"
+                  class="hint"
+                >
                   Seu próximo passo pode ser pequeno. Comece por ele.
                 </p>
               </div>
               <div v-else-if="id === 'notes'" class="tool-content">
                 <textarea
-                  v-model="active.data.notesText"
+                  v-model="active.componentData.notes.text"
                   class="notes-area"
                   placeholder="Deixe suas ideias por aqui…"
                   aria-label="Notas deste Flow"
@@ -662,7 +679,7 @@ const {
                   </div>
                 </form>
                 <div
-                  v-for="link in active.data.links"
+                  v-for="link in active.componentData.links?.items"
                   :key="link.id"
                   class="link-row"
                 >
@@ -674,16 +691,20 @@ const {
                   ><button
                     aria-label="Excluir link"
                     @click="
-                      active.data.links = active.data.links.filter(
-                        (l) => l.id !== link.id,
-                      );
+                      active.componentData.links.items =
+                        active.componentData.links.items.filter(
+                          (l) => l.id !== link.id,
+                        );
                       update();
                     "
                   >
                     ×
                   </button>
                 </div>
-                <p v-if="!active.data.links?.length" class="hint">
+                <p
+                  v-if="!active.componentData.links?.items?.length"
+                  class="hint"
+                >
                   Materiais de estudo, referências e atalhos. Tudo à mão.
                 </p>
               </div>
@@ -692,7 +713,7 @@ const {
               </div>
             </section>
           </div>
-          <div v-if="!active.components.length" class="empty">
+          <div v-if="!componentIds(active).length" class="empty">
             <h2>Seu espaço está aberto a possibilidades.</h2>
             <button class="dark-button" @click="adding = true">
               Adicionar componentes
@@ -778,243 +799,214 @@ const {
       {{ message
       }}<button aria-label="Fechar aviso" @click="message = ''">×</button>
     </div>
-    <div
-      v-if="modal"
-      class="modal-backdrop"
-      @click.self="modal = null"
-      @keydown.esc="modal = null"
-    >
-      <section
-        class="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-        tabindex="-1"
-      >
-        <button
-          class="modal-close"
-          aria-label="Fechar diálogo"
-          @click="modal = null"
-        >
-          ×
-        </button>
-        <template v-if="modal === 'create'"
-          ><div class="eyebrow">SEU NOVO FLOW / {{ step }} DE 3</div>
-          <h2 id="modal-title">
-            {{
-              step === 1
-                ? "Dê um propósito ao seu espaço."
-                : step === 2
-                  ? "As ferramentas certas para você."
-                  : "Tudo pronto para o próximo passo."
-            }}
-          </h2>
-          <div class="step-progress">
-            <i v-for="n in 3" :key="n" :class="{ filled: step >= n }"></i>
-          </div>
-          <template v-if="step === 1"
-            ><p>
-              Começando com {{ draft.name }}. Este é só o ponto de partida.
-            </p>
-            <label
-              >Nome do Flow<input
-                v-model="flowName"
-                maxlength="100"
-                placeholder="Ex.: Minha aprovação no ENEM" /></label
-            ><label
-              >Seu objetivo<select v-model="draft.category">
-                <option v-for="c in categories.slice(1)" :key="c">
-                  {{ c }}
-                </option>
-              </select></label
-            ><label
-              >Duração de cada ciclo de foco (minutos)<input
-                v-model.number="draft.focus"
-                type="number"
-                min="1"
-                max="180" /></label
-          ></template>
-          <template v-if="step === 2"
-            ><p>
-              Adicione o que ajuda. Tire o que distrai. Você pode mudar depois.
-            </p>
-            <div class="picker-grid">
-              <button
-                v-for="component in components"
-                :key="component.id"
-                :class="{ chosen: draft.components.includes(component.id) }"
-                @click="toggleComponent(component.id)"
-              >
-                <span>{{ component.icon }}</span
-                ><strong>{{ component.name }}</strong
-                ><small>{{
-                  draft.components.includes(component.id)
-                    ? "Selecionado ✓"
-                    : "Adicionar +"
-                }}</small>
-              </button>
-            </div></template
-          >
-          <template v-if="step === 3"
-            ><div class="review-flow">
-              <span class="flow-icon" :class="draft.color">{{
-                draft.icon
-              }}</span>
-              <h3>{{ flowName }}</h3>
-              <p>
-                {{ draft.category }} · {{ draft.components.length }} componentes
-              </p>
-              <div class="component-chips">
-                <span v-for="id in draft.components" :key="id">{{
-                  components.find((c) => c.id === id)?.name
-                }}</span>
-              </div>
-            </div>
-            <label
-              >Como podemos te chamar?<input
-                v-model="displayName"
-                autocomplete="given-name"
-                maxlength="60"
-                placeholder="Seu nome"
-            /></label>
-            <p class="local-info">
-              {{
-                store.user
-                  ? "Seu Flow será salvo neste dispositivo e sincronizado com sua conta."
-                  : "Comece neste dispositivo. Você pode conectar sua conta e importar seus Flows locais depois."
-              }}
-            </p></template
-          >
-          <footer>
-            <button v-if="step > 1" class="outline" @click="step--">
-              ← Voltar</button
-            ><button
-              v-if="step < 3"
-              class="dark-button"
-              :disabled="
-                !flowName.trim() || (step === 2 && !draft.components.length)
-              "
-              @click="step++"
-            >
-              Continuar →</button
-            ><button
-              v-else
-              class="dark-button"
-              :disabled="!displayName.trim() || !draft.components.length"
-              @click="createFlow"
-            >
-              Entrar no meu Flow ↗
-            </button>
-          </footer>
-        </template>
-        <template v-else-if="modal === 'account'"
-          ><div class="eyebrow">SEU ESPAÇO, COM VOCÊ</div>
-          <h2 id="modal-title">
-            {{ store.user ? "Sua conta" : "Continue de qualquer lugar." }}
-          </h2>
-          <p>
-            Conecte sua conta para sincronizar seus Flows e compartilhar modelos
-            com a comunidade.
+    <NModal v-if="modal" @close="modal = null">
+      <template v-if="modal === 'create'"
+        ><div class="eyebrow">SEU NOVO FLOW / {{ step }} DE 3</div>
+        <h2 id="modal-title">
+          {{
+            step === 1
+              ? "Dê um propósito ao seu espaço."
+              : step === 2
+                ? "As ferramentas certas para você."
+                : "Tudo pronto para o próximo passo."
+          }}
+        </h2>
+        <div class="step-progress">
+          <i v-for="n in 3" :key="n" :class="{ filled: step >= n }"></i>
+        </div>
+        <template v-if="step === 1"
+          ><p>Começando com {{ draft.name }}. Este é só o ponto de partida.</p>
+          <label
+            >Nome do Flow<input
+              v-model="flowName"
+              maxlength="100"
+              placeholder="Ex.: Minha aprovação no ENEM" /></label
+          ><label
+            >Seu objetivo<select v-model="draft.category">
+              <option v-for="c in categories.slice(1)" :key="c">
+                {{ c }}
+              </option>
+            </select></label
+          ><label
+            >Duração de cada ciclo de foco (minutos)<input
+              v-model.number="draft.focus"
+              type="number"
+              min="1"
+              max="180" /></label
+        ></template>
+        <template v-if="step === 2"
+          ><p>
+            Adicione o que ajuda. Tire o que distrai. Você pode mudar depois.
           </p>
-          <div v-if="!supabase" class="setup-info">
-            <strong>Supabase ainda não configurado</strong>
-            <p>
-              O modo local está disponível. Para ativar contas e a comunidade,
-              configure o projeto conforme o README.
-            </p>
-          </div>
-          <template v-else-if="store.user"
-            ><p>{{ store.user.email }}</p>
+          <div class="picker-grid">
             <button
-              class="outline"
-              :disabled="busy"
-              @click="perform(importGuest)"
+              v-for="component in components"
+              :key="component.id"
+              :class="{ chosen: draft.components.includes(component.id) }"
+              @click="toggleComponent(component.id)"
             >
-              Importar meus Flows deste dispositivo</button
-            ><button class="outline" @click="syncNow">Sincronizar agora</button
-            ><button class="outline" @click="perform(signOut)">
-              Sair da conta
-            </button></template
-          >
-          <form v-else @submit.prevent="perform(sendLink)">
-            <label
-              >Seu e-mail<input
-                v-model="email"
-                type="email"
-                autocomplete="email"
-                required
-                placeholder="voce@exemplo.com" /></label
-            ><button class="dark-button" :disabled="busy">
-              {{ busy ? "Enviando…" : "Receber link de acesso →" }}
+              <span>{{ component.icon }}</span
+              ><strong>{{ component.name }}</strong
+              ><small>{{
+                draft.components.includes(component.id)
+                  ? "Selecionado ✓"
+                  : "Adicionar +"
+              }}</small>
             </button>
-            <p class="hint">Sem senha. Enviaremos um link para o seu e-mail.</p>
-          </form>
-          <hr />
-          <button class="text-button" @click="exportBackup">
-            ↓ Exportar uma cópia dos meus dados
-          </button></template
+          </div></template
         >
-        <template v-else-if="modal === 'publish'"
-          ><div class="eyebrow">COMPARTILHE UM PONTO DE PARTIDA</div>
-          <h2 id="modal-title">Transformar em modelo público?</h2>
-          <p>
-            O nome, a categoria, os componentes e a duração do foco ficarão
-            públicos. Suas tarefas, notas, links e sessões não serão incluídos.
-          </p>
-          <button
-            class="dark-button"
-            :disabled="busy"
-            @click="perform(publish)"
-          >
-            {{ busy ? "Publicando…" : "Publicar modelo" }}
-          </button></template
-        >
-        <template v-else-if="modal === 'share'"
-          ><h2 id="modal-title">Seu Flow pode inspirar alguém.</h2>
-          <p>
-            Quem abrir este link poderá criar seu próprio espaço a partir do seu
-            modelo.
-          </p>
-          <input
-            :value="shareLink"
-            readonly
-            aria-label="Link público do Flow"
-            @focus="$event.target.select()"
-          /><button class="dark-button" @click="perform(copyLink)">
-            Copiar link
-          </button></template
-        >
-        <template v-else-if="modal === 'summary'"
-          ><div class="summary-card">
-            <div class="eyebrow">CENTRAL OS / MEU FLOW</div>
-            <h2 id="modal-title">
-              {{ Math.floor(summary.seconds / 60) }} min<br />para o que
-              importa.
-            </h2>
-            <h3>{{ summary.name }}</h3>
+        <template v-if="step === 3"
+          ><div class="review-flow">
+            <span class="flow-icon" :class="draft.color">{{ draft.icon }}</span>
+            <h3>{{ flowName }}</h3>
             <p>
-              {{ summary.tasks }} tarefas concluídas ·
-              {{ summary.pomodoros }} ciclos de foco
+              {{ draft.category }} · {{ draft.components.length }} componentes
             </p>
-            <small>Um próximo passo, todos os dias.</small>
+            <div class="component-chips">
+              <span v-for="id in draft.components" :key="id">{{
+                components.find((c) => c.id === id)?.name
+              }}</span>
+            </div>
           </div>
-          <button class="dark-button" @click="downloadCard">
-            ↓ Baixar cartão da sessão
-          </button></template
+          <label
+            >Como podemos te chamar?<input
+              v-model="displayName"
+              autocomplete="given-name"
+              maxlength="60"
+              placeholder="Seu nome"
+          /></label>
+          <p class="local-info">
+            {{
+              store.user
+                ? "Seu Flow será salvo neste dispositivo e sincronizado com sua conta."
+                : "Comece neste dispositivo. Você pode conectar sua conta e importar seus Flows locais depois."
+            }}
+          </p></template
         >
-        <template v-else-if="modal === 'delete'"
-          ><h2 id="modal-title">Excluir este Flow?</h2>
+        <footer>
+          <button v-if="step > 1" class="outline" @click="step--">
+            ← Voltar</button
+          ><button
+            v-if="step < 3"
+            class="dark-button"
+            :disabled="
+              !flowName.trim() || (step === 2 && !draft.components.length)
+            "
+            @click="step++"
+          >
+            Continuar →</button
+          ><button
+            v-else
+            class="dark-button"
+            :disabled="!displayName.trim() || !draft.components.length"
+            @click="createFlow"
+          >
+            Entrar no meu Flow ↗
+          </button>
+        </footer>
+      </template>
+      <template v-else-if="modal === 'account'"
+        ><div class="eyebrow">SEU ESPAÇO, COM VOCÊ</div>
+        <h2 id="modal-title">
+          {{ store.user ? "Sua conta" : "Continue de qualquer lugar." }}
+        </h2>
+        <p>
+          Conecte sua conta para sincronizar seus Flows e compartilhar modelos
+          com a comunidade.
+        </p>
+        <div v-if="!supabase" class="setup-info">
+          <strong>Supabase ainda não configurado</strong>
           <p>
-            O conteúdo e o histórico de “{{ active?.name }}” serão removidos.
-            Essa ação não pode ser desfeita.
+            O modo local está disponível. Para ativar contas e a comunidade,
+            configure o projeto conforme o README.
           </p>
-          <button class="outline" @click="exportBackup">
-            Exportar dados antes</button
-          ><button class="danger" @click="deleteFlow">
-            Excluir Flow
+        </div>
+        <template v-else-if="store.user"
+          ><p>{{ store.user.email }}</p>
+          <button
+            class="outline"
+            :disabled="busy"
+            @click="perform(importGuest)"
+          >
+            Importar meus Flows deste dispositivo</button
+          ><button class="outline" @click="syncNow">Sincronizar agora</button
+          ><button class="outline" @click="perform(signOut)">
+            Sair da conta
           </button></template
         >
-      </section>
-    </div>
+        <form v-else @submit.prevent="perform(sendLink)">
+          <label
+            >Seu e-mail<input
+              v-model="email"
+              type="email"
+              autocomplete="email"
+              required
+              placeholder="voce@exemplo.com" /></label
+          ><button class="dark-button" :disabled="busy">
+            {{ busy ? "Enviando…" : "Receber link de acesso →" }}
+          </button>
+          <p class="hint">Sem senha. Enviaremos um link para o seu e-mail.</p>
+        </form>
+        <hr />
+        <button class="text-button" @click="exportBackup">
+          ↓ Exportar uma cópia dos meus dados
+        </button></template
+      >
+      <template v-else-if="modal === 'publish'"
+        ><div class="eyebrow">COMPARTILHE UM PONTO DE PARTIDA</div>
+        <h2 id="modal-title">Transformar em modelo público?</h2>
+        <p>
+          O nome, a categoria, os componentes e a duração do foco ficarão
+          públicos. Suas tarefas, notas, links e sessões não serão incluídos.
+        </p>
+        <button class="dark-button" :disabled="busy" @click="perform(publish)">
+          {{ busy ? "Publicando…" : "Publicar modelo" }}
+        </button></template
+      >
+      <template v-else-if="modal === 'share'"
+        ><h2 id="modal-title">Seu Flow pode inspirar alguém.</h2>
+        <p>
+          Quem abrir este link poderá criar seu próprio espaço a partir do seu
+          modelo.
+        </p>
+        <input
+          :value="shareLink"
+          readonly
+          aria-label="Link público do Flow"
+          @focus="$event.target.select()"
+        /><button class="dark-button" @click="perform(copyLink)">
+          Copiar link
+        </button></template
+      >
+      <template v-else-if="modal === 'summary'"
+        ><div class="summary-card">
+          <div class="eyebrow">NOMA / MEU FLOW</div>
+          <h2 id="modal-title">
+            {{ Math.floor(summary.seconds / 60) }} min<br />para o que importa.
+          </h2>
+          <h3>{{ summary.name }}</h3>
+          <p>
+            {{ summary.tasks }} tarefas concluídas ·
+            {{ summary.pomodoros }} ciclos de foco
+          </p>
+          <small>Um próximo passo, todos os dias.</small>
+        </div>
+        <button class="dark-button" @click="downloadCard">
+          ↓ Baixar cartão da sessão
+        </button></template
+      >
+      <template v-else-if="modal === 'delete'"
+        ><h2 id="modal-title">Excluir este Flow?</h2>
+        <p>
+          O conteúdo e o histórico de “{{ active?.identity.name }}” serão
+          removidos. Essa ação não pode ser desfeita.
+        </p>
+        <button class="outline" @click="exportBackup">
+          Exportar dados antes</button
+        ><button class="danger" @click="deleteFlow">
+          Excluir Flow
+        </button></template
+      >
+    </NModal>
   </div>
 </template>

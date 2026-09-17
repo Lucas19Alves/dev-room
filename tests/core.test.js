@@ -10,16 +10,20 @@ import {
   safeUrl,
 } from "../src/flow/catalog.js";
 import { readAccount, writeAccount } from "../src/flow/database.js";
+import { componentIds, migrateAccount } from "../src/flow/model.js";
 
 test("Flow instances are independent and public models exclude private content", () => {
   const a = makeFlow(templates[0]),
     b = makeFlow(templates[0]);
-  a.data.tasks[0].text = "PRIVATE";
-  a.data.notesText = "SECRET";
-  a.data.links = [{ url: "https://private.example" }];
+  a.componentData.tasks.items[0].text = "PRIVATE";
+  a.componentData.notes.text = "SECRET";
+  a.componentData.links.items = [{ url: "https://private.example" }];
   a.sessions.push({ seconds: 50 });
   assert.notEqual(a.id, b.id);
-  assert.notEqual(a.data.tasks[0].text, b.data.tasks[0].text);
+  assert.notEqual(
+    a.componentData.tasks.items[0].text,
+    b.componentData.tasks.items[0].text,
+  );
   const serialized = JSON.stringify(publicTemplate(a));
   assert.ok(!serialized.includes("PRIVATE"));
   assert.ok(!serialized.includes("SECRET"));
@@ -28,6 +32,36 @@ test("Flow instances are independent and public models exclude private content",
   assert.equal(safeUrl("javascript:alert(1)"), null);
   assert.equal(safeUrl("data:text/html,x"), null);
   assert.equal(safeUrl("https://example.com"), "https://example.com/");
+});
+test("Flow v1 migrates without losing component content", () => {
+  const account = migrateAccount({
+    version: 2,
+    name: "Pessoa",
+    flows: [
+      {
+        id: "old",
+        name: "Legado",
+        category: "Estudos",
+        color: "mint",
+        icon: "✳",
+        components: ["tasks", "notes"],
+        data: {
+          tasks: [{ id: "t", text: "Preservar", done: false }],
+          notesText: "Contexto",
+          focusMinutes: 40,
+        },
+        sessions: [{ id: "s", seconds: 60 }],
+      },
+    ],
+  });
+  const flow = account.flows[0];
+  assert.equal(account.version, 3);
+  assert.equal(flow.schemaVersion, 2);
+  assert.equal(flow.identity.name, "Legado");
+  assert.deepEqual(componentIds(flow), ["tasks", "notes"]);
+  assert.equal(flow.componentData.tasks.items[0].text, "Preservar");
+  assert.equal(flow.componentData.notes.text, "Contexto");
+  assert.equal(flow.sessions.length, 1);
 });
 test("IndexedDB survives reads and separates account namespaces", async () => {
   await writeAccount("guest", { account: { name: "Local" } });
@@ -46,6 +80,15 @@ test("Postgres migration enforces ownership, public templates and atomic conflic
       await readFile(
         new URL(
           "../supabase/migrations/202609160001_flow_platform.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202609170001_flow_definition_v2.sql",
           import.meta.url,
         ),
         "utf8",
@@ -77,6 +120,12 @@ test("Postgres migration enforces ownership, public templates and atomic conflic
     await db.query(
       `insert into public.flow_templates(blueprint) values ('{"name":"Public","components":["focus"]}')`,
     );
+    await assert.rejects(
+      db.query(
+        `insert into public.flow_templates(blueprint) values ('{"name":"Invalid"}')`,
+      ),
+      /flow_templates_blueprint_shape_check/,
+    );
     await db.exec(
       `set request.jwt.claim.sub='22222222-2222-4222-8222-222222222222'`,
     );
@@ -95,7 +144,11 @@ test("Postgres migration enforces ownership, public templates and atomic conflic
         .length,
       0,
     );
-    assert.equal((await db.query(`update public.flow_accounts set payload='{}'`)).rows.length, 0);
+    assert.equal(
+      (await db.query(`update public.flow_accounts set payload='{}'`)).rows
+        .length,
+      0,
+    );
     await db.exec(`set role anon; set request.jwt.claim.sub=''`);
     assert.equal(
       (await db.query("select * from public.flow_templates")).rows.length,
