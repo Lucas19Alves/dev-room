@@ -1,3 +1,5 @@
+import { refreshFlowDerivedState } from "../flow/runtime.js";
+
 const clone = (value) => JSON.parse(JSON.stringify(value));
 let context = { read: () => null, write: () => {} };
 
@@ -17,5 +19,6 @@ export function writeComponentData(type, value) {
   flow.componentData ||= {};
   flow.componentData[type] = clone(value);
   flow.updatedAt = Date.now();
+  refreshFlowDerivedState(flow);
   context.write(flow);
 }

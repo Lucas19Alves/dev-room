@@ -1,16 +1,22 @@
 export const ACCOUNT_SCHEMA_VERSION = 3;
 export const FLOW_SCHEMA_VERSION = 2;
 
+import { applyDefinitionSetup } from "./setup.js";
+import { refreshFlowDerivedState } from "./runtime.js";
+
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const id = () => crypto.randomUUID();
 const boundedMinutes = (value) =>
   Math.max(1, Math.min(180, Number(value) || 25));
 
-export function componentIds(flow) {
+export function activeComponents(flow) {
   return (flow?.components || [])
     .filter((component) => component?.enabled !== false)
-    .sort((a, b) => a.order - b.order)
-    .map((component) => component.type);
+    .sort((a, b) => a.order - b.order);
+}
+
+export function componentIds(flow) {
+  return activeComponents(flow).map((component) => component.type);
 }
 
 export function componentData(flow, type, fallback = {}) {
@@ -21,19 +27,33 @@ export function componentData(flow, type, fallback = {}) {
   return flow.componentData[type];
 }
 
-export function createFlowInstance(definition, customName = "") {
+export function createFlowInstance(
+  definition,
+  customName = "",
+  onboardingAnswers = {},
+) {
   const now = Date.now();
   const name = (customName || definition.name || "Novo Flow")
     .trim()
     .slice(0, 100);
-  const types = [...new Set(definition.components || [])];
+  const selectedComponents = Array.from(
+    new Map(
+      (definition.components || []).map((component, order) => {
+        const normalized =
+          typeof component === "string"
+            ? { id: component, type: component, order }
+            : { ...component, order };
+        return [normalized.id || normalized.type, normalized];
+      }),
+    ).values(),
+  );
   const tasks = (definition.tasks || []).map((text) => ({
     id: id(),
     text,
     done: false,
   }));
   const focusMinutes = boundedMinutes(definition.focus);
-  return {
+  const flow = {
     schemaVersion: FLOW_SCHEMA_VERSION,
     kind: "flow_instance",
     id: id(),
@@ -58,19 +78,22 @@ export function createFlowInstance(definition, customName = "") {
     onboarding: {
       status: "completed",
       currentStep: 0,
-      answers: {},
+      answers: clone(onboardingAnswers || {}),
       completedAt: now,
       definition: clone(definition.onboarding || { intro: "", steps: [] }),
     },
     properties: { focusMinutes, ...clone(definition.properties || {}) },
     goals: clone(definition.goals || []),
     stages: clone(definition.stages || []),
-    components: types.map((type, order) => ({
-      id: type,
-      type,
+    components: selectedComponents.map((component, order) => ({
+      id: component.id || component.type,
+      type: component.type,
       order,
-      enabled: true,
-      config: clone(definition.componentConfig?.[type] || {}),
+      enabled: component.enabled !== false,
+      config: {
+        ...clone(definition.componentConfig?.[component.type] || {}),
+        ...clone(component.config || {}),
+      },
     })),
     componentData: {
       focus: { minutes: focusMinutes, state: null },
@@ -81,7 +104,11 @@ export function createFlowInstance(definition, customName = "") {
     },
     metricDefinitions: clone(definition.metrics || []),
     metrics: {},
-    progress: { value: 0, updatedAt: now },
+    progress: {
+      strategy: clone(definition.progress || { mode: "indicators" }),
+      value: null,
+      updatedAt: now,
+    },
     sessions: [],
     context: clone(definition.instructions || { summary: "", prompts: [] }),
     review: {
@@ -89,11 +116,13 @@ export function createFlowInstance(definition, customName = "") {
       prompts: clone(definition.review?.prompts || []),
       lastAt: null,
       nextAt: now + (definition.review?.cadenceDays || 7) * 86400000,
+      history: [],
     },
     privacy: { visibility: "private", sharedDefinitionId: null },
     createdAt: now,
     updatedAt: now,
   };
+  return applyDefinitionSetup(flow, definition, onboardingAnswers);
 }
 
 function migrateLegacyFlow(flow) {
@@ -108,7 +137,49 @@ function migrateLegacyFlow(flow) {
         : { enabled: true, config: {}, ...component, order },
     );
     migrated.componentData ||= {};
-    return migrated;
+    migrated.definitionRef ||= { source: "custom", id: null, version: 1 };
+    migrated.identity ||= {
+      name: "Flow recuperado",
+      category: "Personalizado",
+      color: "mint",
+      icon: "✳",
+    };
+    migrated.onboarding ||= {
+      status: "completed",
+      currentStep: 0,
+      answers: {},
+      completedAt: migrated.createdAt || Date.now(),
+      definition: { intro: "", steps: [] },
+    };
+    migrated.onboarding.answers ||= {};
+    migrated.properties ||= { focusMinutes: 25 };
+    migrated.goals ||= [];
+    migrated.stages = (migrated.stages || []).map((stage, order) =>
+      typeof stage === "string"
+        ? {
+            id: `stage-${order + 1}`,
+            title: stage,
+            order,
+            status: order === 0 ? "current" : "upcoming",
+          }
+        : { order, status: "upcoming", ...stage },
+    );
+    migrated.metricDefinitions ||= [];
+    migrated.metrics ||= {};
+    migrated.progress ||= {
+      strategy: { mode: "indicators" },
+      value: null,
+      updatedAt: Date.now(),
+    };
+    migrated.progress.strategy ||= { mode: "indicators" };
+    migrated.sessions ||= [];
+    migrated.context ||= { summary: migrated.description || "", prompts: [] };
+    migrated.review ||= { cadenceDays: 7, prompts: [] };
+    migrated.review.history ||= [];
+    migrated.review.nextAt ||=
+      Date.now() + (migrated.review.cadenceDays || 7) * 86400000;
+    migrated.privacy ||= { visibility: "private", sharedDefinitionId: null };
+    return refreshFlowDerivedState(migrated);
   }
   const data = clone(flow?.data || {});
   const definition = {
@@ -181,7 +252,7 @@ export function toPublicDefinition(flow) {
   return {
     schemaVersion: FLOW_SCHEMA_VERSION,
     kind: "flow_definition",
-    version: 1,
+    version: flow.definitionRef?.version || 1,
     name: flow.identity.name,
     category: flow.identity.category,
     color: flow.identity.color,
@@ -189,14 +260,21 @@ export function toPublicDefinition(flow) {
     objective: flow.objective,
     description: flow.description,
     onboarding: clone(flow.onboarding?.definition || { intro: "", steps: [] }),
-    properties: clone(flow.properties || {}),
-    goals: clone(flow.goals || []).map(({ title, description }) => ({
+    properties: { focusMinutes: flow.properties?.focusMinutes || 25 },
+    goals: clone(flow.goals || []).map(
+      ({ id, title, description, targetProperty, unit }) => ({
+        id,
       title,
       description,
-    })),
-    stages: clone(flow.stages || []).map(({ title, description }) => ({
+        targetProperty,
+        unit,
+      }),
+    ),
+    stages: clone(flow.stages || []).map(({ id, title, description, order }) => ({
+      id,
       title,
       description,
+      order,
     })),
     components: ids,
     componentConfig: Object.fromEntries(
@@ -207,6 +285,7 @@ export function toPublicDefinition(flow) {
     ),
     initialData: {},
     metrics: clone(flow.metricDefinitions || []),
+    progress: clone(flow.progress?.strategy || { mode: "indicators" }),
     instructions: clone(flow.context || { summary: "", prompts: [] }),
     review: {
       cadenceDays: flow.review?.cadenceDays || 7,

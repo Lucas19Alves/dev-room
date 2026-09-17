@@ -14,6 +14,7 @@ import {
   publicTemplate,
   safeUrl,
   clone,
+  definitionUpdate,
 } from "./catalog";
 import {
   store,
@@ -26,7 +27,13 @@ import {
 } from "./store";
 import { supabase } from "./supabase";
 import { bindFlowStorage } from "../utils/storage";
-import { componentData, componentIds } from "./model";
+import { activeComponents, componentData, componentIds } from "./model";
+import {
+  completeReview,
+  postponeReview,
+  refreshFlowDerivedState,
+  skipReview,
+} from "./runtime.js";
 export function usePlatform() {
   const tools = {
     music: defineAsyncComponent(() => import("../components/MusicPlayer.vue")),
@@ -50,6 +57,9 @@ export function usePlatform() {
       () => import("../components/FakeDataGenerator.vue"),
     ),
     timer: defineAsyncComponent(() => import("../components/Timer.vue")),
+    tracker: defineAsyncComponent(
+      () => import("../components/StructuredTracker.vue"),
+    ),
   };
   const page = ref("explore"),
     filter = ref("Todos"),
@@ -73,6 +83,7 @@ export function usePlatform() {
   const active = computed(() =>
     store.account.flows.find((f) => f.id === activeId.value),
   );
+  const activeDefinitionUpdate = computed(() => definitionUpdate(active.value));
   function focusField(field, fallback) {
     return computed({
       get: () =>
@@ -107,6 +118,8 @@ export function usePlatform() {
     "Programação",
     "Organização",
     "Carreira",
+    "Criativo",
+    "Pessoal",
     "Personalizado",
   ];
   const filtered = computed(() =>
@@ -138,6 +151,15 @@ export function usePlatform() {
       active.value?.componentData?.tasks?.items?.filter((t) => t.done).length ||
       0,
   );
+  const taskGroups = computed(() => {
+    const groups = new Map();
+    for (const item of active.value?.componentData?.tasks?.items || []) {
+      const group = item.group || "Próximos passos";
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push(item);
+    }
+    return [...groups.entries()].map(([name, items]) => ({ name, items }));
+  });
   const session = computed(() => store.account.activeSession);
   const seconds = computed(() =>
     session.value
@@ -189,8 +211,11 @@ export function usePlatform() {
   }
   function choose(template) {
     draft.value = clone(template);
-    draft.value.components = draft.value.components.filter((id) =>
-      components.some((c) => c.id === id),
+    draft.value.components = draft.value.components.filter((item) =>
+      components.some(
+        (component) =>
+          component.id === (typeof item === "string" ? item : item.type),
+      ),
     );
     flowName.value = template.name;
     displayName.value = store.account.name;
@@ -203,16 +228,21 @@ export function usePlatform() {
       ? draft.value.components.push(id)
       : draft.value.components.splice(index, 1);
   }
-  async function createFlow() {
+  async function createFlow(payload = null) {
+    const selectedComponents = payload?.components || draft.value.components;
+    const name = payload?.name || flowName.value;
+    const person = payload?.displayName || displayName.value;
     if (
-      !flowName.value.trim() ||
-      !draft.value.components.length ||
-      (!store.account.onboarded && !displayName.value.trim())
+      !name?.trim() ||
+      !selectedComponents.length ||
+      (!store.account.onboarded && !person?.trim())
     )
       return;
-    const flow = makeFlow(draft.value, flowName.value);
+    const definition = clone(draft.value);
+    definition.components = selectedComponents;
+    const flow = makeFlow(definition, name, payload?.answers || {});
     store.account.flows.push(flow);
-    store.account.name = displayName.value.trim() || store.account.name;
+    store.account.name = person?.trim() || store.account.name;
     store.account.onboarded = true;
     changed();
     modal.value = null;
@@ -240,7 +270,10 @@ export function usePlatform() {
     page.value = "workspace";
   }
   function update() {
-    if (active.value) active.value.updatedAt = Date.now();
+    if (active.value) {
+      active.value.updatedAt = Date.now();
+      refreshFlowDerivedState(active.value);
+    }
     changed();
   }
   function addTask() {
@@ -250,6 +283,7 @@ export function usePlatform() {
     tasks.items.push({
       id: crypto.randomUUID(),
       text: newTask.value.trim(),
+      group: "Próximos passos",
       done: false,
     });
     newTask.value = "";
@@ -282,22 +316,22 @@ export function usePlatform() {
         enabled: true,
         config: {},
       });
-    else active.value.components.splice(index, 1);
+    else
+      active.value.components[index].enabled =
+        active.value.components[index].enabled === false;
     active.value.components.forEach(
       (component, order) => (component.order = order),
     );
     update();
   }
   function moveComponent(index, direction) {
+    const visible = activeComponents(active.value);
     const target = index + direction;
-    if (target < 0 || target >= active.value.components.length) return;
-    [active.value.components[index], active.value.components[target]] = [
-      active.value.components[target],
-      active.value.components[index],
+    if (target < 0 || target >= visible.length) return;
+    [visible[index].order, visible[target].order] = [
+      visible[target].order,
+      visible[index].order,
     ];
-    active.value.components.forEach(
-      (component, order) => (component.order = order),
-    );
     update();
   }
   function toggleSession() {
@@ -345,6 +379,7 @@ export function usePlatform() {
       ),
     };
     flow.sessions.push(record);
+    refreshFlowDerivedState(flow);
     summary.value = { ...record, name: flow.identity.name };
     store.account.activeSession = null;
     focusRunning.value = false;
@@ -483,6 +518,24 @@ export function usePlatform() {
     modal.value = null;
     navigate("flows");
   }
+  function finishReview(answers) {
+    completeReview(active.value, answers);
+    update();
+    modal.value = null;
+    notify("Revisão salva. O próximo passo continua com você.");
+  }
+  function delayReview() {
+    postponeReview(active.value, 2);
+    update();
+    modal.value = null;
+    notify("Revisão adiada por 2 dias.");
+  }
+  function dismissReview() {
+    skipReview(active.value);
+    update();
+    modal.value = null;
+    notify("Esta revisão foi registrada como ignorada.");
+  }
   let ticker;
   let previousFocus;
   watch(modal, async (value) => {
@@ -591,6 +644,7 @@ export function usePlatform() {
   return {
     components,
     componentIds,
+    activeComponents,
     templates,
     store,
     supabase,
@@ -622,11 +676,13 @@ export function usePlatform() {
     focusRunning,
     focusBreak,
     active,
+    activeDefinitionUpdate,
     categories,
     filtered,
     sessions,
     totalMinutes,
     completed,
+    taskGroups,
     session,
     seconds,
     clock,
@@ -653,6 +709,9 @@ export function usePlatform() {
     sendLink,
     deleteTemplate,
     deleteFlow,
+    finishReview,
+    delayReview,
+    dismissReview,
     signOut,
     copyLink,
   };
