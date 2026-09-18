@@ -9,6 +9,8 @@ import FlowReview from "./components/FlowReview.vue";
 const {
   components,
   componentIds,
+  componentTypes,
+  activeComponents,
   templates,
   store,
   supabase,
@@ -37,8 +39,6 @@ const {
   linkUrl,
   community,
   summary,
-  focusRunning,
-  focusBreak,
   active,
   activeDefinitionUpdate,
   categories,
@@ -46,11 +46,14 @@ const {
   sessions,
   totalMinutes,
   completed,
+  remainingTasks,
   taskGroups,
   session,
   seconds,
   clock,
-  focusDisplay,
+  focusRunningFor,
+  focusBreakFor,
+  focusDisplayFor,
   activity,
   perform,
   choose,
@@ -62,6 +65,7 @@ const {
   addTask,
   addLink,
   editComponents,
+  removeComponent,
   moveComponent,
   toggleSession,
   finishSession,
@@ -432,10 +436,7 @@ const {
                 {{ flow.sessions.length }} sessões
               </p>
               <p>
-                {{
-                  (flow.componentData.tasks?.items || []).filter((t) => !t.done)
-                    .length
-                }}
+                {{ remainingTasks(flow) }}
                 tarefas restantes
               </p>
               <small
@@ -530,41 +531,58 @@ const {
               <button
                 v-for="component in components"
                 :key="component.id"
-                :class="{ chosen: componentIds(active).includes(component.id) }"
                 @click="editComponents(component.id)"
               >
                 <span>{{ component.icon }}</span
                 ><strong>{{ component.name }}</strong
-                ><small>{{
-                  componentIds(active).includes(component.id)
-                    ? "Adicionado ✓"
-                    : "Adicionar +"
-                }}</small>
+                ><small
+                  >Adicionar +<template
+                    v-if="
+                      componentTypes(active).filter(
+                        (type) => type === component.id,
+                      ).length
+                    "
+                  >
+                    ·
+                    {{
+                      componentTypes(active).filter(
+                        (type) => type === component.id,
+                      ).length
+                    }}
+                    em uso</template
+                  ></small
+                >
               </button>
             </div>
             <p>
-              Remover um componente preserva seu conteúdo. Você pode adicioná-lo
-              novamente.
+              Você pode adicionar mais de uma instância. Remover um componente
+              preserva seu conteúdo para uma restauração futura.
             </p>
           </section>
           <div class="workspace-grid">
             <section
-              v-for="(id, index) in componentIds(active)"
-              :key="`${active.id}:${id}`"
+              v-for="(component, index) in activeComponents(active)"
+              :key="`${active.id}:${component.id}`"
               class="tool-panel"
               :class="{
-                'wide-panel': ['tracker', 'kanban', 'playground'].includes(id),
+                'wide-panel': [
+                  'tasks',
+                  'notes',
+                  'links',
+                  'tracker',
+                  'kanban',
+                  'playground',
+                ].includes(component.type),
               }"
             >
               <header>
                 <h3>
-                  <span>{{ components.find((c) => c.id === id)?.icon }}</span
+                  <span>{{
+                    components.find((c) => c.id === component.type)?.icon
+                  }}</span
                   >{{
-                    id === "tracker"
-                      ? active.components.find(
-                          (component) => component.type === id,
-                        )?.config?.title || "Tracker"
-                      : components.find((c) => c.id === id)?.name
+                    component.config?.title ||
+                    components.find((c) => c.id === component.type)?.name
                   }}
                 </h3>
                 <div>
@@ -575,193 +593,50 @@ const {
                   >
                     ↑</button
                   ><button
-                    :disabled="index === componentIds(active).length - 1"
+                    :disabled="index === activeComponents(active).length - 1"
                     aria-label="Mover componente para baixo"
                     @click="moveComponent(index, 1)"
                   >
                     ↓</button
                   ><button
-                    :aria-label="`Remover ${components.find((c) => c.id === id)?.name}`"
-                    @click="editComponents(id)"
+                    :aria-label="`Remover ${components.find((c) => c.id === component.type)?.name}`"
+                    @click="removeComponent(component.id)"
                   >
                     ×
                   </button>
                 </div>
               </header>
-              <div v-if="id === 'focus'" class="focus-tool">
-                <span class="eyebrow">{{
-                  focusBreak ? "RESPIRE UM POUCO" : "UMA COISA DE CADA VEZ"
-                }}</span>
-                <div class="timer-ring">
-                  <strong>{{ focusDisplay }}</strong
-                  ><small>{{ focusBreak ? "Pausa" : "Tempo de foco" }}</small>
-                </div>
-                <div class="button-group">
-                  <button class="dark-button" @click="toggleFocus">
-                    {{ focusRunning ? "Pausar" : "Iniciar" }}</button
-                  ><button class="outline" @click="resetFocus">
-                    Reiniciar
-                  </button>
-                </div>
-                <label
-                  >Duração do foco
-                  <input
-                    v-model.number="active.properties.focusMinutes"
-                    type="number"
-                    min="1"
-                    max="180"
-                    @change="
-                      active.properties.focusMinutes = Math.max(
-                        1,
-                        Math.min(
-                          180,
-                          Number(active.properties.focusMinutes) || 25,
-                        ),
-                      );
-                      resetFocus();
-                      update();
-                    "
-                  />
-                  min</label
-                >
-              </div>
-              <div v-else-if="id === 'tasks'" class="tool-content">
-                <p class="subtle">
-                  {{ completed }} de
-                  {{ active.componentData.tasks?.items?.length || 0 }} passos
-                  concluídos
-                </p>
-                <form class="inline-form" @submit.prevent="addTask">
-                  <input
-                    v-model="newTask"
-                    placeholder="Qual é o próximo passo?"
-                    aria-label="Nova tarefa"
-                  /><button type="submit" aria-label="Adicionar tarefa">
-                    ＋
-                  </button>
-                </form>
-                <div
-                  v-for="group in taskGroups"
-                  :key="group.name"
-                  class="task-group"
-                >
-                  <h4>{{ group.name }}</h4>
-                  <div
-                    v-for="task in group.items"
-                    :key="task.id"
-                    class="task-row"
-                  >
-                    <input
-                      v-model="task.done"
-                      type="checkbox"
-                      :aria-label="task.text"
-                      @change="update"
-                    /><input
-                      v-model="task.text"
-                      :class="{ done: task.done }"
-                      aria-label="Texto da tarefa"
-                      @change="update"
-                    /><button
-                      aria-label="Excluir tarefa"
-                      @click="
-                        active.componentData.tasks.items =
-                          active.componentData.tasks.items.filter(
-                            (t) => t.id !== task.id,
-                          );
-                        update();
-                      "
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-                <p
-                  v-if="!active.componentData.tasks?.items?.length"
-                  class="hint"
-                >
-                  Seu próximo passo pode ser pequeno. Comece por ele.
-                </p>
-              </div>
-              <div v-else-if="id === 'notes'" class="tool-content">
-                <textarea
-                  v-model="active.componentData.notes.text"
-                  class="notes-area"
-                  placeholder="Deixe suas ideias por aqui…"
-                  aria-label="Notas deste Flow"
-                  @input="update"
-                ></textarea
-                ><small class="subtle">Suas ideias ficam neste Flow.</small>
-              </div>
-              <div v-else-if="id === 'links'" class="tool-content">
-                <form class="link-form" @submit.prevent="addLink">
-                  <input
-                    v-model="linkTitle"
-                    placeholder="Nome da referência"
-                    aria-label="Título do link"
-                  />
-                  <div class="inline-form">
-                    <input
-                      v-model="linkUrl"
-                      placeholder="https://…"
-                      aria-label="URL da referência"
-                      required
-                    /><button aria-label="Adicionar link">＋</button>
-                  </div>
-                </form>
-                <div
-                  v-for="link in active.componentData.links?.items"
-                  :key="link.id"
-                  class="link-row"
-                >
-                  <a
-                    :href="safeUrl(link.url) || undefined"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    >↗ {{ link.title }}</a
-                  ><button
-                    aria-label="Excluir link"
-                    @click="
-                      active.componentData.links.items =
-                        active.componentData.links.items.filter(
-                          (l) => l.id !== link.id,
-                        );
-                      update();
-                    "
-                  >
-                    ×
-                  </button>
-                </div>
-                <p
-                  v-if="!active.componentData.links?.items?.length"
-                  class="hint"
-                >
-                  Materiais de estudo, referências e atalhos. Tudo à mão.
-                </p>
-              </div>
-              <div v-else class="legacy-tool">
+              <div class="legacy-tool">
                 <component
-                  :is="tools[id]"
-                  v-if="tools[id]"
-                  :flow="id === 'tracker' ? active : undefined"
-                  :component-config="
-                    id === 'tracker'
-                      ? active.components.find(
-                          (component) => component.type === id,
-                        )?.config || {}
-                      : undefined
+                  :is="tools[component.type]"
+                  v-if="tools[component.type]"
+                  :flow="active"
+                  :component-config="component.config || {}"
+                  :storage-key="component.id"
+                  :display="
+                    component.type === 'focus' ? focusDisplayFor : undefined
                   "
-                  :storage-key="
-                    id === 'tracker'
-                      ? active.components.find(
-                          (component) => component.type === id,
-                        )?.id || id
-                      : undefined
+                  :running="
+                    component.type === 'focus' ? focusRunningFor : undefined
+                  "
+                  :on-toggle="
+                    component.type === 'focus' ? toggleFocus : undefined
+                  "
+                  :on-reset="
+                    component.type === 'focus' ? resetFocus : undefined
+                  "
+                  :on-session-toggle="
+                    component.type === 'focus' ? toggleSession : undefined
+                  "
+                  :session="component.type === 'focus' ? session : undefined"
+                  :session-seconds="
+                    component.type === 'focus' ? seconds : undefined
                   "
                 />
               </div>
             </section>
           </div>
-          <div v-if="!componentIds(active).length" class="empty">
+          <div v-if="!activeComponents(active).length" class="empty">
             <h2>Seu espaço está aberto a possibilidades.</h2>
             <button class="dark-button" @click="adding = true">
               Adicionar componentes

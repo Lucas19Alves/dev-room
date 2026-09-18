@@ -6,11 +6,16 @@ import {
 import { officialDefinitions } from "./officialDefinitions.js";
 
 export const components = [
-  ["focus", "Pomodoro", "◷", "Um intervalo de cada vez."],
-  ["tasks", "Checklist", "☑", "Transforme objetivos em próximos passos."],
+  [
+    "focus",
+    "Foco",
+    "◷",
+    "Sessões livres ou temporizadas ligadas ao seu objetivo.",
+  ],
+  ["tasks", "Tarefas", "☑", "Transforme objetivos em próximos passos."],
   ["tracker", "Tracker", "◎", "Acompanhe itens, etapas e próximos passos."],
   ["notes", "Notas", "▤", "Suas ideias, sempre por perto."],
-  ["links", "Links", "↗", "Referências para o seu objetivo."],
+  ["links", "Recursos", "↗", "Referências organizadas para o seu objetivo."],
   ["music", "Música", "♫", "Uma trilha para entrar no ritmo."],
   ["kanban", "Kanban", "▥", "Visualize cada etapa do trabalho."],
   ["snippets", "Snippets", "⌘", "Trechos de código para reutilizar."],
@@ -19,7 +24,7 @@ export const components = [
   ["water", "Hidratação", "♧", "Lembre de fazer uma pausa."],
   ["deploy", "Checklist de deploy", "↑", "Prepare a entrega do seu projeto."],
   ["fake", "Dados de teste", "⌗", "Gere dados para protótipos."],
-  ["timer", "Cronômetro", "◴", "Meça o tempo de uma atividade."],
+  ["timer", "Timer", "◴", "Faça uma contagem regressiva independente."],
 ].map(([id, name, icon, description]) => ({ id, name, icon, description }));
 
 export const templates = officialDefinitions;

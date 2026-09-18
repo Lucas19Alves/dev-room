@@ -3,11 +3,29 @@ import { computed, ref } from "vue";
 import draggable from "vuedraggable";
 import { useFlowComponentStorage } from "../composables/useFlowComponentStorage";
 import ToolLayout from "./ui/ToolLayout.vue";
-const { state: columns } = useFlowComponentStorage("kanban", [
-  { id: crypto.randomUUID(), title: "A fazer", cards: [] },
-  { id: crypto.randomUUID(), title: "Em andamento", cards: [] },
-  { id: crypto.randomUUID(), title: "Concluído", cards: [] },
-]);
+const props = defineProps({
+  storageKey: { type: String, default: "kanban" },
+  componentConfig: { type: Object, default: () => ({}) },
+  flow: { type: Object, required: true },
+});
+const defaultColumns = (
+  props.componentConfig.columns?.length
+    ? props.componentConfig.columns
+    : ["A fazer", "Em andamento", "Concluído"]
+).map((column) => ({
+  id:
+    typeof column === "string"
+      ? crypto.randomUUID()
+      : column.id || crypto.randomUUID(),
+  title: typeof column === "string" ? column : column.title,
+  cards: [],
+}));
+const { state: columns, save } = useFlowComponentStorage(
+  props.storageKey,
+  defaultColumns,
+  180,
+  "kanban",
+);
 const titles = ref({}),
   pendingDelete = ref(null);
 const count = computed(() =>
@@ -16,7 +34,16 @@ const count = computed(() =>
 function addCard(column) {
   const title = titles.value[column.id]?.trim();
   if (!title) return;
-  column.cards.push({ id: crypto.randomUUID(), title, description: "" });
+  column.cards.push({
+    id: crypto.randomUUID(),
+    title,
+    description: "",
+    priority: "none",
+    tags: [],
+    dueDate: "",
+    goalId: "",
+    stageId: "",
+  });
   titles.value[column.id] = "";
 }
 function removeColumn(column) {
@@ -32,6 +59,14 @@ function moveCard(column, card, target) {
   if (!destination) return;
   column.cards = column.cards.filter((c) => c.id !== card.id);
   destination.cards.push(card);
+  save();
+}
+function tags(card, value) {
+  card.tags = value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  save();
 }
 </script>
 <template>
@@ -109,8 +144,50 @@ function moveCard(column, card, target) {
                 placeholder="Uma nota sobre este passo…"
                 aria-label="Descrição da tarefa"
                 rows="2"
-              ></textarea
-              ><select
+              ></textarea>
+              <div class="kanban-card-fields">
+                <label class="tool-field"
+                  >Prioridade<select v-model="card.priority">
+                    <option value="none">Sem prioridade</option>
+                    <option value="low">Baixa</option>
+                    <option value="medium">Média</option>
+                    <option value="high">Alta</option>
+                  </select></label
+                >
+                <label class="tool-field"
+                  >Prazo<input v-model="card.dueDate" type="date"
+                /></label>
+                <label class="tool-field"
+                  >Tags<input
+                    :value="(card.tags || []).join(', ')"
+                    @change="tags(card, $event.target.value)"
+                /></label>
+                <label v-if="flow.goals?.length" class="tool-field"
+                  >Meta<select v-model="card.goalId">
+                    <option value="">Sem vínculo</option>
+                    <option
+                      v-for="goal in flow.goals"
+                      :key="goal.id"
+                      :value="goal.id"
+                    >
+                      {{ goal.title }}
+                    </option>
+                  </select></label
+                >
+                <label v-if="flow.stages?.length" class="tool-field"
+                  >Etapa<select v-model="card.stageId">
+                    <option value="">Sem vínculo</option>
+                    <option
+                      v-for="stage in flow.stages"
+                      :key="stage.id"
+                      :value="stage.id"
+                    >
+                      {{ stage.title }}
+                    </option>
+                  </select></label
+                >
+              </div>
+              <select
                 :value="column.id"
                 aria-label="Mover tarefa para coluna"
                 @change="moveCard(column, card, $event.target.value)"
@@ -142,3 +219,16 @@ function moveCard(column, card, target) {
     </div></ToolLayout
   >
 </template>
+<style scoped>
+.kanban-card-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.6rem 0;
+}
+@media (max-width: 620px) {
+  .kanban-card-fields {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

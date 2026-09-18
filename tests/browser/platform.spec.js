@@ -74,7 +74,9 @@ test("career Flow supports a real pipeline, session, review and reload", async (
   await page
     .getByRole("button", { name: "Concluir sessão", exact: true })
     .click();
-  await expect(page.getByText(/tarefas concluídas/)).toBeVisible();
+  await expect(
+    page.locator(".modal").getByText(/tarefas concluídas/),
+  ).toBeVisible();
   await page.getByLabel("Fechar diálogo").click();
 
   await page.getByRole("button", { name: "Revisar agora" }).click();
@@ -244,7 +246,7 @@ test("reusable tools mount, keep Flow isolation and avoid mobile overflow", asyn
     "Hidratação",
     "Checklist de deploy",
     "Dados de teste",
-    "Cronômetro",
+    "Timer",
     "Música",
   ])
     await page
@@ -275,6 +277,29 @@ test("reusable tools mount, keep Flow isolation and avoid mobile overflow", asyn
     "<h1>Privado A</h1>",
   );
   expect(errors).toEqual([]);
+});
+
+test("duplicate component instances keep independent data after reload", async ({
+  page,
+}) => {
+  await page.goto("/app");
+  await createBlank(page, "Instâncias");
+  await page.getByLabel("Notas deste Flow").fill("Nota principal");
+  await page.getByRole("button", { name: "Componentes", exact: false }).click();
+  await page
+    .getByRole("button", { name: "Notas Adicionar", exact: false })
+    .click();
+  await expect(page.getByLabel("Notas deste Flow")).toHaveCount(2);
+  await page.getByLabel("Notas deste Flow").nth(1).fill("Nota separada");
+  await expect(page.locator(".sync")).toHaveText("Salvo neste dispositivo");
+  await page.reload();
+  await page.getByRole("button", { name: "Entrar no Flow" }).click();
+  await expect(page.getByLabel("Notas deste Flow").nth(0)).toHaveValue(
+    "Nota principal",
+  );
+  await expect(page.getByLabel("Notas deste Flow").nth(1)).toHaveValue(
+    "Nota separada",
+  );
 });
 
 test("a second tab cannot silently overwrite local work", async ({

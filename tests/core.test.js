@@ -11,7 +11,12 @@ import {
   definitionUpdate,
 } from "../src/flow/catalog.js";
 import { readAccount, writeAccount } from "../src/flow/database.js";
-import { componentIds, migrateAccount } from "../src/flow/model.js";
+import {
+  componentData,
+  componentDataEntries,
+  componentIds,
+  migrateAccount,
+} from "../src/flow/model.js";
 import {
   calculateMetrics,
   completeReview,
@@ -363,6 +368,72 @@ test("early Flow v2 instances gain review and progress fields without data loss"
   assert.deepEqual(flow.review.history, []);
   assert.equal(flow.progress.strategy.mode, "indicators");
   assert.ok(flow.review.nextAt);
+});
+test("component data migrates from type keys to stable instance ids without loss", () => {
+  const account = migrateAccount({
+    version: 3,
+    flows: [
+      {
+        schemaVersion: 2,
+        kind: "flow_instance",
+        id: "namespaces",
+        identity: {
+          name: "Teste",
+          category: "Pessoal",
+          color: "mint",
+          icon: "✳",
+        },
+        components: [
+          { id: "tasks-primary", type: "tasks", order: 0 },
+          { id: "tasks-secondary", type: "tasks", order: 1 },
+        ],
+        componentData: {
+          tasks: { items: [{ id: "legacy", text: "Preservar", done: false }] },
+        },
+        sessions: [],
+      },
+    ],
+  });
+  const flow = account.flows[0];
+  assert.equal(flow.componentData.tasks.items[0].text, "Preservar");
+  assert.equal(flow.componentData["tasks-primary"].items[0].text, "Preservar");
+  componentData(flow, "tasks-secondary", { items: [] }).items.push({
+    id: "new",
+    text: "Separada",
+  });
+  assert.equal(flow.componentData["tasks-primary"].items.length, 1);
+  assert.equal(flow.componentData["tasks-secondary"].items.length, 1);
+  assert.deepEqual(
+    componentDataEntries(flow, "tasks").map(({ component }) => component.id),
+    ["tasks-primary", "tasks-secondary"],
+  );
+});
+test("tasks and focus sessions contribute to goals and stages", () => {
+  const flow = makeFlow(
+    templates.find((item) => item.id === "project"),
+    "Projeto vinculado",
+    answers.project,
+  );
+  const goal = flow.goals[0];
+  const stage = flow.stages[0];
+  flow.componentData.tasks.items.push({
+    id: "linked-task",
+    text: "Passo vinculado",
+    done: true,
+    goalId: goal.id,
+    stageId: stage.id,
+  });
+  flow.sessions.push({
+    id: "linked-session",
+    seconds: 900,
+    goalId: goal.id,
+    stageId: stage.id,
+  });
+  refreshFlowDerivedState(flow);
+  assert.equal(flow.goals[0].contributions.tasksDone, 1);
+  assert.equal(flow.goals[0].contributions.focusSeconds, 900);
+  assert.equal(flow.stages[0].contributions.tasksDone, 1);
+  assert.equal(flow.stages[0].contributions.focusSeconds, 900);
 });
 test("IndexedDB survives reads and separates account namespaces", async () => {
   await writeAccount("guest", { account: { name: "Local" } });

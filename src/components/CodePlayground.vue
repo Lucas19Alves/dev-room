@@ -3,11 +3,21 @@ import { ref } from "vue";
 import { useFlowComponentStorage } from "../composables/useFlowComponentStorage";
 import ToolLayout from "./ui/ToolLayout.vue";
 
-const { state: playground } = useFlowComponentStorage("playground", {
-  html: '<main>\n  <h1>Olá, Noma!</h1>\n  <button id="hello">Clique aqui</button>\n</main>',
-  css: "body { font-family: system-ui; padding: 2rem; }\nh1 { color: #294a38; }",
-  js: "document.querySelector('#hello')?.addEventListener('click', () => alert('Funcionou!'))",
+const props = defineProps({
+  storageKey: { type: String, default: "playground" },
+  componentConfig: { type: Object, default: () => ({}) },
+  flow: { type: Object, default: null },
 });
+const { state: playground } = useFlowComponentStorage(
+  props.storageKey,
+  {
+    html: '<main>\n  <h1>Olá, Noma!</h1>\n  <button id="hello">Clique aqui</button>\n</main>',
+    css: "body { font-family: system-ui; padding: 2rem; }\nh1 { color: #294a38; }",
+    js: "document.querySelector('#hello')?.addEventListener('click', () => alert('Funcionou!'))",
+  },
+  250,
+  "playground",
+);
 const output = ref("");
 const error = ref("");
 

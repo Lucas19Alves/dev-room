@@ -27,7 +27,14 @@ import {
 } from "./store";
 import { supabase } from "./supabase";
 import { bindFlowStorage } from "../utils/storage";
-import { activeComponents, componentData, componentIds } from "./model";
+import {
+  activeComponents,
+  componentData,
+  componentDataEntries,
+  componentIds,
+  componentTypes,
+} from "./model";
+import { elapsedSeconds, formatClock } from "./time.js";
 import {
   completeReview,
   postponeReview,
@@ -60,6 +67,12 @@ export function usePlatform() {
     tracker: defineAsyncComponent(
       () => import("../components/StructuredTracker.vue"),
     ),
+    tasks: defineAsyncComponent(() => import("../components/TasksTool.vue")),
+    notes: defineAsyncComponent(() => import("../components/NotesTool.vue")),
+    links: defineAsyncComponent(
+      () => import("../components/ResourcesTool.vue"),
+    ),
+    focus: defineAsyncComponent(() => import("../components/FocusTool.vue")),
   };
   const page = ref("explore"),
     filter = ref("Todos"),
@@ -84,34 +97,34 @@ export function usePlatform() {
     store.account.flows.find((f) => f.id === activeId.value),
   );
   const activeDefinitionUpdate = computed(() => definitionUpdate(active.value));
-  function focusField(field, fallback) {
-    return computed({
-      get: () =>
-        active.value?.componentData?.focus?.state?.[field] ??
-        (field === "left"
-          ? (active.value?.properties?.focusMinutes || 25) * 60
-          : fallback),
-      set: (value) => {
-        if (!active.value) return;
-        const focus = componentData(active.value, "focus", {
-          minutes: 25,
-          state: null,
-        });
-        focus.state ||= {
-          running: false,
-          end: 0,
-          left: (active.value.properties.focusMinutes || 25) * 60,
-          break: false,
-        };
-        focus.state[field] = value;
-        changed();
-      },
+  function focusState(componentId = "focus") {
+    if (!active.value) return null;
+    const data = componentData(active.value, componentId, {
+      minutes: active.value.properties?.focusMinutes || 25,
+      state: null,
     });
+    data.state ||= {
+      running: false,
+      end: 0,
+      left: (data.minutes || active.value.properties?.focusMinutes || 25) * 60,
+      break: false,
+      mode: "pomodoro",
+      taskId: "",
+      goalId: "",
+      stageId: "",
+    };
+    return data.state;
   }
-  const focusRunning = focusField("running", false),
-    focusEnd = focusField("end", 0),
-    focusLeft = focusField("left", 1500),
-    focusBreak = focusField("break", false);
+  const focusRunningFor = (componentId) =>
+    Boolean(focusState(componentId)?.running);
+  const focusBreakFor = (componentId) =>
+    Boolean(focusState(componentId)?.break);
+  const focusDisplayFor = (componentId) => {
+    const state = focusState(componentId);
+    return formatClock(
+      state?.running ? Math.ceil((state.end - now.value) / 1000) : state?.left,
+    );
+  };
   const categories = [
     "Todos",
     "Estudos",
@@ -146,14 +159,23 @@ export function usePlatform() {
   const totalMinutes = computed(() =>
     Math.floor(sessions.value.reduce((sum, s) => sum + s.seconds, 0) / 60),
   );
-  const completed = computed(
-    () =>
-      active.value?.componentData?.tasks?.items?.filter((t) => t.done).length ||
-      0,
+  const allTasks = computed(() =>
+    active.value
+      ? componentDataEntries(active.value, "tasks").flatMap(({ data }) =>
+          Array.isArray(data.items) ? data.items : [],
+        )
+      : [],
   );
+  const completed = computed(
+    () => allTasks.value.filter((task) => task.done).length,
+  );
+  const remainingTasks = (flow) =>
+    componentDataEntries(flow, "tasks")
+      .flatMap(({ data }) => data.items || [])
+      .filter((task) => !task.done).length;
   const taskGroups = computed(() => {
     const groups = new Map();
-    for (const item of active.value?.componentData?.tasks?.items || []) {
+    for (const item of allTasks.value) {
       const group = item.group || "Próximos passos";
       if (!groups.has(group)) groups.set(group, []);
       groups.get(group).push(item);
@@ -161,25 +183,8 @@ export function usePlatform() {
     return [...groups.entries()].map(([name, items]) => ({ name, items }));
   });
   const session = computed(() => store.account.activeSession);
-  const seconds = computed(() =>
-    session.value
-      ? Math.floor(
-          (session.value.elapsed || 0) +
-            (session.value.running
-              ? (now.value - session.value.startedAt) / 1000
-              : 0),
-        )
-      : 0,
-  );
-  const clock = (value) =>
-    `${String(Math.floor(Math.max(0, value) / 60)).padStart(2, "0")}:${String(Math.floor(Math.max(0, value) % 60)).padStart(2, "0")}`;
-  const focusDisplay = computed(() =>
-    clock(
-      focusRunning.value
-        ? Math.ceil((focusEnd.value - now.value) / 1000)
-        : focusLeft.value,
-    ),
-  );
+  const seconds = computed(() => elapsedSeconds(session.value, now.value));
+  const clock = formatClock;
   const activity = computed(() =>
     Array.from({ length: 364 }, (_, i) => {
       const date = new Date();
@@ -310,24 +315,34 @@ export function usePlatform() {
     linkUrl.value = "";
     update();
   }
-  function editComponents(id) {
-    const index = active.value.components.findIndex(
-      (component) => component.type === id,
+  function editComponents(type) {
+    const disabled = active.value.components.find(
+      (component) => component.type === type && component.enabled === false,
     );
-    if (index < 0)
+    if (disabled) disabled.enabled = true;
+    else {
+      const suffix = crypto.randomUUID().slice(0, 8);
       active.value.components.push({
-        id,
-        type: id,
+        id: active.value.components.some((component) => component.id === type)
+          ? `${type}-${suffix}`
+          : type,
+        type,
         order: active.value.components.length,
         enabled: true,
         config: {},
       });
-    else
-      active.value.components[index].enabled =
-        active.value.components[index].enabled === false;
+    }
     active.value.components.forEach(
       (component, order) => (component.order = order),
     );
+    update();
+  }
+  function removeComponent(componentId) {
+    const component = active.value?.components.find(
+      (candidate) => candidate.id === componentId,
+    );
+    if (!component) return;
+    component.enabled = false;
     update();
   }
   function moveComponent(index, direction) {
@@ -340,7 +355,7 @@ export function usePlatform() {
     ];
     update();
   }
-  function toggleSession() {
+  function toggleSession(context = {}) {
     now.value = Date.now();
     if (!session.value)
       store.account.activeSession = {
@@ -350,18 +365,24 @@ export function usePlatform() {
         running: true,
         pomodoros: 0,
         baseline: completed.value,
+        componentId: context.componentId || null,
+        taskId: context.taskId || null,
+        goalId: context.goalId || null,
+        stageId: context.stageId || null,
+        mode: context.mode || "free",
       };
     else if (session.value.flowId !== active.value.id)
       return notify(
         "Finalize a sessão em andamento antes de começar outro Flow.",
       );
     else {
-      if (session.value.running && focusRunning.value) {
-        focusLeft.value = Math.max(
-          0,
-          Math.ceil((focusEnd.value - Date.now()) / 1000),
-        );
-        focusRunning.value = false;
+      if (session.value.running) {
+        for (const { data } of componentDataEntries(active.value, "focus")) {
+          const focus = data.state;
+          if (!focus?.running) continue;
+          focus.left = Math.max(0, Math.ceil((focus.end - Date.now()) / 1000));
+          focus.running = false;
+        }
       }
       session.value.elapsed = seconds.value;
       session.value.running = !session.value.running;
@@ -378,38 +399,55 @@ export function usePlatform() {
       endedAt: Date.now(),
       seconds: seconds.value,
       pomodoros: session.value.pomodoros,
+      componentId: session.value.componentId || null,
+      taskId: session.value.taskId || null,
+      goalId: session.value.goalId || null,
+      stageId: session.value.stageId || null,
+      mode: session.value.mode || "free",
       tasks: Math.max(
         0,
-        (flow.componentData.tasks?.items || []).filter((t) => t.done).length -
-          session.value.baseline,
+        componentDataEntries(flow, "tasks")
+          .flatMap(({ data }) => data.items || [])
+          .filter((task) => task.done).length - session.value.baseline,
       ),
     };
     flow.sessions.push(record);
     refreshFlowDerivedState(flow);
     summary.value = { ...record, name: flow.identity.name };
     store.account.activeSession = null;
-    focusRunning.value = false;
+    for (const { data } of componentDataEntries(flow, "focus"))
+      if (data.state) data.state.running = false;
     changed();
     modal.value = "summary";
   }
-  function toggleFocus() {
-    if (focusRunning.value) {
-      focusLeft.value = Math.max(
-        0,
-        Math.ceil((focusEnd.value - Date.now()) / 1000),
-      );
-      focusRunning.value = false;
+  function toggleFocus(componentId = "focus", context = {}) {
+    const state = focusState(componentId);
+    if (!state) return;
+    if (state.running) {
+      state.left = Math.max(0, Math.ceil((state.end - Date.now()) / 1000));
+      state.running = false;
     } else {
-      if (!session.value || !session.value.running) toggleSession();
+      if (!session.value || !session.value.running)
+        toggleSession({ componentId, mode: state.mode, ...context });
       if (session.value?.flowId !== active.value.id) return;
-      focusEnd.value = Date.now() + focusLeft.value * 1000;
-      focusRunning.value = true;
+      Object.assign(state, context);
+      state.end = Date.now() + state.left * 1000;
+      state.running = true;
     }
+    changed();
   }
-  function resetFocus() {
-    focusRunning.value = false;
-    focusBreak.value = false;
-    focusLeft.value = (active.value?.properties.focusMinutes || 25) * 60;
+  function resetFocus(componentId = "focus", minutes = null) {
+    const state = focusState(componentId);
+    const data = componentData(active.value, componentId, {});
+    if (!state) return;
+    if (minutes)
+      data.minutes = Math.max(1, Math.min(180, Number(minutes) || 25));
+    state.running = false;
+    state.break = false;
+    state.left =
+      (data.minutes || active.value?.properties.focusMinutes || 25) * 60;
+    state.end = 0;
+    changed();
   }
   function downloadCard() {
     const canvas = document.createElement("canvas");
@@ -606,19 +644,21 @@ export function usePlatform() {
     ticker = setInterval(() => {
       now.value = Date.now();
       for (const flow of store.account.flows) {
-        const state = flow.componentData.focus?.state;
-        if (state?.running && now.value >= state.end) {
-          state.running = false;
-          if (!state.break && session.value?.flowId === flow.id)
-            session.value.pomodoros++;
-          state.break = !state.break;
-          state.left = state.break
-            ? 300
-            : (flow.properties.focusMinutes || 25) * 60;
-          changed();
-          notify(
-            `${flow.identity.name}: ${state.break ? "ciclo concluído. Faça uma pausa de 5 minutos." : "pausa concluída."}`,
-          );
+        for (const { data } of componentDataEntries(flow, "focus")) {
+          const state = data.state;
+          if (state?.running && now.value >= state.end) {
+            state.running = false;
+            if (!state.break && session.value?.flowId === flow.id)
+              session.value.pomodoros++;
+            state.break = !state.break;
+            state.left = state.break
+              ? (data.shortBreakMinutes || 5) * 60
+              : (data.minutes || flow.properties.focusMinutes || 25) * 60;
+            changed();
+            notify(
+              `${flow.identity.name}: ${state.break ? "ciclo concluído. Faça uma pausa." : "pausa concluída."}`,
+            );
+          }
         }
       }
     }, 1000);
@@ -650,6 +690,7 @@ export function usePlatform() {
   return {
     components,
     componentIds,
+    componentTypes,
     activeComponents,
     templates,
     store,
@@ -679,8 +720,6 @@ export function usePlatform() {
     linkUrl,
     community,
     summary,
-    focusRunning,
-    focusBreak,
     active,
     activeDefinitionUpdate,
     categories,
@@ -688,11 +727,15 @@ export function usePlatform() {
     sessions,
     totalMinutes,
     completed,
+    remainingTasks,
     taskGroups,
     session,
     seconds,
     clock,
-    focusDisplay,
+    focusRunningFor,
+    focusBreakFor,
+    focusDisplayFor,
+    focusState,
     activity,
     perform,
     choose,
@@ -704,6 +747,7 @@ export function usePlatform() {
     addTask,
     addLink,
     editComponents,
+    removeComponent,
     moveComponent,
     toggleSession,
     finishSession,

@@ -4,13 +4,23 @@ import { useFlowComponentStorage } from "../composables/useFlowComponentStorage"
 import ToolLayout from "./ui/ToolLayout.vue";
 
 const currencies = ["BRL", "USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF"];
-const { state: converter } = useFlowComponentStorage("converter", {
-  amount: 1,
-  from: "USD",
-  to: "BRL",
-  result: null,
-  convertedAt: null,
+const props = defineProps({
+  storageKey: { type: String, default: "converter" },
+  componentConfig: { type: Object, default: () => ({}) },
+  flow: { type: Object, default: null },
 });
+const { state: converter } = useFlowComponentStorage(
+  props.storageKey,
+  {
+    amount: 1,
+    from: "USD",
+    to: "BRL",
+    result: null,
+    convertedAt: null,
+  },
+  250,
+  "converter",
+);
 const status = ref("idle");
 const message = ref("");
 const formatted = computed(() =>

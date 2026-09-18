@@ -1,6 +1,22 @@
 const DAY = 86400000;
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
+function componentDataEntries(flow, type) {
+  const components = (flow?.components || [])
+    .filter(
+      (component) =>
+        component.enabled !== false && (!type || component.type === type),
+    )
+    .sort((a, b) => a.order - b.order);
+  return components.map((component) => ({
+    component,
+    data:
+      flow.componentData?.[component.id] ??
+      flow.componentData?.[component.type] ??
+      {},
+  }));
+}
+
 function toTime(value) {
   const normalized = /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))
     ? `${value}T12:00:00`
@@ -16,9 +32,21 @@ function withinWindow(value, days, now = Date.now()) {
 }
 
 function trackerItems(flow) {
-  return Array.isArray(flow?.componentData?.tracker?.items)
-    ? flow.componentData.tracker.items
-    : [];
+  return componentDataEntries(flow, "tracker").flatMap(({ data }) =>
+    Array.isArray(data.items) ? data.items : [],
+  );
+}
+
+function taskItems(flow) {
+  return componentDataEntries(flow, "tasks").flatMap(({ data }) =>
+    Array.isArray(data.items) ? data.items : [],
+  );
+}
+
+function kanbanColumns(flow) {
+  return componentDataEntries(flow, "kanban").flatMap(({ data }) =>
+    Array.isArray(data) ? data : data.columns || [],
+  );
 }
 
 function filteredTracker(flow, source, now) {
@@ -96,16 +124,15 @@ function metricValue(flow, definition, resolved, now) {
     return sessions.length;
   }
   if (source.type === "tasks")
-    return (flow.componentData?.tasks?.items || []).filter(
+    return taskItems(flow).filter(
       (item) =>
         (source.done === undefined || item.done === source.done) &&
         (!source.group || item.group === source.group),
     ).length;
   if (source.type === "kanban")
     return (
-      (flow.componentData?.kanban || []).find(
-        (column) => column.title === source.column,
-      )?.cards?.length || 0
+      kanbanColumns(flow).find((column) => column.title === source.column)
+        ?.cards?.length || 0
     );
   if (source.type === "reviews")
     return (flow.review?.history || []).filter(
@@ -147,6 +174,12 @@ export function refreshFlowDerivedState(flow, now = Date.now()) {
       ? Number(flow.properties?.[goal.targetProperty]) || goal.target || null
       : goal.target || null;
     const current = metric?.value ?? goal.current ?? null;
+    const linkedTasks = taskItems(flow).filter(
+      (task) => task.goalId === goal.id,
+    );
+    const linkedSessions = (flow.sessions || []).filter(
+      (session) => session.goalId === goal.id,
+    );
     return {
       ...goal,
       target,
@@ -155,6 +188,39 @@ export function refreshFlowDerivedState(flow, now = Date.now()) {
         target && current !== null && current >= target
           ? "completed"
           : "active",
+      contributions: {
+        tasks: linkedTasks.length,
+        tasksDone: linkedTasks.filter((task) => task.done).length,
+        focusSeconds: linkedSessions.reduce(
+          (total, session) => total + (session.seconds || 0),
+          0,
+        ),
+      },
+    };
+  });
+  flow.stages = (flow.stages || []).map((stage) => {
+    const linkedTasks = taskItems(flow).filter(
+      (task) => task.stageId === stage.id,
+    );
+    const linkedCards = kanbanColumns(flow).flatMap((column) =>
+      (column.cards || [])
+        .filter((card) => card.stageId === stage.id)
+        .map((card) => ({ ...card, column: column.title })),
+    );
+    const linkedSessions = (flow.sessions || []).filter(
+      (session) => session.stageId === stage.id,
+    );
+    return {
+      ...stage,
+      contributions: {
+        tasks: linkedTasks.length,
+        tasksDone: linkedTasks.filter((task) => task.done).length,
+        cards: linkedCards.length,
+        focusSeconds: linkedSessions.reduce(
+          (total, session) => total + (session.seconds || 0),
+          0,
+        ),
+      },
     };
   });
   const strategy = flow.progress?.strategy || { mode: "indicators" };
@@ -183,8 +249,7 @@ function dateLabel(value) {
 }
 
 function firstOpenTask(flow) {
-  return (flow.componentData?.tasks?.items || []).find((item) => !item.done)
-    ?.text;
+  return taskItems(flow).find((item) => !item.done)?.text;
 }
 
 function upcomingItems(flow) {

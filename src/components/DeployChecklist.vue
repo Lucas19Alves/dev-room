@@ -1,7 +1,17 @@
 <script setup>
 import { computed, ref } from "vue";
 import { useFlowComponentStorage } from "../composables/useFlowComponentStorage";
-const { state: checklist } = useFlowComponentStorage("deploy", []);
+const props = defineProps({
+  storageKey: { type: String, default: "deploy" },
+  componentConfig: { type: Object, default: () => ({}) },
+  flow: { type: Object, default: null },
+});
+const { state: checklist } = useFlowComponentStorage(
+  props.storageKey,
+  [],
+  250,
+  "deploy",
+);
 const newItem = ref(""),
   filter = ref("all"),
   notice = ref("");

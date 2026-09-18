@@ -1,14 +1,19 @@
 import { onUnmounted, ref, watch } from "vue";
 import { readComponentData, writeComponentData } from "../utils/storage";
 
-export function useFlowComponentStorage(type, fallback, delay = 250) {
-  const state = ref(readComponentData(type, fallback));
+export function useFlowComponentStorage(
+  key,
+  fallback,
+  delay = 250,
+  legacyKey = null,
+) {
+  const state = ref(readComponentData(key, fallback, legacyKey));
   let saveTimer = null;
 
   function save() {
     clearTimeout(saveTimer);
     saveTimer = null;
-    writeComponentData(type, state.value);
+    writeComponentData(key, state.value);
   }
 
   watch(

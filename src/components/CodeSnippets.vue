@@ -28,7 +28,17 @@ Object.entries(languageLoaders).forEach(([name, language]) =>
   hljs.registerLanguage(name, language),
 );
 const languages = Object.keys(languageLoaders);
-const { state: snippets } = useFlowComponentStorage("snippets", []);
+const props = defineProps({
+  storageKey: { type: String, default: "snippets" },
+  componentConfig: { type: Object, default: () => ({}) },
+  flow: { type: Object, default: null },
+});
+const { state: snippets } = useFlowComponentStorage(
+  props.storageKey,
+  [],
+  250,
+  "snippets",
+);
 const form = ref({ title: "", language: "javascript", code: "" });
 const search = ref("");
 const editing = ref(null);

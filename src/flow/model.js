@@ -1,5 +1,6 @@
 export const ACCOUNT_SCHEMA_VERSION = 3;
 export const FLOW_SCHEMA_VERSION = 2;
+export const COMPONENT_DATA_VERSION = 2;
 
 import { applyDefinitionSetup } from "./setup.js";
 import { refreshFlowDerivedState } from "./runtime.js";
@@ -9,6 +10,29 @@ const id = () => crypto.randomUUID();
 const boundedMinutes = (value) =>
   Math.max(1, Math.min(180, Number(value) || 25));
 
+function normalizeComponents(components = []) {
+  const used = new Set();
+  const typeCounts = new Map();
+  return components.map((component, order) => {
+    const source =
+      typeof component === "string" ? { type: component } : { ...component };
+    const type = source.type || source.id || "component";
+    const count = (typeCounts.get(type) || 0) + 1;
+    typeCounts.set(type, count);
+    let componentId = source.id || (count === 1 ? type : `${type}-${count}`);
+    while (used.has(componentId)) componentId = `${type}-${count + used.size}`;
+    used.add(componentId);
+    return {
+      enabled: true,
+      config: {},
+      ...source,
+      id: componentId,
+      type,
+      order: Number.isFinite(source.order) ? source.order : order,
+    };
+  });
+}
+
 export function activeComponents(flow) {
   return (flow?.components || [])
     .filter((component) => component?.enabled !== false)
@@ -16,15 +40,77 @@ export function activeComponents(flow) {
 }
 
 export function componentIds(flow) {
+  return activeComponents(flow).map((component) => component.id);
+}
+
+export function componentTypes(flow) {
   return activeComponents(flow).map((component) => component.type);
 }
 
-export function componentData(flow, type, fallback = {}) {
+export function findComponent(flow, reference) {
+  if (!flow || !reference) return null;
+  if (typeof reference === "object") return reference;
+  return (
+    flow.components?.find((component) => component.id === reference) ||
+    flow.components?.find((component) => component.type === reference) ||
+    null
+  );
+}
+
+export function migrateComponentData(flow) {
+  if (!flow) return flow;
+  flow.components = normalizeComponents(flow.components || []);
+  flow.componentData ||= {};
+  const claimedLegacyTypes = new Set();
+  for (const component of flow.components) {
+    if (flow.componentData[component.id] !== undefined) continue;
+    if (
+      flow.componentData[component.type] !== undefined &&
+      !claimedLegacyTypes.has(component.type)
+    ) {
+      flow.componentData[component.id] = clone(
+        flow.componentData[component.type],
+      );
+      claimedLegacyTypes.add(component.type);
+    }
+  }
+  flow.componentDataVersion = COMPONENT_DATA_VERSION;
+  return flow;
+}
+
+export function componentData(flow, reference, fallback = {}) {
   if (!flow) return clone(fallback);
   flow.componentData ||= {};
-  if (flow.componentData[type] === undefined)
-    flow.componentData[type] = clone(fallback);
-  return flow.componentData[type];
+  const component = findComponent(flow, reference);
+  const key = component?.id || String(reference);
+  const legacyKey = component?.type;
+  const instanceAlreadyMigrated = component
+    ? flow.components?.some(
+        (candidate) =>
+          candidate.type === component.type &&
+          candidate.id !== component.id &&
+          flow.componentData[candidate.id] !== undefined,
+      )
+    : false;
+  if (
+    flow.componentData[key] === undefined &&
+    legacyKey &&
+    !instanceAlreadyMigrated &&
+    flow.componentData[legacyKey] !== undefined
+  )
+    flow.componentData[key] = clone(flow.componentData[legacyKey]);
+  if (flow.componentData[key] === undefined)
+    flow.componentData[key] = clone(fallback);
+  return flow.componentData[key];
+}
+
+export function componentDataEntries(flow, type) {
+  return activeComponents(flow)
+    .filter((component) => !type || component.type === type)
+    .map((component) => ({
+      component,
+      data: componentData(flow, component, {}),
+    }));
 }
 
 export function createFlowInstance(
@@ -36,17 +122,7 @@ export function createFlowInstance(
   const name = (customName || definition.name || "Novo Flow")
     .trim()
     .slice(0, 100);
-  const selectedComponents = Array.from(
-    new Map(
-      (definition.components || []).map((component, order) => {
-        const normalized =
-          typeof component === "string"
-            ? { id: component, type: component, order }
-            : { ...component, order };
-        return [normalized.id || normalized.type, normalized];
-      }),
-    ).values(),
-  );
+  const selectedComponents = normalizeComponents(definition.components || []);
   const tasks = (definition.tasks || []).map((text) => ({
     id: id(),
     text,
@@ -95,6 +171,7 @@ export function createFlowInstance(
         ...clone(component.config || {}),
       },
     })),
+    componentDataVersion: COMPONENT_DATA_VERSION,
     componentData: {
       focus: { minutes: focusMinutes, state: null },
       tasks: { items: tasks },
@@ -122,7 +199,9 @@ export function createFlowInstance(
     createdAt: now,
     updatedAt: now,
   };
-  return applyDefinitionSetup(flow, definition, onboardingAnswers);
+  const prepared = applyDefinitionSetup(flow, definition, onboardingAnswers);
+  migrateComponentData(prepared);
+  return refreshFlowDerivedState(prepared);
 }
 
 function migrateLegacyFlow(flow) {
@@ -131,12 +210,7 @@ function migrateLegacyFlow(flow) {
     flow.kind === "flow_instance"
   ) {
     const migrated = clone(flow);
-    migrated.components = (migrated.components || []).map((component, order) =>
-      typeof component === "string"
-        ? { id: component, type: component, order, enabled: true, config: {} }
-        : { enabled: true, config: {}, ...component, order },
-    );
-    migrated.componentData ||= {};
+    migrateComponentData(migrated);
     migrated.definitionRef ||= { source: "custom", id: null, version: 1 };
     migrated.identity ||= {
       name: "Flow recuperado",
@@ -248,7 +322,12 @@ export function emptyAccount() {
 }
 
 export function toPublicDefinition(flow) {
-  const ids = componentIds(flow);
+  const publicComponents = activeComponents(flow).map((component) => ({
+    id: component.id,
+    type: component.type,
+    enabled: true,
+    config: clone(component.config || {}),
+  }));
   return {
     schemaVersion: FLOW_SCHEMA_VERSION,
     kind: "flow_definition",
@@ -279,7 +358,7 @@ export function toPublicDefinition(flow) {
         order,
       }),
     ),
-    components: ids,
+    components: publicComponents,
     componentConfig: Object.fromEntries(
       (flow.components || []).map((component) => [
         component.type,

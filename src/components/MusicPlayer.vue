@@ -3,6 +3,12 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useFlowComponentStorage } from "../composables/useFlowComponentStorage";
 import ToolLayout from "./ui/ToolLayout.vue";
 
+const props = defineProps({
+  storageKey: { type: String, default: "music" },
+  componentConfig: { type: Object, default: () => ({}) },
+  flow: { type: Object, default: null },
+});
+
 const playlist = [
   [
     "Cruising",
@@ -36,12 +42,17 @@ const playlist = [
   artist,
   src,
 }));
-const { state: settings } = useFlowComponentStorage("music", {
-  currentIndex: 0,
-  volume: 0.7,
-  shuffle: false,
-  repeat: false,
-});
+const { state: settings } = useFlowComponentStorage(
+  props.storageKey,
+  {
+    currentIndex: 0,
+    volume: 0.7,
+    shuffle: false,
+    repeat: false,
+  },
+  250,
+  "music",
+);
 const uploaded = ref([]);
 const tracks = computed(() => [...playlist, ...uploaded.value]);
 const current = computed(

@@ -9,13 +9,19 @@ const props = defineProps({
   storageKey: { type: String, default: "tracker" },
 });
 
-const { state: tracker, save } = useFlowComponentStorage(props.storageKey, {
-  items: [],
-});
+const { state: tracker, save } = useFlowComponentStorage(
+  props.storageKey,
+  { items: [] },
+  250,
+  "tracker",
+);
 const editingId = ref(null);
 const formOpen = ref(false);
 const form = ref({ status: "", values: {} });
 const pendingDelete = ref(null);
+const query = ref("");
+const statusFilter = ref("");
+const sortBy = ref("updated-desc");
 
 const stages = computed(() =>
   props.componentConfig.stages?.length
@@ -27,6 +33,29 @@ const primaryField = computed(
   () => props.componentConfig.primaryField || fields.value[0]?.key || "title",
 );
 const items = computed(() => tracker.value.items || []);
+const visibleItems = computed(() => {
+  const needle = query.value.trim().toLowerCase();
+  return items.value
+    .filter(
+      (item) =>
+        (!statusFilter.value || item.status === statusFilter.value) &&
+        (!needle ||
+          JSON.stringify(item.values || {})
+            .toLowerCase()
+            .includes(needle)),
+    )
+    .slice()
+    .sort((a, b) => {
+      if (sortBy.value === "created-asc")
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      if (sortBy.value === "title")
+        return String(a.values?.[primaryField.value] || "").localeCompare(
+          String(b.values?.[primaryField.value] || ""),
+          "pt-BR",
+        );
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+});
 
 function optionsFor(field) {
   return field.optionsFromProperty
@@ -40,7 +69,13 @@ function emptyForm() {
     values: Object.fromEntries(
       fields.value.map((field) => [
         field.key,
-        field.type === "number" ? 0 : "",
+        field.type === "number"
+          ? 0
+          : field.type === "boolean"
+            ? false
+            : field.type === "multi-select"
+              ? []
+              : "",
       ]),
     ),
   };
@@ -71,7 +106,12 @@ function submit() {
   if (
     fields.value.some(
       (field) =>
-        field.required && !String(form.value.values[field.key] || "").trim(),
+        field.required &&
+        (Array.isArray(form.value.values[field.key])
+          ? !form.value.values[field.key].length
+          : field.type === "boolean"
+            ? form.value.values[field.key] !== true
+            : !String(form.value.values[field.key] || "").trim()),
     )
   )
     return;
@@ -196,6 +236,27 @@ function secondaryValues(item) {
               {{ option }}
             </option>
           </select>
+          <select
+            v-else-if="field.type === 'multi-select'"
+            :id="`tracker-${field.key}`"
+            v-model="form.values[field.key]"
+            multiple
+            :aria-label="field.label"
+          >
+            <option
+              v-for="option in optionsFor(field)"
+              :key="option"
+              :value="option"
+            >
+              {{ option }}
+            </option>
+          </select>
+          <input
+            v-else-if="field.type === 'boolean'"
+            :id="`tracker-${field.key}`"
+            v-model="form.values[field.key]"
+            type="checkbox"
+          />
           <input
             v-else
             :id="`tracker-${field.key}`"
@@ -223,17 +284,34 @@ function secondaryValues(item) {
       </div>
     </form>
 
-    <div v-if="items.length" class="tracker-groups">
+    <div v-if="items.length" class="tracker-toolbar">
+      <input
+        v-model="query"
+        type="search"
+        aria-label="Buscar no tracker"
+        placeholder="Buscar registros"
+      />
+      <select v-model="statusFilter" aria-label="Filtrar etapa">
+        <option value="">Todas as etapas</option>
+        <option v-for="stage in stages" :key="stage">{{ stage }}</option>
+      </select>
+      <select v-model="sortBy" aria-label="Ordenar registros">
+        <option value="updated-desc">Atualizados recentemente</option>
+        <option value="created-asc">Mais antigos primeiro</option>
+        <option value="title">Título</option>
+      </select>
+    </div>
+    <div v-if="visibleItems.length" class="tracker-groups">
       <section v-for="stage in stages" :key="stage" class="tracker-group">
         <header>
           <span>{{ stage }}</span>
           <small>{{
-            items.filter((item) => item.status === stage).length
+            visibleItems.filter((item) => item.status === stage).length
           }}</small>
         </header>
         <div class="tracker-list">
           <article
-            v-for="item in items.filter(
+            v-for="item in visibleItems.filter(
               (candidate) => candidate.status === stage,
             )"
             :key="item.id"
@@ -307,7 +385,7 @@ function secondaryValues(item) {
             </div>
           </article>
           <p
-            v-if="!items.some((item) => item.status === stage)"
+            v-if="!visibleItems.some((item) => item.status === stage)"
             class="tool-empty compact"
           >
             Nada aqui por enquanto.
@@ -318,9 +396,36 @@ function secondaryValues(item) {
     <div v-else class="tool-empty">
       <span>◎</span>
       <p>
-        {{ componentConfig.empty || "Adicione o primeiro item deste Flow." }}
+        {{
+          items.length
+            ? "Nenhum registro corresponde aos filtros."
+            : componentConfig.empty || "Adicione o primeiro item deste Flow."
+        }}
       </p>
-      <button class="outline" @click="startAdd">Adicionar primeiro item</button>
+      <button v-if="!items.length" class="outline" @click="startAdd">
+        Adicionar primeiro item
+      </button>
     </div>
   </ToolLayout>
 </template>
+<style scoped>
+.tracker-toolbar {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+.tracker-toolbar input {
+  flex: 1;
+  min-width: 12rem;
+}
+.tracker-toolbar select {
+  max-width: 15rem;
+}
+@media (max-width: 650px) {
+  .tracker-toolbar > * {
+    width: 100%;
+    max-width: none !important;
+  }
+}
+</style>

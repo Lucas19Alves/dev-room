@@ -12,6 +12,36 @@ const metric = (id, label, source, options = {}) => ({
   ...options,
 });
 
+const noteTemplates = {
+  job: [
+    {
+      title: "Preparação para entrevista",
+      content:
+        "# Entrevista\n\n## Contexto\n\n## Perguntas\n\n## Próximo passo\n",
+    },
+  ],
+  enem: [
+    {
+      title: "Caderno de erros",
+      content:
+        "# Erro revisado\n\n- Tema:\n- Por que errei:\n- Como resolver:\n- Revisar em:\n",
+    },
+  ],
+  code: [
+    {
+      title: "Registro de decisão",
+      content:
+        "# Decisão\n\n## Contexto\n\n## Opções\n\n## Escolha e consequência\n",
+    },
+  ],
+  college: [
+    {
+      title: "Resumo de aula",
+      content: "# Aula\n\n## Conceitos\n\n## Dúvidas\n\n## Próxima revisão\n",
+    },
+  ],
+};
+
 const definition = (value) => ({
   schemaVersion: 2,
   kind: "flow_definition",
@@ -25,6 +55,32 @@ const definition = (value) => ({
   review: { cadenceDays: 7, prompts: [] },
   initialData: {},
   ...value,
+  componentConfig: {
+    tasks: {
+      groups: ["Próximos passos", "Esta semana", "Depois"],
+      features: {
+        description: true,
+        priority: true,
+        dueDate: true,
+        group: true,
+        subtasks: true,
+        recurrence: true,
+        tags: true,
+        goalLink: true,
+        stageLink: true,
+      },
+    },
+    notes: { templates: noteTemplates[value.id] || [] },
+    links: {
+      categories: ["Leitura", "Vídeo", "Documento", "Referência"],
+    },
+    focus: {
+      presets: [value.focus || 25, 45, 60],
+      shortBreakMinutes: 5,
+      longBreakMinutes: 15,
+    },
+    ...(value.componentConfig || {}),
+  },
 });
 
 const tracker = (title, singular, stages, fields, empty) => ({

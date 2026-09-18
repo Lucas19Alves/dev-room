@@ -2,12 +2,22 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useFlowComponentStorage } from "../composables/useFlowComponentStorage";
 import { playSound, notify } from "../utils/notify";
-const { state: water } = useFlowComponentStorage("water", {
-  config: { interval: 60, amount: 200 },
-  history: [],
-  next: null,
-  running: false,
+const props = defineProps({
+  storageKey: { type: String, default: "water" },
+  componentConfig: { type: Object, default: () => ({}) },
+  flow: { type: Object, default: null },
 });
+const { state: water } = useFlowComponentStorage(
+  props.storageKey,
+  {
+    config: { interval: 60, amount: 200 },
+    history: [],
+    next: null,
+    running: false,
+  },
+  250,
+  "water",
+);
 const now = ref(Date.now());
 const today = computed(() =>
   water.value.history.filter(

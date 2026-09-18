@@ -2,25 +2,34 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useFlowComponentStorage } from "../composables/useFlowComponentStorage";
 import { playSound, notify } from "../utils/notify";
-const { state: timer } = useFlowComponentStorage("timer", {
-  inputMinutes: 5,
-  inputSeconds: 0,
-  totalSeconds: 300,
-  elapsed: 0,
-  running: false,
-  endTimestamp: null,
+import {
+  formatClock,
+  pauseCountdown,
+  remainingSeconds,
+  startCountdown,
+} from "../flow/time.js";
+const props = defineProps({
+  storageKey: { type: String, default: "timer" },
+  componentConfig: { type: Object, default: () => ({}) },
+  flow: { type: Object, default: null },
 });
+const { state: timer } = useFlowComponentStorage(
+  props.storageKey,
+  {
+    inputMinutes: 5,
+    inputSeconds: 0,
+    totalSeconds: 300,
+    elapsed: 0,
+    running: false,
+    endTimestamp: null,
+  },
+  250,
+  "timer",
+);
 const now = ref(Date.now()),
   message = ref("");
-const remaining = computed(() =>
-  timer.value.running
-    ? Math.max(0, Math.ceil((timer.value.endTimestamp - now.value) / 1000))
-    : Math.max(0, timer.value.totalSeconds - timer.value.elapsed),
-);
-const format = computed(
-  () =>
-    `${String(Math.floor(remaining.value / 60)).padStart(2, "0")}:${String(remaining.value % 60).padStart(2, "0")}`,
-);
+const remaining = computed(() => remainingSeconds(timer.value, now.value));
+const format = computed(() => formatClock(remaining.value));
 function configure() {
   timer.value.totalSeconds =
     Math.max(0, Math.min(999, Number(timer.value.inputMinutes) || 0)) * 60 +
@@ -32,15 +41,8 @@ function configure() {
 }
 function toggle() {
   now.value = Date.now();
-  if (timer.value.running) {
-    timer.value.elapsed = timer.value.totalSeconds - remaining.value;
-    timer.value.running = false;
-  } else {
-    if (!remaining.value) timer.value.elapsed = 0;
-    timer.value.endTimestamp =
-      Date.now() + (timer.value.totalSeconds - timer.value.elapsed) * 1000;
-    timer.value.running = true;
-  }
+  if (timer.value.running) pauseCountdown(timer.value, now.value);
+  else startCountdown(timer.value, now.value);
 }
 let tick;
 onMounted(() => {
