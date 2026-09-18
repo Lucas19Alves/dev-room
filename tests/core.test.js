@@ -25,6 +25,7 @@ import {
   refreshFlowDerivedState,
   skipReview,
 } from "../src/flow/runtime.js";
+import { buildFlowExperience } from "../src/flow/experience.js";
 
 const answers = {
   job: {
@@ -434,6 +435,42 @@ test("tasks and focus sessions contribute to goals and stages", () => {
   assert.equal(flow.goals[0].contributions.focusSeconds, 900);
   assert.equal(flow.stages[0].contributions.tasksDone, 1);
   assert.equal(flow.stages[0].contributions.focusSeconds, 900);
+});
+test("career experience emits structured executable actions from real sources", () => {
+  const flow = makeFlow(
+    templates.find((item) => item.id === "job"),
+    "Busca",
+    answers.job,
+  );
+  const opportunity = {
+    id: "opportunity-action",
+    status: "Candidatura enviada",
+    values: {
+      company: "Empresa Norte",
+      role: "Analista",
+      nextAction: "",
+      nextActionAt: "",
+    },
+  };
+  flow.componentData.tracker.items.push(opportunity);
+  const experience = buildFlowExperience(flow, Date.now());
+  const action = experience.actions.find(
+    (item) => item.sourceId === opportunity.id,
+  );
+  assert.equal(action.type, "follow_up");
+  assert.equal(action.source, "tracker");
+  assert.equal(action.flowId, flow.id);
+  assert.equal(action.title, "Fazer follow-up com Empresa Norte");
+  assert.deepEqual(
+    action.actions.map((item) => item.type),
+    ["open", "complete", "postpone", "dismiss"],
+  );
+  assert.ok(
+    experience.opportunities.some((item) => item.title === "Empresa Norte"),
+  );
+  assert.ok(
+    experience.week.metrics.some((item) => item.id === "weeklyApplications"),
+  );
 });
 test("IndexedDB survives reads and separates account namespaces", async () => {
   await writeAccount("guest", { account: { name: "Local" } });

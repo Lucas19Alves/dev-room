@@ -176,18 +176,24 @@ function remove(note) {
         </div>
         <input
           v-model="selected.title"
-            class="note-title"
-            aria-label="Título da nota"
-            @input="touch(); save()"
+          class="note-title"
+          aria-label="Título da nota"
+          @input="
+            touch();
+            save();
+          "
         />
         <div v-if="preview" class="markdown-preview" v-html="rendered"></div>
         <textarea
           v-else
           v-model="selected.content"
           class="notes-area"
-            aria-label="Notas deste Flow"
-            placeholder="Use # para títulos, - para listas e ``` para código."
-            @input="touch(); save()"
+          aria-label="Notas deste Flow"
+          placeholder="Use # para títulos, - para listas e ``` para código."
+          @input="
+            touch();
+            save();
+          "
         ></textarea
         ><small class="subtle"
           >Salvo automaticamente · atualizado

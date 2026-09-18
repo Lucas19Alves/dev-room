@@ -35,6 +35,7 @@ import {
   componentTypes,
 } from "./model";
 import { elapsedSeconds, formatClock } from "./time.js";
+import { buildFlowExperience, findExperienceSource } from "./experience.js";
 import {
   completeReview,
   postponeReview,
@@ -97,6 +98,7 @@ export function usePlatform() {
     store.account.flows.find((f) => f.id === activeId.value),
   );
   const activeDefinitionUpdate = computed(() => definitionUpdate(active.value));
+  const experience = computed(() => buildFlowExperience(active.value));
   function focusState(componentId = "focus") {
     if (!active.value) return null;
     const data = componentData(active.value, componentId, {
@@ -286,6 +288,118 @@ export function usePlatform() {
     active.value.properties.manualMetrics ||= {};
     active.value.properties.manualMetrics[id] = Math.max(0, Number(value) || 0);
     update();
+  }
+  function executeAction(action, operation) {
+    if (!action) return;
+    if (action.type === "review_flow" || action.source === "review") {
+      if (operation.type === "open" || operation.type === "complete")
+        modal.value = "review";
+      return;
+    }
+    const source = findExperienceSource(
+      active.value,
+      action.source,
+      action.sourceId,
+    );
+    if (!source) return notify("A origem desta ação não está mais disponível.");
+    const item = source.item;
+    if (operation.type === "open") return;
+    if (source.type === "tasks") {
+      if (operation.type === "complete") item.done = true;
+      if (operation.type === "dismiss") item.dismissedAt = Date.now();
+      if (operation.type === "postpone") {
+        const base = new Date(item.dueDate || Date.now());
+        base.setDate(base.getDate() + 2);
+        item.dueDate = base.toISOString().slice(0, 10);
+      }
+    }
+    if (source.type === "tracker") {
+      item.values ||= {};
+      if (operation.type === "complete") {
+        item.values.nextAction = "";
+        item.values.nextActionAt = "";
+        item.values.actionCompletedAt = Date.now();
+        if (item.status === "Candidatura enviada") item.status = "Contato";
+      }
+      if (operation.type === "dismiss") {
+        item.values.actionDismissedAt = Date.now();
+        item.values.nextAction = "";
+        item.values.nextActionAt = "";
+      }
+      if (operation.type === "postpone") {
+        const base = new Date(item.values.nextActionAt || Date.now());
+        base.setDate(base.getDate() + 2);
+        item.values.nextActionAt = base.toISOString().slice(0, 10);
+        item.values.nextAction ||= "Fazer follow-up";
+      }
+      item.updatedAt = Date.now();
+    }
+    update();
+    notify(
+      operation.type === "complete"
+        ? "Ação concluída e contexto atualizado."
+        : operation.type === "postpone"
+          ? "Ação adiada por 2 dias."
+          : "Ação dispensada.",
+    );
+  }
+  function trackerData() {
+    return componentData(active.value, "tracker", { items: [] });
+  }
+  function createOpportunity(payload) {
+    if (!active.value || !payload?.company?.trim() || !payload?.role?.trim())
+      return;
+    const tracker = trackerData();
+    tracker.items ||= [];
+    tracker.items.push({
+      id: crypto.randomUUID(),
+      status: payload.status || "Encontrada",
+      values: {
+        company: payload.company.trim(),
+        role: payload.role.trim(),
+        nextAction: payload.nextAction?.trim() || "",
+        nextActionAt: payload.nextActionAt || "",
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    update();
+    notify("Oportunidade adicionada ao contexto da sua busca.");
+  }
+  function updateOpportunity(payload) {
+    const source = findExperienceSource(active.value, "tracker", payload?.id);
+    if (!source) return;
+    source.item.values ||= {};
+    Object.assign(source.item.values, {
+      company: payload.company?.trim() || source.item.values.company,
+      role: payload.role?.trim() || source.item.values.role,
+      nextAction: payload.nextAction?.trim() || "",
+      nextActionAt: payload.nextActionAt || "",
+      actionCompletedAt: null,
+    });
+    source.item.status = payload.status || source.item.status;
+    source.item.updatedAt = Date.now();
+    update();
+    notify("Próximo compromisso atualizado.");
+  }
+  function updateOpportunityStatus(id, status) {
+    const source = findExperienceSource(active.value, "tracker", id);
+    if (!source) return;
+    source.item.status = status;
+    if (
+      [
+        "Candidatura enviada",
+        "Contato",
+        "Entrevista",
+        "Etapa técnica",
+        "Oferta",
+      ].includes(status) &&
+      !source.item.values.appliedAt
+    )
+      source.item.values.appliedAt = new Date().toISOString().slice(0, 10);
+    source.item.updatedAt = Date.now();
+    update();
+    notify("O pipeline foi atualizado.");
   }
   function addTask() {
     if (!newTask.value.trim()) return;
@@ -722,6 +836,7 @@ export function usePlatform() {
     summary,
     active,
     activeDefinitionUpdate,
+    experience,
     categories,
     filtered,
     sessions,
@@ -744,6 +859,10 @@ export function usePlatform() {
     openFlow,
     update,
     updateManualMetric,
+    executeAction,
+    createOpportunity,
+    updateOpportunity,
+    updateOpportunityStatus,
     addTask,
     addLink,
     editComponents,

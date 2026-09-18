@@ -41,6 +41,7 @@ const {
   summary,
   active,
   activeDefinitionUpdate,
+  experience,
   categories,
   filtered,
   sessions,
@@ -62,6 +63,10 @@ const {
   openFlow,
   update,
   updateManualMetric,
+  executeAction,
+  createOpportunity,
+  updateOpportunity,
+  updateOpportunityStatus,
   addTask,
   addLink,
   editComponents,
@@ -317,15 +322,10 @@ const {
                 <small>{{ template.tag || "DA COMUNIDADE" }}</small>
                 <h3>{{ template.name }}</h3>
                 <p>{{ template.description }}</p>
-                <div class="component-chips">
+                <div class="card-context">
                   <span
-                    v-for="id in template.components.slice(0, 3)"
-                    :key="id"
-                    >{{ components.find((c) => c.id === id)?.name }}</span
-                  ><span v-if="template.components.length > 3"
-                    >+{{ template.components.length - 3 }}</span
-                  ><span v-if="!template.components.length"
-                    >Você escolhe os componentes</span
+                    >Um ponto de partida preparado para
+                    {{ template.objective || template.description }}</span
                   >
                 </div>
                 <div class="card-footer">
@@ -431,14 +431,8 @@ const {
               }}</span
               ><small>{{ flow.identity.category }}</small>
               <h2>{{ flow.identity.name }}</h2>
-              <p>
-                {{ componentIds(flow).length }} componentes ·
-                {{ flow.sessions.length }} sessões
-              </p>
-              <p>
-                {{ remainingTasks(flow) }}
-                tarefas restantes
-              </p>
+              <p>{{ flow.objective || "Um objetivo em movimento." }}</p>
+              <p>{{ remainingTasks(flow) }} próximos passos em aberto</p>
               <small
                 >Última alteração:
                 {{
@@ -473,7 +467,7 @@ const {
             </div>
             <div class="button-group">
               <button class="outline" @click="adding = !adding">
-                ＋ Componentes</button
+                Personalizar Flow</button
               ><button class="outline" @click="modal = 'publish'">
                 Compartilhar</button
               ><button
@@ -488,40 +482,14 @@ const {
           <FlowHome
             :flow="active"
             :update="activeDefinitionUpdate"
+            :experience="experience"
             @review="modal = 'review'"
             @metric="updateManualMetric"
+            @action="executeAction"
+            @opportunity="createOpportunity"
+            @opportunity-update="updateOpportunity"
+            @opportunity-status="updateOpportunityStatus"
           />
-          <section class="session-bar">
-            <span class="session-dot"></span>
-            <div>
-              <strong>{{
-                session?.flowId === active.id
-                  ? "Seu tempo de dedicação"
-                  : "Pronto para entrar no ritmo?"
-              }}</strong
-              ><small>{{
-                session?.flowId === active.id
-                  ? "Construa sua jornada, uma sessão por vez."
-                  : "Comece uma sessão para acompanhar seu progresso."
-              }}</small>
-            </div>
-            <strong class="session-time">{{
-              session?.flowId === active.id ? clock(seconds) : "00:00"
-            }}</strong
-            ><button class="dark-button" @click="toggleSession">
-              {{
-                session?.flowId === active.id && session.running
-                  ? "Ⅱ Pausar"
-                  : "▶ Começar"
-              }}</button
-            ><button
-              v-if="session?.flowId === active.id"
-              class="outline"
-              @click="finishSession"
-            >
-              Concluir sessão
-            </button>
-          </section>
           <section v-if="adding" class="component-picker">
             <div class="section-title">
               <h2>O que faz sentido para este Flow?</h2>
@@ -559,7 +527,13 @@ const {
               preserva seu conteúdo para uma restauração futura.
             </p>
           </section>
-          <div class="workspace-grid">
+          <div v-if="adding" class="customize-surface">
+            <p class="subtle">
+              Capacidades avançadas ficam aqui. O estado vivo do seu Flow
+              continua acima.
+            </p>
+          </div>
+          <div v-if="adding" class="workspace-grid">
             <section
               v-for="(component, index) in activeComponents(active)"
               :key="`${active.id}:${component.id}`"

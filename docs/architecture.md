@@ -28,6 +28,20 @@ Uma instância (`flow_instance`) pertence ao usuário. O formato atual usa `sche
 
 Uma instância nunca acompanha silenciosamente a versão mais nova de uma definição. O catálogo compara versões e apresenta apenas um aviso. A atualização automática permanece proibida porque componentes, propriedades e conteúdo podem ter sido personalizados.
 
+## Camada de experiência e Action Engine
+
+O Flow não é apresentado como um workspace de ferramentas. A composição interna continua existindo, mas a interface de uso segue este fluxo:
+
+```text
+Flow Definition → Flow Instance → Capabilities / primitives → Flow Experience
+```
+
+`src/flow/experience.js` é a primeira implementação dessa última camada. Ela consome Tracker, Tarefas, Recursos, Notas, metas, etapas, métricas, sessões e revisão sem copiar o conteúdo para um segundo banco de dados. O Flow de carreira é a referência: a tela organiza contexto, Agora, Semana, Oportunidades, Compromissos, Preparação, Progresso e Histórico. Outros Flows recebem uma composição genérica até serem reconstruídos.
+
+O mesmo módulo contém o Action Engine determinístico. Cada ação tem `id`, `type`, `title`, `description`, `priority`, `dueAt`, `source`, `sourceId`, `flowId` e operações possíveis. A origem permanece sendo o registro real do componente. `usePlatform.executeAction()` aplica `open`, `complete`, `postpone` e `dismiss` na fonte, recalcula o runtime e grava pelo mesmo caminho offline-first. Não há contadores paralelos nem geração por IA.
+
+Ferramentas aparecem apenas em `Personalizar Flow`, uma área secundária para quem precisa ajustar capacidades. O uso normal não precisa conhecer `components`, `tools`, Tracker, Tasks ou Notes.
+
 ## Persistência
 
 | Dado | IndexedDB | Supabase | Público |
@@ -45,7 +59,7 @@ Contas autenticadas usam compare-and-swap por revisão na função `save_flow_ac
 
 ## Ferramentas
 
-Ferramentas recebem um namespace próprio via `useFlowComponentStorage(type, fallback)`. O composable grava somente em `flow.componentData[type]`. Remover um componente da composição não remove seu conteúdo, por isso adicioná-lo novamente recupera o estado anterior.
+Ferramentas recebem um namespace próprio via `useFlowComponentStorage(componentId, fallback, legacyType)`. O composable grava em `flow.componentData[componentId]`; registros antigos por tipo continuam sendo lidos por uma migração compatível e nunca são apagados. Remover um componente da composição não remove seu conteúdo, por isso adicioná-lo novamente recupera o estado anterior. Duas instâncias do mesmo tipo podem manter dados independentes.
 
 O Tracker estruturado é um componente universal configurado pela definição do Flow. A configuração declara nome, etapas e campos; os registros continuam em `componentData.tracker`. Carreira, estudo, projetos, semana e faculdade compartilham a mesma implementação e oferecem mudança de etapa por `select`, o que mantém o uso por teclado e em telas de toque.
 
