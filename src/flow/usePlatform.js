@@ -36,6 +36,7 @@ import {
 } from "./model";
 import { elapsedSeconds, formatClock } from "./time.js";
 import { buildFlowExperience, findExperienceSource } from "./experience.js";
+import { getExperienceComponent } from "./experienceRegistry.js";
 import {
   completeReview,
   postponeReview,
@@ -99,6 +100,9 @@ export function usePlatform() {
   );
   const activeDefinitionUpdate = computed(() => definitionUpdate(active.value));
   const experience = computed(() => buildFlowExperience(active.value));
+  const experienceComponent = computed(() =>
+    getExperienceComponent(active.value),
+  );
   function focusState(componentId = "focus") {
     if (!active.value) return null;
     const data = componentData(active.value, componentId, {
@@ -319,7 +323,13 @@ export function usePlatform() {
         item.values.nextAction = "";
         item.values.nextActionAt = "";
         item.values.actionCompletedAt = Date.now();
-        if (item.status === "Candidatura enviada") item.status = "Contato";
+        const flowKind = active.value?.definitionRef?.id;
+        if (flowKind === "job") {
+          if (item.status === "Candidatura enviada") item.status = "Contato";
+        } else if (action.type === "review_topic") item.status = "Revisado";
+        else if (flowKind === "skill") item.status = "Aprendido";
+        else if (flowKind === "content") item.status = "Publicado";
+        else item.status = "Concluído";
       }
       if (operation.type === "dismiss") {
         item.values.actionDismissedAt = Date.now();
@@ -837,6 +847,7 @@ export function usePlatform() {
     active,
     activeDefinitionUpdate,
     experience,
+    experienceComponent,
     categories,
     filtered,
     sessions,

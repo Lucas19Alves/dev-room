@@ -24,7 +24,7 @@ Uma instância (`flow_instance`) pertence ao usuário. O formato atual usa `sche
 
 `src/flow/model.js` é a fronteira desse contrato. Contas antigas são normalizadas em memória antes de entrar no store. A migração preserva IDs, datas, tarefas, notas, links, duração de foco, sessões e dados das ferramentas conhecidas.
 
-`src/flow/officialDefinitions.js` contém definições oficiais serializáveis e versionadas. `src/flow/setup.js` transforma respostas de onboarding em propriedades, metas, etapas e dados iniciais. `src/flow/runtime.js` calcula indicadores a partir das fontes privadas, atualiza metas derivadas, produz o contexto da home e registra revisões. Essa separação impede que uma definição pública receba conteúdo pessoal.
+`src/flow/officialDefinitions.js` contém definições oficiais serializáveis e versionadas. `src/flow/setup.js` transforma respostas de onboarding em propriedades, metas, etapas e dados iniciais. `src/flow/runtime.js` calcula indicadores a partir das fontes privadas, atualiza metas derivadas, produz o contexto legado e registra revisões. `src/flow/experience.js` transforma esse estado em seções e ações estruturadas, enquanto os componentes de experiência somente renderizam e emitem intenções. Essa separação impede que uma definição pública receba conteúdo pessoal e evita regras de domínio espalhadas pelo Vue.
 
 Uma instância nunca acompanha silenciosamente a versão mais nova de uma definição. O catálogo compara versões e apresenta apenas um aviso. A atualização automática permanece proibida porque componentes, propriedades e conteúdo podem ter sido personalizados.
 
@@ -36,7 +36,9 @@ O Flow não é apresentado como um workspace de ferramentas. A composição inte
 Flow Definition → Flow Instance → Capabilities / primitives → Flow Experience
 ```
 
-`src/flow/experience.js` é a primeira implementação dessa última camada. Ela consome Tracker, Tarefas, Recursos, Notas, metas, etapas, métricas, sessões e revisão sem copiar o conteúdo para um segundo banco de dados. O Flow de carreira é a referência: a tela organiza contexto, Agora, Semana, Oportunidades, Compromissos, Preparação, Progresso e Histórico. Outros Flows recebem uma composição genérica até serem reconstruídos.
+`src/flow/experience.js` deriva uma leitura pronta para apresentação a partir das mesmas fontes. Ela consome Tracker, Tarefas, Recursos, Notas, metas, etapas, métricas, sessões e revisão sem copiar o conteúdo para um segundo banco de dados. A composição visual é escolhida por `src/flow/experienceRegistry.js`, que associa cada definição a uma experiência: `JobExperience`, `StudyExperience`, `ProjectExperience`, `CollegeExperience`, `WeekExperience`, `SkillExperience`, `ContentExperience` ou `GenericExperience`. Assim, a definição continua sendo dados e o componente decide apenas como apresentar o estado derivado.
+
+As experiências oficiais não compartilham uma grade de painéis. Carreira mantém pipeline e follow-ups; ENEM organiza Hoje, Plano, Prática, Revisar e Evolução; Projeto separa incremento, andamento, roadmap, bloqueios, decisões e release; Faculdade prioriza prazos e disciplinas; Semana usa uma sequência curta de prioridades; Habilidade apresenta trilha e registro de prática; Conteúdo apresenta pipeline editorial. `GenericExperience` atende instâncias personalizadas sem reabrir o grid de widgets. Primitives como `ExperienceActionList` e `ExperienceItems` compartilham acessibilidade, estados vazios e controles, mas a composição permanece específica.
 
 O mesmo módulo contém o Action Engine determinístico. Cada ação tem `id`, `type`, `title`, `description`, `priority`, `dueAt`, `source`, `sourceId`, `flowId` e operações possíveis. A origem permanece sendo o registro real do componente. `usePlatform.executeAction()` aplica `open`, `complete`, `postpone` e `dismiss` na fonte, recalcula o runtime e grava pelo mesmo caminho offline-first. Não há contadores paralelos nem geração por IA.
 

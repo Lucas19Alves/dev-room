@@ -18,7 +18,41 @@ async function createBlank(page, name, objective = "Organizar este objetivo") {
 
 async function openOfficial(page, name) {
   const card = page.locator(".template-card").filter({ hasText: name });
-  await card.getByRole("button", { name: /Usar Flow/ }).click();
+  await card.getByRole("button", { name: /Usar Flow|Criar Flow/ }).click();
+}
+
+async function fillVisibleField(page, label, value) {
+  const field = page.getByLabel(label, { exact: true });
+  if (!(await field.count()) || !(await field.first().isVisible())) return;
+  const tag = await field.first().evaluate((element) => element.tagName);
+  if (tag === "SELECT") await field.selectOption({ label: value });
+  else await field.fill(value);
+}
+
+async function createOfficialWithMinimumContext(page, name, answers) {
+  await openOfficial(page, name);
+  await page.getByLabel("Nome do Flow", { exact: true }).fill(`Teste ${name}`);
+  for (let step = 0; step < 16; step += 1) {
+    for (const [label, value] of Object.entries(answers.fields || {}))
+      await fillVisibleField(page, label, value);
+    for (const option of answers.multi || []) {
+      const button = page.getByRole("button", { name: option, exact: true });
+      if ((await button.count()) && (await button.first().isVisible()))
+        await button.first().click();
+    }
+    const displayName = page.getByLabel("Como podemos te chamar?", {
+      exact: true,
+    });
+    if ((await displayName.count()) && (await displayName.isVisible()))
+      await displayName.fill("Pessoa Noma");
+    const finish = page.getByRole("button", { name: "Entrar no meu Flow" });
+    if ((await finish.count()) && (await finish.isVisible())) {
+      await finish.click();
+      return;
+    }
+    await page.getByRole("button", { name: "Continuar →" }).click();
+  }
+  throw new Error(`Onboarding não terminou para ${name}`);
 }
 
 test("career Flow turns opportunity changes into executable actions and persists context", async ({
@@ -158,6 +192,97 @@ test("landing and specialized onboarding remain usable on mobile", async ({
     path: "test-results/weekly-flow-mobile.png",
     fullPage: true,
   });
+});
+
+test("official Flows expose their own experience journeys", async ({
+  page,
+}) => {
+  await page.goto("/app");
+  const journeys = [
+    {
+      name: "Meu próximo passo: ENEM",
+      heading: "O que merece estudo agora",
+      answers: {
+        fields: {
+          "Data ou meta da prova": "2026-11-08",
+          "Horas disponíveis por semana": "8",
+        },
+        multi: ["Matemática"],
+      },
+    },
+    {
+      name: "Do código ao deploy",
+      heading: "O próximo incremento",
+      answers: {
+        fields: {
+          "Nome do projeto": "Projeto Noma",
+          "O que esta primeira versão precisa resolver?":
+            "Provar a experiência",
+        },
+      },
+    },
+    {
+      name: "Faculdade em dia",
+      heading: "O que pede atenção hoje",
+      answers: {
+        fields: {
+          Curso: "Engenharia",
+          "Período ou semestre": "2026.2",
+          Disciplinas: "Cálculo\nFísica",
+        },
+      },
+    },
+    {
+      name: "Uma semana mais leve",
+      heading: "O que importa neste momento",
+      answers: {
+        fields: { "Até três prioridades": "Estudar\nDescansar" },
+      },
+    },
+    {
+      name: "Aprender uma habilidade",
+      heading: "A próxima prática",
+      answers: {
+        fields: {
+          Habilidade: "Violão",
+          "O que você quer conseguir fazer?": "Tocar três músicas",
+        },
+      },
+    },
+    {
+      name: "Criar conteúdo",
+      heading: "O próximo conteúdo",
+      answers: {
+        fields: {
+          "Canal ou plataforma": "YouTube",
+          Formatos: "Vídeo",
+        },
+      },
+    },
+    {
+      name: "Projeto pessoal",
+      heading: "O próximo incremento",
+      answers: {
+        fields: {
+          "Nome do projeto": "Mudança",
+          "Como você saberá que terminou?": "Casa organizada",
+        },
+      },
+    },
+    {
+      name: "Do seu jeito",
+      heading: "O que importa neste momento",
+      answers: { fields: { "O que você quer realizar?": "Organizar estudos" } },
+    },
+  ];
+
+  for (const journey of journeys) {
+    await createOfficialWithMinimumContext(page, journey.name, journey.answers);
+    await expect(
+      page.getByRole("heading", { name: journey.heading }).first(),
+    ).toBeVisible();
+    await page.getByLabel("Descobrir Flows", { exact: true }).click();
+  }
 });
 
 test("legacy data migrates once without deleting the source", async ({

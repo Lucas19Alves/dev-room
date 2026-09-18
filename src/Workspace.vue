@@ -4,7 +4,6 @@ import BrandLogo from "./components/ui/BrandLogo.vue";
 import ProductState from "./components/ui/ProductState.vue";
 import NModal from "./components/ui/NModal.vue";
 import FlowOnboarding from "./components/FlowOnboarding.vue";
-import FlowHome from "./components/FlowHome.vue";
 import FlowReview from "./components/FlowReview.vue";
 const {
   components,
@@ -42,6 +41,7 @@ const {
   active,
   activeDefinitionUpdate,
   experience,
+  experienceComponent,
   categories,
   filtered,
   sessions,
@@ -479,7 +479,8 @@ const {
               </button>
             </div>
           </div>
-          <FlowHome
+          <component
+            :is="experienceComponent"
             :flow="active"
             :update="activeDefinitionUpdate"
             :experience="experience"

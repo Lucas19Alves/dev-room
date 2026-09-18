@@ -472,6 +472,37 @@ test("career experience emits structured executable actions from real sources", 
     experience.week.metrics.some((item) => item.id === "weeklyApplications"),
   );
 });
+test("official experiences keep domain-specific sections and actions", () => {
+  const cases = [
+    ["enem", "PLANO", ["study_topic"]],
+    ["code", "ROADMAP", ["continue_task"]],
+    ["college", "DISCIPLINAS", ["continue_task"]],
+    ["week", "3 PRIORIDADES DA SEMANA", ["continue_task"]],
+    ["skill", "TRILHA", ["practice_skill"]],
+    ["content", "PIPELINE", ["continue_content"]],
+    ["project", "ROADMAP", ["continue_task"]],
+    ["blank", "CONTEXTO", []],
+  ];
+  for (const [id, sectionLabel, actionTypes] of cases) {
+    const flow = makeFlow(
+      templates.find((template) => template.id === id),
+      `Experiência ${id}`,
+      answers[id],
+    );
+    const experience = buildFlowExperience(flow);
+    assert.equal(experience.variant, id);
+    assert.ok(
+      experience.sections.secondary.some(
+        (section) => section.label === sectionLabel,
+      ),
+    );
+    for (const actionType of actionTypes)
+      assert.ok(
+        experience.actions.some((action) => action.type === actionType),
+        `${id} should expose ${actionType}`,
+      );
+  }
+});
 test("IndexedDB survives reads and separates account namespaces", async () => {
   await writeAccount("guest", { account: { name: "Local" } });
   await writeAccount("user:a", { account: { name: "Alice" } });
