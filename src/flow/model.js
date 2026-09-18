@@ -262,20 +262,23 @@ export function toPublicDefinition(flow) {
     onboarding: clone(flow.onboarding?.definition || { intro: "", steps: [] }),
     properties: { focusMinutes: flow.properties?.focusMinutes || 25 },
     goals: clone(flow.goals || []).map(
-      ({ id, title, description, targetProperty, unit }) => ({
+      ({ id, title, description, metricId, targetProperty, unit }) => ({
         id,
-      title,
-      description,
+        title,
+        description,
+        metricId,
         targetProperty,
         unit,
       }),
     ),
-    stages: clone(flow.stages || []).map(({ id, title, description, order }) => ({
-      id,
-      title,
-      description,
-      order,
-    })),
+    stages: clone(flow.stages || []).map(
+      ({ id, title, description, order }) => ({
+        id,
+        title,
+        description,
+        order,
+      }),
+    ),
     components: ids,
     componentConfig: Object.fromEntries(
       (flow.components || []).map((component) => [

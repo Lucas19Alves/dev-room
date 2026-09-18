@@ -29,5 +29,6 @@ Os testes E2E usam `.env.e2e` para uma sessão local sintética. Esse modo não 
 - [Arquitetura e persistência](docs/architecture.md)
 - [Auditoria da fase de maturação](docs/audit.md)
 - [Design System interno](docs/design-system.md)
+- [Auditoria e estrutura dos Flows oficiais](docs/official-flows.md)
 
 As migrações do banco ficam em `supabase/migrations`. Elas devem ser revisadas e aplicadas ao projeto Supabase de forma explícita; o build do frontend não executa migrações.

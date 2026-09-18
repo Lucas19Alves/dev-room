@@ -74,7 +74,9 @@ function toggleMulti(field, option) {
 }
 
 function selectedOption(field, option) {
-  return String(answers[field.key] || "").split("\n").includes(option);
+  return String(answers[field.key] || "")
+    .split("\n")
+    .includes(option);
 }
 
 function fieldValid(field) {
@@ -104,7 +106,9 @@ function finish() {
       const value = valuesFor(field);
       normalized[field.key] =
         field.type === "multi"
-          ? String(value || "").split("\n").filter(Boolean)
+          ? String(value || "")
+              .split("\n")
+              .filter(Boolean)
           : field.type === "number"
             ? Number(value)
             : field.type === "boolean"
@@ -147,7 +151,9 @@ function finish() {
           placeholder="Ex.: Minha próxima oportunidade"
       /></label>
       <div class="onboarding-template-note">
-        <span class="flow-icon" :class="definition.color">{{ definition.icon }}</span>
+        <span class="flow-icon" :class="definition.color">{{
+          definition.icon
+        }}</span>
         <div>
           <strong>{{ definition.name }}</strong>
           <p>{{ definition.objective }}</p>
@@ -156,7 +162,11 @@ function finish() {
     </div>
 
     <div v-else-if="step.fields" class="onboarding-fields">
-      <div v-for="field in step.fields" :key="field.key" class="onboarding-field">
+      <div
+        v-for="field in step.fields"
+        :key="field.key"
+        class="onboarding-field"
+      >
         <label
           v-if="!['multi', 'boolean'].includes(field.type)"
           class="tool-field"
@@ -175,7 +185,11 @@ function finish() {
             v-model="answers[field.key]"
           >
             <option value="">Escolher depois</option>
-            <option v-for="option in field.options" :key="option" :value="option">
+            <option
+              v-for="option in field.options"
+              :key="option"
+              :value="option"
+            >
               {{ option }}
             </option>
           </select>
@@ -191,7 +205,9 @@ function finish() {
           <small v-if="field.suffix">Em {{ field.suffix }}</small>
         </label>
         <fieldset v-else-if="field.type === 'multi'" class="onboarding-options">
-          <legend>{{ field.label }}<span v-if="!field.required"> · opcional</span></legend>
+          <legend>
+            {{ field.label }}<span v-if="!field.required"> · opcional</span>
+          </legend>
           <button
             v-for="option in field.options"
             :key="option"
@@ -210,7 +226,10 @@ function finish() {
       </div>
     </div>
 
-    <div v-else-if="step.kind === 'components'" class="picker-grid onboarding-picker">
+    <div
+      v-else-if="step.kind === 'components'"
+      class="picker-grid onboarding-picker"
+    >
       <button
         v-for="component in components"
         :key="component.id"
@@ -219,14 +238,19 @@ function finish() {
         :aria-pressed="selected.includes(component.id)"
         @click="toggleComponent(component.id)"
       >
-        <span>{{ component.icon }}</span><strong>{{ component.name }}</strong>
-        <small>{{ selected.includes(component.id) ? "Selecionado ✓" : "Adicionar +" }}</small>
+        <span>{{ component.icon }}</span
+        ><strong>{{ component.name }}</strong>
+        <small>{{
+          selected.includes(component.id) ? "Selecionado ✓" : "Adicionar +"
+        }}</small>
       </button>
     </div>
 
     <div v-else class="onboarding-ready">
       <div class="review-flow">
-        <span class="flow-icon" :class="definition.color">{{ definition.icon }}</span>
+        <span class="flow-icon" :class="definition.color">{{
+          definition.icon
+        }}</span>
         <h3>{{ flowName }}</h3>
         <p>{{ definition.category }} · {{ selected.length }} componentes</p>
       </div>
@@ -239,12 +263,18 @@ function finish() {
           placeholder="Seu nome"
       /></label>
       <p class="local-info">
-        O Flow será salvo primeiro neste dispositivo e sincronizado com sua conta.
+        O Flow será salvo primeiro neste dispositivo e sincronizado com sua
+        conta.
       </p>
     </div>
 
     <footer>
-      <button v-if="current > 0" type="button" class="outline" @click="current--">
+      <button
+        v-if="current > 0"
+        type="button"
+        class="outline"
+        @click="current--"
+      >
         ← Voltar
       </button>
       <button

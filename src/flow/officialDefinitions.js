@@ -30,6 +30,16 @@ const definition = (value) => ({
 const tracker = (title, singular, stages, fields, empty) => ({
   title,
   singular,
+  plural:
+    {
+      oportunidade: "oportunidades",
+      registro: "registros",
+      "item do projeto": "itens do projeto",
+      "item acadêmico": "itens acadêmicos",
+      "item da semana": "itens da semana",
+      "item da trilha": "itens da trilha",
+      conteúdo: "conteúdos",
+    }[singular] || "itens",
   primaryField: fields[0]?.key || "title",
   stages,
   fields,
@@ -55,14 +65,22 @@ export const officialDefinitions = [
         {
           id: "direction",
           title: "O que você procura agora?",
-          description: "Uma direção clara ajuda o Flow a destacar o que importa.",
+          description:
+            "Uma direção clara ajuda o Flow a destacar o que importa.",
           fields: [
             field("targetRole", "Cargo ou área desejada", "text", {
               required: true,
               placeholder: "Ex.: Analista de suporte",
             }),
             field("seniority", "Nível profissional", "select", {
-              options: ["Estágio", "Júnior", "Pleno", "Sênior", "Liderança", "Flexível"],
+              options: [
+                "Estágio",
+                "Júnior",
+                "Pleno",
+                "Sênior",
+                "Liderança",
+                "Flexível",
+              ],
             }),
             field("locations", "Cidades ou regiões", "list", {
               placeholder: "Ex.: Recife, São Paulo",
@@ -77,10 +95,22 @@ export const officialDefinitions = [
           title: "Qual ritmo cabe na sua semana?",
           optional: true,
           fields: [
-            field("weeklyApplicationGoal", "Meta de candidaturas por semana", "number", { min: 1, max: 50, default: 5 }),
+            field(
+              "weeklyApplicationGoal",
+              "Meta de candidaturas por semana",
+              "number",
+              { min: 1, max: 50, default: 5 },
+            ),
             field("deadline", "Data ou urgência", "date"),
-            field("salaryExpectation", "Faixa salarial desejada", "text", { placeholder: "Opcional" }),
-            field("focusMinutes", "Duração de uma sessão", "number", { min: 10, max: 180, default: 25, suffix: "min" }),
+            field("salaryExpectation", "Faixa salarial desejada", "text", {
+              placeholder: "Opcional",
+            }),
+            field("focusMinutes", "Duração de uma sessão", "number", {
+              min: 10,
+              max: 180,
+              default: 25,
+              suffix: "min",
+            }),
           ],
         },
         {
@@ -88,10 +118,21 @@ export const officialDefinitions = [
           title: "Traga o que você já tem.",
           optional: true,
           fields: [
-            field("resumeUrl", "Currículo", "url", { placeholder: "https://…" }),
-            field("linkedinUrl", "LinkedIn", "url", { placeholder: "https://…" }),
-            field("portfolioUrl", "Portfólio", "url", { placeholder: "https://…" }),
-            field("trackContacts", "Acompanhar contatos e recrutadores", "boolean", { default: true }),
+            field("resumeUrl", "Currículo", "url", {
+              placeholder: "https://…",
+            }),
+            field("linkedinUrl", "LinkedIn", "url", {
+              placeholder: "https://…",
+            }),
+            field("portfolioUrl", "Portfólio", "url", {
+              placeholder: "https://…",
+            }),
+            field(
+              "trackContacts",
+              "Acompanhar contatos e recrutadores",
+              "boolean",
+              { default: true },
+            ),
           ],
         },
       ],
@@ -107,20 +148,43 @@ export const officialDefinitions = [
       "Encerrada",
     ],
     goals: [
-      { id: "weekly-applications", title: "Candidaturas da semana", targetProperty: "weeklyApplicationGoal", unit: "candidaturas" },
-      { id: "profile-ready", title: "Base profissional preparada", target: 3, unit: "itens" },
+      {
+        id: "weekly-applications",
+        title: "Candidaturas da semana",
+        metricId: "weeklyApplications",
+        targetProperty: "weeklyApplicationGoal",
+        unit: "candidaturas",
+      },
+      {
+        id: "profile-ready",
+        title: "Base profissional preparada",
+        metricId: "profileReady",
+        target: 3,
+        unit: "itens",
+      },
     ],
     componentConfig: {
       tracker: tracker(
         "Oportunidades",
         "oportunidade",
-        ["Encontrada", "Salva", "Candidatura enviada", "Contato", "Entrevista", "Etapa técnica", "Oferta", "Encerrada"],
+        [
+          "Encontrada",
+          "Salva",
+          "Candidatura enviada",
+          "Contato",
+          "Entrevista",
+          "Etapa técnica",
+          "Oferta",
+          "Encerrada",
+        ],
         [
           field("company", "Empresa", "text", { required: true }),
           field("role", "Cargo", "text", { required: true }),
           field("url", "Link da vaga", "url"),
           field("location", "Localização", "text"),
-          field("workModel", "Modelo", "select", { options: ["Remoto", "Híbrido", "Presencial", "Não informado"] }),
+          field("workModel", "Modelo", "select", {
+            options: ["Remoto", "Híbrido", "Presencial", "Não informado"],
+          }),
           field("salary", "Salário ou faixa", "text"),
           field("appliedAt", "Data da candidatura", "date"),
           field("contact", "Contato ou recrutador", "text"),
@@ -132,16 +196,63 @@ export const officialDefinitions = [
       ),
     },
     metrics: [
-      metric("applications", "Candidaturas", { type: "tracker", statuses: ["Candidatura enviada", "Contato", "Entrevista", "Etapa técnica", "Oferta"] }),
-      metric("weeklyApplications", "Nesta semana", { type: "tracker", statuses: ["Candidatura enviada", "Contato", "Entrevista", "Etapa técnica", "Oferta"], dateField: "appliedAt", windowDays: 7 }, { targetProperty: "weeklyApplicationGoal" }),
-      metric("responses", "Respostas", { type: "tracker", statuses: ["Contato", "Entrevista", "Etapa técnica", "Oferta"] }),
-      metric("interviews", "Entrevistas", { type: "tracker", statuses: ["Entrevista", "Etapa técnica", "Oferta"] }),
+      metric("applications", "Candidaturas", {
+        type: "tracker",
+        statuses: [
+          "Candidatura enviada",
+          "Contato",
+          "Entrevista",
+          "Etapa técnica",
+          "Oferta",
+        ],
+      }),
+      metric(
+        "weeklyApplications",
+        "Nesta semana",
+        {
+          type: "tracker",
+          statuses: [
+            "Candidatura enviada",
+            "Contato",
+            "Entrevista",
+            "Etapa técnica",
+            "Oferta",
+          ],
+          dateField: "appliedAt",
+          windowDays: 7,
+        },
+        { targetProperty: "weeklyApplicationGoal" },
+      ),
+      metric("responses", "Respostas", {
+        type: "tracker",
+        statuses: ["Contato", "Entrevista", "Etapa técnica", "Oferta"],
+      }),
+      metric("interviews", "Entrevistas", {
+        type: "tracker",
+        statuses: ["Entrevista", "Etapa técnica", "Oferta"],
+      }),
       metric("offers", "Ofertas", { type: "tracker", statuses: ["Oferta"] }),
-      metric("returnRate", "Taxa de retorno", { type: "rate", numerator: "responses", denominator: "applications" }, { unit: "%" }),
+      metric(
+        "returnRate",
+        "Taxa de retorno",
+        { type: "rate", numerator: "responses", denominator: "applications" },
+        { unit: "%" },
+      ),
+      metric(
+        "profileReady",
+        "Base profissional",
+        { type: "tasks", done: true, group: "Perfil" },
+        { target: 3 },
+      ),
     ],
     instructions: {
-      summary: "A busca ganha clareza quando cada oportunidade tem contexto e próximo passo.",
-      prompts: ["Atualize o pipeline", "Prepare a conversa mais próxima", "Faça um follow-up respeitoso"],
+      summary:
+        "A busca ganha clareza quando cada oportunidade tem contexto e próximo passo.",
+      prompts: [
+        "Atualize o pipeline",
+        "Prepare a conversa mais próxima",
+        "Faça um follow-up respeitoso",
+      ],
     },
     review: {
       cadenceDays: 7,
@@ -160,7 +271,8 @@ export const officialDefinitions = [
     icon: "✳",
     color: "mint",
     objective: "Construir uma preparação contínua e sustentável para o ENEM.",
-    description: "Organize prioridades, pratique, revise erros e saiba o que estudar hoje.",
+    description:
+      "Organize prioridades, pratique, revise erros e saiba o que estudar hoje.",
     tag: "COMECE POR AQUI",
     focus: 40,
     components: ["tracker", "tasks", "focus", "notes", "links", "music"],
@@ -172,16 +284,47 @@ export const officialDefinitions = [
           title: "Onde está sua linha de chegada?",
           fields: [
             field("examDate", "Data ou meta da prova", "date"),
-            field("weeklyHours", "Horas disponíveis por semana", "number", { min: 1, max: 80, default: 8 }),
-            field("focusMinutes", "Duração preferida das sessões", "number", { min: 10, max: 180, default: 40, suffix: "min" }),
+            field("weeklyHours", "Horas disponíveis por semana", "number", {
+              min: 1,
+              max: 80,
+              default: 8,
+            }),
+            field("focusMinutes", "Duração preferida das sessões", "number", {
+              min: 10,
+              max: 180,
+              default: 40,
+              suffix: "min",
+            }),
           ],
         },
         {
           id: "subjects",
           title: "O que merece mais atenção?",
           fields: [
-            field("prioritySubjects", "Matérias prioritárias", "multi", { required: true, options: ["Linguagens", "Matemática", "Ciências Humanas", "Ciências da Natureza", "Redação"] }),
-            field("lowConfidenceSubjects", "Onde você sente menos confiança?", "multi", { options: ["Linguagens", "Matemática", "Ciências Humanas", "Ciências da Natureza", "Redação"] }),
+            field("prioritySubjects", "Matérias prioritárias", "multi", {
+              required: true,
+              options: [
+                "Linguagens",
+                "Matemática",
+                "Ciências Humanas",
+                "Ciências da Natureza",
+                "Redação",
+              ],
+            }),
+            field(
+              "lowConfidenceSubjects",
+              "Onde você sente menos confiança?",
+              "multi",
+              {
+                options: [
+                  "Linguagens",
+                  "Matemática",
+                  "Ciências Humanas",
+                  "Ciências da Natureza",
+                  "Redação",
+                ],
+              },
+            ),
           ],
         },
         {
@@ -189,19 +332,62 @@ export const officialDefinitions = [
           title: "Escolha metas possíveis para uma semana.",
           optional: true,
           fields: [
-            field("weeklyQuestionGoal", "Questões por semana", "number", { min: 1, max: 1000, default: 60 }),
-            field("weeklyEssayGoal", "Redações por semana", "number", { min: 0, max: 14, default: 1 }),
-            field("weeklyReviewGoal", "Tópicos para revisar", "number", { min: 1, max: 100, default: 6 }),
+            field("weeklyQuestionGoal", "Questões por semana", "number", {
+              min: 1,
+              max: 1000,
+              default: 60,
+            }),
+            field("weeklyEssayGoal", "Redações por semana", "number", {
+              min: 0,
+              max: 14,
+              default: 1,
+            }),
+            field("weeklyReviewGoal", "Tópicos para revisar", "number", {
+              min: 1,
+              max: 100,
+              default: 6,
+            }),
           ],
         },
       ],
     },
-    stages: ["Diagnóstico", "Planejamento", "Estudo", "Prática", "Revisão", "Simulados"],
+    stages: [
+      "Diagnóstico",
+      "Planejamento",
+      "Estudo",
+      "Prática",
+      "Revisão",
+      "Simulados",
+    ],
     goals: [
-      { id: "weekly-hours", title: "Horas de estudo na semana", targetProperty: "weeklyHours", unit: "h" },
-      { id: "weekly-questions", title: "Questões resolvidas", targetProperty: "weeklyQuestionGoal", unit: "questões" },
-      { id: "weekly-essays", title: "Redações concluídas", targetProperty: "weeklyEssayGoal", unit: "redações" },
-      { id: "weekly-reviews", title: "Conteúdos revisados", targetProperty: "weeklyReviewGoal", unit: "tópicos" },
+      {
+        id: "weekly-hours",
+        title: "Horas de estudo na semana",
+        metricId: "studyHours",
+        targetProperty: "weeklyHours",
+        unit: "h",
+      },
+      {
+        id: "weekly-questions",
+        title: "Questões resolvidas",
+        metricId: "questions",
+        targetProperty: "weeklyQuestionGoal",
+        unit: "questões",
+      },
+      {
+        id: "weekly-essays",
+        title: "Redações concluídas",
+        metricId: "essays",
+        targetProperty: "weeklyEssayGoal",
+        unit: "redações",
+      },
+      {
+        id: "weekly-reviews",
+        title: "Conteúdos revisados",
+        metricId: "reviewedTopics",
+        targetProperty: "weeklyReviewGoal",
+        unit: "tópicos",
+      },
     ],
     componentConfig: {
       tracker: tracker(
@@ -209,9 +395,20 @@ export const officialDefinitions = [
         "registro",
         ["Planejado", "Em estudo", "Praticado", "Revisado", "Concluído"],
         [
-          field("subject", "Matéria", "select", { required: true, options: ["Linguagens", "Matemática", "Ciências Humanas", "Ciências da Natureza", "Redação"] }),
+          field("subject", "Matéria", "select", {
+            required: true,
+            options: [
+              "Linguagens",
+              "Matemática",
+              "Ciências Humanas",
+              "Ciências da Natureza",
+              "Redação",
+            ],
+          }),
           field("topic", "Tópico ou atividade", "text", { required: true }),
-          field("kind", "Tipo", "select", { options: ["Tópico", "Questões", "Revisão", "Redação", "Simulado"] }),
+          field("kind", "Tipo", "select", {
+            options: ["Tópico", "Questões", "Revisão", "Redação", "Simulado"],
+          }),
           field("questions", "Questões realizadas", "number", { min: 0 }),
           field("correct", "Acertos", "number", { min: 0 }),
           field("studyDate", "Data", "date"),
@@ -221,20 +418,85 @@ export const officialDefinitions = [
       ),
     },
     metrics: [
-      metric("studyMinutes", "Tempo estudado", { type: "sessions", aggregate: "minutes", windowDays: 7 }, { unit: "min" }),
-      metric("sessions", "Sessões", { type: "sessions", aggregate: "count", windowDays: 7 }),
-      metric("questions", "Questões", { type: "trackerSum", field: "questions", windowDays: 7, dateField: "studyDate" }, { targetProperty: "weeklyQuestionGoal" }),
-      metric("accuracy", "Taxa de acerto", { type: "trackerRatio", numeratorField: "correct", denominatorField: "questions" }, { unit: "%" }),
-      metric("essays", "Redações", { type: "tracker", field: "kind", values: ["Redação"], statuses: ["Concluído"] }, { targetProperty: "weeklyEssayGoal" }),
-      metric("simulations", "Simulados", { type: "tracker", field: "kind", values: ["Simulado"], statuses: ["Concluído"] }),
+      metric(
+        "studyMinutes",
+        "Tempo estudado",
+        { type: "sessions", aggregate: "minutes", windowDays: 7 },
+        { unit: "min" },
+      ),
+      metric(
+        "studyHours",
+        "Horas na semana",
+        { type: "sessions", aggregate: "hours", windowDays: 7 },
+        { unit: "h", targetProperty: "weeklyHours" },
+      ),
+      metric("sessions", "Sessões", {
+        type: "sessions",
+        aggregate: "count",
+        windowDays: 7,
+      }),
+      metric(
+        "questions",
+        "Questões",
+        {
+          type: "trackerSum",
+          field: "questions",
+          windowDays: 7,
+          dateField: "studyDate",
+        },
+        { targetProperty: "weeklyQuestionGoal" },
+      ),
+      metric(
+        "accuracy",
+        "Taxa de acerto",
+        {
+          type: "trackerRatio",
+          numeratorField: "correct",
+          denominatorField: "questions",
+        },
+        { unit: "%" },
+      ),
+      metric(
+        "essays",
+        "Redações",
+        {
+          type: "tracker",
+          field: "kind",
+          values: ["Redação"],
+          statuses: ["Concluído"],
+        },
+        { targetProperty: "weeklyEssayGoal" },
+      ),
+      metric("simulations", "Simulados", {
+        type: "tracker",
+        field: "kind",
+        values: ["Simulado"],
+        statuses: ["Concluído"],
+      }),
+      metric(
+        "reviewedTopics",
+        "Tópicos revisados",
+        { type: "tracker", statuses: ["Revisado", "Concluído"] },
+        { targetProperty: "weeklyReviewGoal" },
+      ),
     ],
     instructions: {
-      summary: "Priorize uma matéria, pratique e registre o que precisa voltar para revisão.",
-      prompts: ["Estude uma prioridade", "Resolva questões", "Registre um erro que merece revisão"],
+      summary:
+        "Priorize uma matéria, pratique e registre o que precisa voltar para revisão.",
+      prompts: [
+        "Estude uma prioridade",
+        "Resolva questões",
+        "Registre um erro que merece revisão",
+      ],
     },
     review: {
       cadenceDays: 7,
-      prompts: ["O que você estudou?", "Onde teve mais dificuldade?", "O que funcionou bem?", "O que deve ser priorizado na próxima semana?"],
+      prompts: [
+        "O que você estudou?",
+        "Onde teve mais dificuldade?",
+        "O que funcionou bem?",
+        "O que deve ser priorizado na próxima semana?",
+      ],
     },
   }),
   definition({
@@ -244,56 +506,189 @@ export const officialDefinitions = [
     icon: "⌘",
     color: "lavender",
     objective: "Levar uma ideia de software até uma entrega validada.",
-    description: "Defina o escopo, construa, teste, publique e continue aprendendo com o projeto.",
+    description:
+      "Defina o escopo, construa, teste, publique e continue aprendendo com o projeto.",
     tag: "DEEP WORK",
     focus: 50,
-    components: ["tracker", "kanban", "focus", "snippets", "notes", "links", "deploy", "playground"],
+    components: [
+      "tracker",
+      "kanban",
+      "focus",
+      "snippets",
+      "notes",
+      "links",
+      "deploy",
+      "playground",
+    ],
     onboarding: {
-      intro: "Vamos transformar a ideia em um projeto com começo, próximos passos e entrega.",
+      intro:
+        "Vamos transformar a ideia em um projeto com começo, próximos passos e entrega.",
       steps: [
-        { id: "project", title: "O que você está construindo?", fields: [
-          field("projectName", "Nome do projeto", "text", { required: true }),
-          field("projectGoal", "O que esta primeira versão precisa resolver?", "textarea", { required: true }),
-          field("projectType", "Tipo de projeto", "select", { options: ["Site", "Aplicação web", "Aplicativo", "API", "Automação", "Biblioteca", "Outro"] }),
-        ] },
-        { id: "technical", title: "Qual é o ponto de partida?", fields: [
-          field("stack", "Tecnologias ou stack", "list", { placeholder: "Ex.: Vue, Supabase" }),
-          field("currentStage", "Estágio atual", "select", { options: ["Ideia", "Escopo", "Construção", "Testes", "Deploy", "Iteração"] }),
-          field("repositoryUrl", "Repositório ou link", "url", { placeholder: "Opcional" }),
-          field("deadline", "Prazo", "date"),
-        ] },
-        { id: "scope", title: "O que torna a primeira versão suficiente?", optional: true, fields: [
-          field("essentialFeatures", "Funcionalidades essenciais", "list", { placeholder: "Uma por linha ou separadas por vírgula" }),
-          field("focusMinutes", "Duração de uma sessão", "number", { min: 10, max: 180, default: 50, suffix: "min" }),
-        ] },
+        {
+          id: "project",
+          title: "O que você está construindo?",
+          fields: [
+            field("projectName", "Nome do projeto", "text", { required: true }),
+            field(
+              "projectGoal",
+              "O que esta primeira versão precisa resolver?",
+              "textarea",
+              { required: true },
+            ),
+            field("projectType", "Tipo de projeto", "select", {
+              options: [
+                "Site",
+                "Aplicação web",
+                "Aplicativo",
+                "API",
+                "Automação",
+                "Biblioteca",
+                "Outro",
+              ],
+            }),
+          ],
+        },
+        {
+          id: "technical",
+          title: "Qual é o ponto de partida?",
+          fields: [
+            field("stack", "Tecnologias ou stack", "list", {
+              placeholder: "Ex.: Vue, Supabase",
+            }),
+            field("currentStage", "Estágio atual", "select", {
+              options: [
+                "Ideia",
+                "Escopo",
+                "Construção",
+                "Testes",
+                "Deploy",
+                "Iteração",
+              ],
+            }),
+            field("repositoryUrl", "Repositório ou link", "url", {
+              placeholder: "Opcional",
+            }),
+            field("deadline", "Prazo", "date"),
+          ],
+        },
+        {
+          id: "scope",
+          title: "O que torna a primeira versão suficiente?",
+          optional: true,
+          fields: [
+            field("essentialFeatures", "Funcionalidades essenciais", "list", {
+              placeholder: "Uma por linha ou separadas por vírgula",
+            }),
+            field("focusMinutes", "Duração de uma sessão", "number", {
+              min: 10,
+              max: 180,
+              default: 50,
+              suffix: "min",
+            }),
+          ],
+        },
       ],
     },
     stages: ["Ideia", "Escopo", "Construção", "Testes", "Deploy", "Iteração"],
     goals: [
-      { id: "mvp-defined", title: "MVP definido", target: 1, unit: "marco" },
-      { id: "essential-features", title: "Funcionalidades essenciais", targetProperty: "essentialFeatureCount", unit: "itens" },
-      { id: "first-release", title: "Primeira versão publicada", target: 1, unit: "marco" },
+      {
+        id: "mvp-defined",
+        title: "MVP definido",
+        metricId: "milestonesDone",
+        target: 1,
+        unit: "marco",
+      },
+      {
+        id: "essential-features",
+        title: "Funcionalidades essenciais",
+        metricId: "featuresDone",
+        targetProperty: "essentialFeatureCount",
+        unit: "itens",
+      },
+      {
+        id: "first-release",
+        title: "Primeira versão publicada",
+        metricId: "milestonesDone",
+        target: 2,
+        unit: "marcos",
+      },
     ],
     componentConfig: {
-      tracker: tracker("Marcos e decisões", "item do projeto", ["Planejado", "Em andamento", "Bloqueado", "Concluído"], [
-        field("title", "Título", "text", { required: true }),
-        field("kind", "Tipo", "select", { options: ["Milestone", "Feature", "Bug", "Decisão"] }),
-        field("dueAt", "Prazo", "date"),
-        field("link", "Referência", "url"),
-        field("notes", "Contexto", "textarea"),
-      ], "Registre um milestone, uma decisão ou algo que precisa ser construído."),
-      kanban: { columns: ["Backlog", "Próximo", "Em desenvolvimento", "Teste", "Concluído"] },
+      tracker: tracker(
+        "Marcos e decisões",
+        "item do projeto",
+        ["Planejado", "Em andamento", "Bloqueado", "Concluído"],
+        [
+          field("title", "Título", "text", { required: true }),
+          field("kind", "Tipo", "select", {
+            options: ["Milestone", "Feature", "Bug", "Decisão"],
+          }),
+          field("dueAt", "Prazo", "date"),
+          field("link", "Referência", "url"),
+          field("notes", "Contexto", "textarea"),
+        ],
+        "Registre um milestone, uma decisão ou algo que precisa ser construído.",
+      ),
+      kanban: {
+        columns: [
+          "Backlog",
+          "Próximo",
+          "Em desenvolvimento",
+          "Teste",
+          "Concluído",
+        ],
+      },
     },
     metrics: [
       metric("sessions", "Sessões", { type: "sessions", aggregate: "count" }),
-      metric("minutes", "Tempo dedicado", { type: "sessions", aggregate: "minutes" }, { unit: "min" }),
+      metric(
+        "minutes",
+        "Tempo dedicado",
+        { type: "sessions", aggregate: "minutes" },
+        { unit: "min" },
+      ),
       metric("tasksDone", "Tarefas concluídas", { type: "tasks", done: true }),
-      metric("milestonesDone", "Milestones concluídos", { type: "tracker", field: "kind", values: ["Milestone"], statuses: ["Concluído"] }),
-      metric("milestonesTotal", "Milestones planejados", { type: "tracker", field: "kind", values: ["Milestone"] }),
+      metric(
+        "featuresDone",
+        "Funcionalidades concluídas",
+        { type: "kanban", column: "Concluído" },
+        { targetProperty: "essentialFeatureCount" },
+      ),
+      metric("milestonesDone", "Milestones concluídos", {
+        type: "tracker",
+        field: "kind",
+        values: ["Milestone"],
+        statuses: ["Concluído"],
+      }),
+      metric("milestonesTotal", "Milestones planejados", {
+        type: "tracker",
+        field: "kind",
+        values: ["Milestone"],
+      }),
     ],
-    progress: { mode: "ratio", numeratorMetric: "milestonesDone", denominatorMetric: "milestonesTotal" },
-    instructions: { summary: "Mantenha o escopo visível e leve um pequeno incremento até concluído.", prompts: ["Escolha o próximo incremento", "Registre uma decisão", "Teste antes de publicar"] },
-    review: { cadenceDays: 7, prompts: ["O que avançou?", "O que está bloqueando?", "O escopo ainda faz sentido?", "Qual é o próximo milestone?"] },
+    progress: {
+      mode: "ratio",
+      numeratorMetric: "milestonesDone",
+      denominatorMetric: "milestonesTotal",
+    },
+    instructions: {
+      summary:
+        "Mantenha o escopo visível e leve um pequeno incremento até concluído.",
+      prompts: [
+        "Escolha o próximo incremento",
+        "Registre uma decisão",
+        "Teste antes de publicar",
+      ],
+    },
+    review: {
+      cadenceDays: 7,
+      prompts: [
+        "O que avançou?",
+        "O que está bloqueando?",
+        "O escopo ainda faz sentido?",
+        "Qual é o próximo milestone?",
+      ],
+    },
   }),
   definition({
     id: "college",
@@ -301,47 +696,161 @@ export const officialDefinitions = [
     category: "Estudos",
     icon: "▧",
     color: "yellow",
-    objective: "Acompanhar disciplinas, entregas, leituras e prazos da vida acadêmica.",
-    description: "Reúna cada disciplina e enxergue o que pede atenção antes do prazo.",
+    objective:
+      "Acompanhar disciplinas, entregas, leituras e prazos da vida acadêmica.",
+    description:
+      "Reúna cada disciplina e enxergue o que pede atenção antes do prazo.",
     tag: "VIDA ACADÊMICA",
     focus: 50,
     components: ["tracker", "tasks", "focus", "notes", "links"],
-    onboarding: { intro: "Organize o semestre a partir das disciplinas e datas que já conhece.", steps: [
-      { id: "course", title: "Em que momento da faculdade você está?", fields: [
-        field("course", "Curso", "text", { required: true }),
-        field("semester", "Período ou semestre", "text", { required: true, placeholder: "Ex.: 3º semestre · 2026.2" }),
-        field("weeklyHours", "Horas disponíveis por semana", "number", { min: 1, max: 80, default: 8 }),
-      ] },
-      { id: "subjects", title: "Quais disciplinas estão com você?", fields: [
-        field("subjects", "Disciplinas", "list", { required: true, placeholder: "Uma por linha ou separadas por vírgula" }),
-        field("importantDates", "Datas importantes já conhecidas", "textarea", { placeholder: "Ex.: 18/10 — prova de Cálculo" }),
-        field("focusMinutes", "Duração de uma sessão", "number", { min: 10, max: 180, default: 50, suffix: "min" }),
-      ] },
-    ] },
-    stages: ["Disciplinas", "Trabalhos", "Provas", "Leituras", "Referências", "Notas", "Prazos"],
+    onboarding: {
+      intro:
+        "Organize o semestre a partir das disciplinas e datas que já conhece.",
+      steps: [
+        {
+          id: "course",
+          title: "Em que momento da faculdade você está?",
+          fields: [
+            field("course", "Curso", "text", { required: true }),
+            field("semester", "Período ou semestre", "text", {
+              required: true,
+              placeholder: "Ex.: 3º semestre · 2026.2",
+            }),
+            field("weeklyHours", "Horas disponíveis por semana", "number", {
+              min: 1,
+              max: 80,
+              default: 8,
+            }),
+          ],
+        },
+        {
+          id: "subjects",
+          title: "Quais disciplinas estão com você?",
+          fields: [
+            field("subjects", "Disciplinas", "list", {
+              required: true,
+              placeholder: "Uma por linha ou separadas por vírgula",
+            }),
+            field(
+              "importantDates",
+              "Datas importantes já conhecidas",
+              "textarea",
+              { placeholder: "Ex.: 18/10 — prova de Cálculo" },
+            ),
+            field("focusMinutes", "Duração de uma sessão", "number", {
+              min: 10,
+              max: 180,
+              default: 50,
+              suffix: "min",
+            }),
+          ],
+        },
+      ],
+    },
+    stages: [
+      "Disciplinas",
+      "Trabalhos",
+      "Provas",
+      "Leituras",
+      "Referências",
+      "Notas",
+      "Prazos",
+    ],
     goals: [
-      { id: "deliveries", title: "Entregas concluídas", unit: "entregas" },
-      { id: "readings", title: "Leituras concluídas", unit: "leituras" },
-      { id: "study-time", title: "Tempo de estudo", targetProperty: "weeklyHours", unit: "h" },
+      {
+        id: "deliveries",
+        title: "Entregas concluídas",
+        metricId: "deliveriesDone",
+        unit: "entregas",
+      },
+      {
+        id: "readings",
+        title: "Leituras concluídas",
+        metricId: "readingsDone",
+        unit: "leituras",
+      },
+      {
+        id: "study-time",
+        title: "Tempo de estudo",
+        metricId: "studyHours",
+        targetProperty: "weeklyHours",
+        unit: "h",
+      },
     ],
-    componentConfig: { tracker: tracker("Vida acadêmica", "item acadêmico", ["Planejado", "Em andamento", "Concluído"], [
-      field("title", "Título", "text", { required: true }),
-      field("subject", "Disciplina", "select", { optionsFromProperty: "subjects" }),
-      field("kind", "Tipo", "select", { options: ["Trabalho", "Prova", "Leitura", "Referência", "Prazo"] }),
-      field("dueAt", "Data", "date"),
-      field("professor", "Professor", "text"),
-      field("link", "Material ou referência", "url"),
-      field("notes", "Observações", "textarea"),
-    ], "Adicione uma prova, leitura, entrega ou prazo que já está no horizonte.") },
+    componentConfig: {
+      tracker: tracker(
+        "Vida acadêmica",
+        "item acadêmico",
+        ["Planejado", "Em andamento", "Concluído"],
+        [
+          field("title", "Título", "text", { required: true }),
+          field("subject", "Disciplina", "select", {
+            optionsFromProperty: "subjects",
+          }),
+          field("kind", "Tipo", "select", {
+            options: ["Trabalho", "Prova", "Leitura", "Referência", "Prazo"],
+          }),
+          field("dueAt", "Data", "date"),
+          field("professor", "Professor", "text"),
+          field("link", "Material ou referência", "url"),
+          field("notes", "Observações", "textarea"),
+        ],
+        "Adicione uma prova, leitura, entrega ou prazo que já está no horizonte.",
+      ),
+    },
     metrics: [
-      metric("deliveriesDone", "Entregas concluídas", { type: "tracker", field: "kind", values: ["Trabalho"], statuses: ["Concluído"] }),
-      metric("readingsDone", "Leituras concluídas", { type: "tracker", field: "kind", values: ["Leitura"], statuses: ["Concluído"] }),
-      metric("sessions", "Sessões de estudo", { type: "sessions", aggregate: "count" }),
-      metric("minutes", "Tempo dedicado", { type: "sessions", aggregate: "minutes" }, { unit: "min" }),
-      metric("upcoming", "Prazos próximos", { type: "trackerDue", days: 14, statusesNot: ["Concluído"] }),
+      metric("deliveriesDone", "Entregas concluídas", {
+        type: "tracker",
+        field: "kind",
+        values: ["Trabalho"],
+        statuses: ["Concluído"],
+      }),
+      metric("readingsDone", "Leituras concluídas", {
+        type: "tracker",
+        field: "kind",
+        values: ["Leitura"],
+        statuses: ["Concluído"],
+      }),
+      metric("sessions", "Sessões de estudo", {
+        type: "sessions",
+        aggregate: "count",
+      }),
+      metric(
+        "minutes",
+        "Tempo dedicado",
+        { type: "sessions", aggregate: "minutes" },
+        { unit: "min" },
+      ),
+      metric(
+        "studyHours",
+        "Horas na semana",
+        { type: "sessions", aggregate: "hours", windowDays: 7 },
+        { unit: "h", targetProperty: "weeklyHours" },
+      ),
+      metric("upcoming", "Prazos próximos", {
+        type: "trackerDue",
+        days: 14,
+        statusesNot: ["Concluído"],
+      }),
     ],
-    instructions: { summary: "Veja primeiro o prazo mais próximo e deixe o material da disciplina ao alcance.", prompts: ["Confira os próximos 14 dias", "Escolha uma entrega", "Reserve uma sessão de estudo"] },
-    review: { cadenceDays: 7, prompts: ["Quais entregas avançaram?", "Que prazo se aproximou?", "Qual disciplina precisa de mais atenção?", "O que cabe na próxima semana?"] },
+    instructions: {
+      summary:
+        "Veja primeiro o prazo mais próximo e deixe o material da disciplina ao alcance.",
+      prompts: [
+        "Confira os próximos 14 dias",
+        "Escolha uma entrega",
+        "Reserve uma sessão de estudo",
+      ],
+    },
+    review: {
+      cadenceDays: 7,
+      prompts: [
+        "Quais entregas avançaram?",
+        "Que prazo se aproximou?",
+        "Qual disciplina precisa de mais atenção?",
+        "O que cabe na próxima semana?",
+      ],
+    },
   }),
   definition({
     id: "week",
@@ -349,41 +858,127 @@ export const officialDefinitions = [
     category: "Organização",
     icon: "◈",
     color: "peach",
-    objective: "Organizar prioridades sem transformar a semana em uma cobrança.",
-    description: "Escolha até três prioridades, proteja seu tempo e deixe o restante encontrar seu lugar.",
+    objective:
+      "Organizar prioridades sem transformar a semana em uma cobrança.",
+    description:
+      "Escolha até três prioridades, proteja seu tempo e deixe o restante encontrar seu lugar.",
     tag: "ENCONTRE SEU RITMO",
     focus: 25,
     components: ["tracker", "tasks", "notes"],
-    onboarding: { intro: "Uma semana possível começa pelo que já ocupa espaço.", steps: [
-      { id: "week", title: "Como esta semana começa?", fields: [
-        field("weekStart", "Início da semana", "date"),
-        field("commitments", "Compromissos já marcados", "list", { placeholder: "Um por linha ou separados por vírgula" }),
-        field("availability", "Quanto tempo livre você percebe?", "select", { options: ["Pouco", "Algum", "Bastante", "Ainda não sei"] }),
-      ] },
-      { id: "priorities", title: "O que merece caber?", fields: [
-        field("priorities", "Até três prioridades", "list", { required: true, maxItems: 3 }),
-        field("protectedTime", "Algo que você quer proteger para si", "text", { placeholder: "Ex.: uma noite sem compromissos" }),
-        field("habit", "Um hábito para lembrar", "text", { placeholder: "Opcional" }),
-      ] },
-    ] },
+    onboarding: {
+      intro: "Uma semana possível começa pelo que já ocupa espaço.",
+      steps: [
+        {
+          id: "week",
+          title: "Como esta semana começa?",
+          fields: [
+            field("weekStart", "Início da semana", "date"),
+            field("commitments", "Compromissos já marcados", "list", {
+              placeholder: "Um por linha ou separados por vírgula",
+            }),
+            field(
+              "availability",
+              "Quanto tempo livre você percebe?",
+              "select",
+              { options: ["Pouco", "Algum", "Bastante", "Ainda não sei"] },
+            ),
+          ],
+        },
+        {
+          id: "priorities",
+          title: "O que merece caber?",
+          fields: [
+            field("priorities", "Até três prioridades", "list", {
+              required: true,
+              maxItems: 3,
+            }),
+            field(
+              "protectedTime",
+              "Algo que você quer proteger para si",
+              "text",
+              { placeholder: "Ex.: uma noite sem compromissos" },
+            ),
+            field("habit", "Um hábito para lembrar", "text", {
+              placeholder: "Opcional",
+            }),
+          ],
+        },
+      ],
+    },
     stages: ["Inbox", "Prioridades", "Esta semana", "Hoje", "Depois"],
     goals: [
-      { id: "priorities", title: "Prioridades concluídas", targetProperty: "priorityCount", unit: "prioridades" },
-      { id: "weekly-review", title: "Revisão da semana", target: 1, unit: "revisão" },
+      {
+        id: "priorities",
+        title: "Prioridades concluídas",
+        metricId: "prioritiesDone",
+        targetProperty: "priorityCount",
+        unit: "prioridades",
+      },
+      {
+        id: "weekly-review",
+        title: "Revisão da semana",
+        metricId: "reviews",
+        target: 1,
+        unit: "revisão",
+      },
     ],
-    componentConfig: { tracker: tracker("Semana", "item da semana", ["Inbox", "Prioridades", "Esta semana", "Hoje", "Depois", "Concluído"], [
-      field("title", "O que precisa de um lugar?", "text", { required: true }),
-      field("kind", "Tipo", "select", { options: ["Tarefa", "Compromisso", "Prioridade", "Hábito"] }),
-      field("when", "Quando", "date"),
-      field("notes", "Observação", "textarea"),
-    ], "Capture algo da cabeça antes de decidir quando fazer.") },
+    componentConfig: {
+      tracker: tracker(
+        "Semana",
+        "item da semana",
+        ["Inbox", "Prioridades", "Esta semana", "Hoje", "Depois", "Concluído"],
+        [
+          field("title", "O que precisa de um lugar?", "text", {
+            required: true,
+          }),
+          field("kind", "Tipo", "select", {
+            options: ["Tarefa", "Compromisso", "Prioridade", "Hábito"],
+          }),
+          field("when", "Quando", "date"),
+          field("notes", "Observação", "textarea"),
+        ],
+        "Capture algo da cabeça antes de decidir quando fazer.",
+      ),
+    },
     metrics: [
-      metric("prioritiesDone", "Prioridades concluídas", { type: "tracker", field: "kind", values: ["Prioridade"], statuses: ["Concluído"] }, { targetProperty: "priorityCount" }),
-      metric("tasksDone", "Tarefas concluídas", { type: "tracker", statuses: ["Concluído"] }),
-      metric("reviews", "Semanas revisadas", { type: "reviews", status: "completed" }),
+      metric(
+        "prioritiesDone",
+        "Prioridades concluídas",
+        {
+          type: "tracker",
+          field: "kind",
+          values: ["Prioridade"],
+          statuses: ["Concluído"],
+        },
+        { targetProperty: "priorityCount" },
+      ),
+      metric("tasksDone", "Tarefas concluídas", {
+        type: "tracker",
+        statuses: ["Concluído"],
+      }),
+      metric("reviews", "Semanas revisadas", {
+        type: "reviews",
+        status: "completed",
+      }),
     ],
-    instructions: { summary: "Três prioridades bastam. Preserve espaço para imprevistos e para você.", prompts: ["Escolha o que importa hoje", "Confira um compromisso", "Deixe algo para depois sem culpa"] },
-    review: { cadenceDays: 7, prompts: ["O que foi importante de verdade?", "O que pode sair da próxima semana?", "O que precisa ser remarcado?", "Que tempo você quer proteger?"] },
+    instructions: {
+      summary:
+        "Três prioridades bastam. Preserve espaço para imprevistos e para você.",
+      prompts: [
+        "Escolha o que importa hoje",
+        "Confira um compromisso",
+        "Deixe algo para depois sem culpa",
+      ],
+    },
+    review: {
+      cadenceDays: 7,
+      prompts: [
+        "O que foi importante de verdade?",
+        "O que pode sair da próxima semana?",
+        "O que precisa ser remarcado?",
+        "Que tempo você quer proteger?",
+      ],
+    },
   }),
   definition({
     id: "blank",
@@ -392,29 +987,86 @@ export const officialDefinitions = [
     icon: "+",
     color: "plain",
     objective: "Criar um espaço próprio para um objetivo específico.",
-    description: "Comece simples e aprofunde apenas o que ajudar você a continuar.",
+    description:
+      "Comece simples e aprofunde apenas o que ajudar você a continuar.",
     tag: "CRIE DO ZERO",
     focus: 25,
     components: ["tasks", "notes"],
-    onboarding: { intro: "Você decide quanto configurar agora.", steps: [
-      { id: "purpose", title: "Dê uma direção ao espaço.", fields: [
-        field("customObjective", "O que você quer realizar?", "textarea", { required: true }),
-        field("customCategory", "Categoria", "select", { options: ["Estudos", "Programação", "Organização", "Carreira", "Criativo", "Pessoal", "Personalizado"] }),
-        field("customIcon", "Símbolo", "select", { options: ["✳", "◈", "◇", "△", "↗", "⌘", "+"] }),
-        field("customColor", "Cor", "select", { options: ["mint", "blue", "lavender", "peach", "yellow", "plain"] }),
-      ] },
-      { id: "structure", title: "Quer deixar um caminho preparado?", optional: true, fields: [
-        field("customGoals", "Metas", "list", { placeholder: "Uma por linha ou separadas por vírgula" }),
-        field("customStages", "Etapas", "list", { placeholder: "Uma por linha ou separadas por vírgula" }),
-        field("customMetrics", "Indicadores que quer acompanhar", "list"),
-        field("reviewCadenceDays", "Revisar a cada quantos dias?", "number", { min: 1, max: 90, default: 7 }),
-      ] },
-    ] },
+    onboarding: {
+      intro: "Você decide quanto configurar agora.",
+      steps: [
+        {
+          id: "purpose",
+          title: "Dê uma direção ao espaço.",
+          fields: [
+            field("customObjective", "O que você quer realizar?", "textarea", {
+              required: true,
+            }),
+            field("customCategory", "Categoria", "select", {
+              options: [
+                "Estudos",
+                "Programação",
+                "Organização",
+                "Carreira",
+                "Criativo",
+                "Pessoal",
+                "Personalizado",
+              ],
+            }),
+            field("customIcon", "Símbolo", "select", {
+              options: ["✳", "◈", "◇", "△", "↗", "⌘", "+"],
+            }),
+            field("customColor", "Cor", "select", {
+              options: ["mint", "blue", "lavender", "peach", "yellow", "plain"],
+            }),
+          ],
+        },
+        {
+          id: "structure",
+          title: "Quer deixar um caminho preparado?",
+          optional: true,
+          fields: [
+            field("customGoals", "Metas", "list", {
+              placeholder: "Uma por linha ou separadas por vírgula",
+            }),
+            field("customStages", "Etapas", "list", {
+              placeholder: "Uma por linha ou separadas por vírgula",
+            }),
+            field("customMetrics", "Indicadores que quer acompanhar", "list"),
+            field(
+              "reviewCadenceDays",
+              "Revisar a cada quantos dias?",
+              "number",
+              { min: 1, max: 90, default: 7 },
+            ),
+          ],
+        },
+      ],
+    },
     stages: [],
     goals: [],
-    metrics: [metric("sessions", "Sessões", { type: "sessions", aggregate: "count" }), metric("minutes", "Tempo dedicado", { type: "sessions", aggregate: "minutes" }, { unit: "min" }), metric("tasksDone", "Passos concluídos", { type: "tasks", done: true })],
-    instructions: { summary: "Use somente a estrutura que ajuda a avançar.", prompts: ["Qual é o próximo passo?"] },
-    review: { cadenceDays: 7, prompts: ["O que avançou?", "O que mudou no objetivo?", "Qual é o próximo passo?"] },
+    metrics: [
+      metric("sessions", "Sessões", { type: "sessions", aggregate: "count" }),
+      metric(
+        "minutes",
+        "Tempo dedicado",
+        { type: "sessions", aggregate: "minutes" },
+        { unit: "min" },
+      ),
+      metric("tasksDone", "Passos concluídos", { type: "tasks", done: true }),
+    ],
+    instructions: {
+      summary: "Use somente a estrutura que ajuda a avançar.",
+      prompts: ["Qual é o próximo passo?"],
+    },
+    review: {
+      cadenceDays: 7,
+      prompts: [
+        "O que avançou?",
+        "O que mudou no objetivo?",
+        "Qual é o próximo passo?",
+      ],
+    },
   }),
   definition({
     id: "skill",
@@ -422,20 +1074,117 @@ export const officialDefinitions = [
     category: "Estudos",
     icon: "◇",
     color: "mint",
-    objective: "Construir uma prática consistente para desenvolver uma habilidade.",
-    description: "Defina uma trilha, pratique com intenção e registre os marcos do aprendizado.",
+    objective:
+      "Construir uma prática consistente para desenvolver uma habilidade.",
+    description:
+      "Defina uma trilha, pratique com intenção e registre os marcos do aprendizado.",
     tag: "APRENDER FAZENDO",
     focus: 35,
     components: ["tracker", "tasks", "focus", "notes", "links"],
-    onboarding: { intro: "Aprender fica mais claro quando a próxima prática está visível.", steps: [
-      { id: "skill", title: "O que você quer aprender?", fields: [field("skillName", "Habilidade", "text", { required: true }), field("startingLevel", "Nível atual", "select", { options: ["Começando", "Básico", "Intermediário", "Avançado"] }), field("desiredOutcome", "O que você quer conseguir fazer?", "textarea", { required: true })] },
-      { id: "practice", title: "Que ritmo cabe agora?", optional: true, fields: [field("weeklyPracticeGoal", "Práticas por semana", "number", { min: 1, max: 21, default: 3 }), field("resources", "Recursos que já escolheu", "list"), field("focusMinutes", "Duração de uma prática", "number", { min: 10, max: 180, default: 35 })] },
-    ] },
-    stages: ["Fundamentos", "Prática guiada", "Prática própria", "Projeto", "Revisão"],
-    goals: [{ id: "practices", title: "Práticas na semana", targetProperty: "weeklyPracticeGoal", unit: "práticas" }],
-    componentConfig: { tracker: tracker("Trilha de aprendizado", "item da trilha", ["A explorar", "Praticando", "Revisar", "Aprendido"], [field("title", "Tema ou prática", "text", { required: true }), field("kind", "Tipo", "select", { options: ["Fundamento", "Exercício", "Projeto", "Recurso", "Milestone"] }), field("resource", "Link", "url"), field("notes", "O que aprendi", "textarea")], "Adicione o primeiro fundamento ou prática da sua trilha.") },
-    metrics: [metric("sessions", "Práticas", { type: "sessions", aggregate: "count", windowDays: 7 }, { targetProperty: "weeklyPracticeGoal" }), metric("minutes", "Tempo praticado", { type: "sessions", aggregate: "minutes" }, { unit: "min" }), metric("learned", "Itens aprendidos", { type: "tracker", statuses: ["Aprendido"] })],
-    review: { cadenceDays: 7, prompts: ["O que você praticou?", "O que começou a ficar mais natural?", "Onde ainda há dúvida?", "Qual é a próxima prática?"] },
+    onboarding: {
+      intro: "Aprender fica mais claro quando a próxima prática está visível.",
+      steps: [
+        {
+          id: "skill",
+          title: "O que você quer aprender?",
+          fields: [
+            field("skillName", "Habilidade", "text", { required: true }),
+            field("startingLevel", "Nível atual", "select", {
+              options: ["Começando", "Básico", "Intermediário", "Avançado"],
+            }),
+            field(
+              "desiredOutcome",
+              "O que você quer conseguir fazer?",
+              "textarea",
+              { required: true },
+            ),
+          ],
+        },
+        {
+          id: "practice",
+          title: "Que ritmo cabe agora?",
+          optional: true,
+          fields: [
+            field("weeklyPracticeGoal", "Práticas por semana", "number", {
+              min: 1,
+              max: 21,
+              default: 3,
+            }),
+            field("resources", "Recursos que já escolheu", "list"),
+            field("focusMinutes", "Duração de uma prática", "number", {
+              min: 10,
+              max: 180,
+              default: 35,
+            }),
+          ],
+        },
+      ],
+    },
+    stages: [
+      "Fundamentos",
+      "Prática guiada",
+      "Prática própria",
+      "Projeto",
+      "Revisão",
+    ],
+    goals: [
+      {
+        id: "practices",
+        title: "Práticas na semana",
+        metricId: "sessions",
+        targetProperty: "weeklyPracticeGoal",
+        unit: "práticas",
+      },
+    ],
+    componentConfig: {
+      tracker: tracker(
+        "Trilha de aprendizado",
+        "item da trilha",
+        ["A explorar", "Praticando", "Revisar", "Aprendido"],
+        [
+          field("title", "Tema ou prática", "text", { required: true }),
+          field("kind", "Tipo", "select", {
+            options: [
+              "Fundamento",
+              "Exercício",
+              "Projeto",
+              "Recurso",
+              "Milestone",
+            ],
+          }),
+          field("resource", "Link", "url"),
+          field("notes", "O que aprendi", "textarea"),
+        ],
+        "Adicione o primeiro fundamento ou prática da sua trilha.",
+      ),
+    },
+    metrics: [
+      metric(
+        "sessions",
+        "Práticas",
+        { type: "sessions", aggregate: "count", windowDays: 7 },
+        { targetProperty: "weeklyPracticeGoal" },
+      ),
+      metric(
+        "minutes",
+        "Tempo praticado",
+        { type: "sessions", aggregate: "minutes" },
+        { unit: "min" },
+      ),
+      metric("learned", "Itens aprendidos", {
+        type: "tracker",
+        statuses: ["Aprendido"],
+      }),
+    ],
+    review: {
+      cadenceDays: 7,
+      prompts: [
+        "O que você praticou?",
+        "O que começou a ficar mais natural?",
+        "Onde ainda há dúvida?",
+        "Qual é a próxima prática?",
+      ],
+    },
   }),
   definition({
     id: "content",
@@ -443,21 +1192,98 @@ export const officialDefinitions = [
     category: "Criativo",
     icon: "◐",
     color: "lavender",
-    objective: "Levar ideias de conteúdo até a publicação com contexto preservado.",
-    description: "Reúna pesquisa, roteiro, produção e publicação em um fluxo contínuo.",
+    objective:
+      "Levar ideias de conteúdo até a publicação com contexto preservado.",
+    description:
+      "Reúna pesquisa, roteiro, produção e publicação em um fluxo contínuo.",
     tag: "DA IDEIA À PUBLICAÇÃO",
     focus: 40,
     components: ["tracker", "tasks", "focus", "notes", "links"],
-    onboarding: { intro: "Prepare um pipeline que combine com o conteúdo que você quer criar.", steps: [
-      { id: "channel", title: "Onde e o que você quer publicar?", fields: [field("channel", "Canal ou plataforma", "text", { required: true }), field("formats", "Formatos", "list", { required: true, placeholder: "Ex.: vídeo curto, artigo" }), field("contentGoal", "Qual é a intenção do conteúdo?", "textarea")] },
-      { id: "rhythm", title: "Qual ritmo parece possível?", optional: true, fields: [field("weeklyPublishGoal", "Publicações por semana", "number", { min: 1, max: 30, default: 1 }), field("focusMinutes", "Duração de uma sessão", "number", { min: 10, max: 180, default: 40 })] },
-    ] },
+    onboarding: {
+      intro:
+        "Prepare um pipeline que combine com o conteúdo que você quer criar.",
+      steps: [
+        {
+          id: "channel",
+          title: "Onde e o que você quer publicar?",
+          fields: [
+            field("channel", "Canal ou plataforma", "text", { required: true }),
+            field("formats", "Formatos", "list", {
+              required: true,
+              placeholder: "Ex.: vídeo curto, artigo",
+            }),
+            field("contentGoal", "Qual é a intenção do conteúdo?", "textarea"),
+          ],
+        },
+        {
+          id: "rhythm",
+          title: "Qual ritmo parece possível?",
+          optional: true,
+          fields: [
+            field("weeklyPublishGoal", "Publicações por semana", "number", {
+              min: 1,
+              max: 30,
+              default: 1,
+            }),
+            field("focusMinutes", "Duração de uma sessão", "number", {
+              min: 10,
+              max: 180,
+              default: 40,
+            }),
+          ],
+        },
+      ],
+    },
     stages: ["Ideia", "Pesquisa", "Roteiro", "Produção", "Edição", "Publicado"],
-    goals: [{ id: "published", title: "Publicações da semana", targetProperty: "weeklyPublishGoal", unit: "conteúdos" }],
-    componentConfig: { tracker: tracker("Pipeline de conteúdo", "conteúdo", ["Ideia", "Pesquisa", "Roteiro", "Produção", "Edição", "Publicado"], [field("title", "Título ou ideia", "text", { required: true }), field("format", "Formato", "select", { optionsFromProperty: "formats" }), field("publishAt", "Data planejada", "date"), field("link", "Link publicado ou referência", "url"), field("notes", "Notas", "textarea")], "Capture uma ideia antes que ela se perca.") },
-    metrics: [metric("published", "Publicados", { type: "tracker", statuses: ["Publicado"] }, { targetProperty: "weeklyPublishGoal" }), metric("inProgress", "Em produção", { type: "tracker", statuses: ["Pesquisa", "Roteiro", "Produção", "Edição"] }), metric("sessions", "Sessões", { type: "sessions", aggregate: "count" })],
+    goals: [
+      {
+        id: "published",
+        title: "Publicações da semana",
+        metricId: "published",
+        targetProperty: "weeklyPublishGoal",
+        unit: "conteúdos",
+      },
+    ],
+    componentConfig: {
+      tracker: tracker(
+        "Pipeline de conteúdo",
+        "conteúdo",
+        ["Ideia", "Pesquisa", "Roteiro", "Produção", "Edição", "Publicado"],
+        [
+          field("title", "Título ou ideia", "text", { required: true }),
+          field("format", "Formato", "select", {
+            optionsFromProperty: "formats",
+          }),
+          field("publishAt", "Data planejada", "date"),
+          field("link", "Link publicado ou referência", "url"),
+          field("notes", "Notas", "textarea"),
+        ],
+        "Capture uma ideia antes que ela se perca.",
+      ),
+    },
+    metrics: [
+      metric(
+        "published",
+        "Publicados",
+        { type: "tracker", statuses: ["Publicado"] },
+        { targetProperty: "weeklyPublishGoal" },
+      ),
+      metric("inProgress", "Em produção", {
+        type: "tracker",
+        statuses: ["Pesquisa", "Roteiro", "Produção", "Edição"],
+      }),
+      metric("sessions", "Sessões", { type: "sessions", aggregate: "count" }),
+    ],
     progress: { mode: "pipeline" },
-    review: { cadenceDays: 7, prompts: ["O que foi publicado?", "Que ideia merece continuar?", "Onde o processo travou?", "Qual conteúdo vem em seguida?"] },
+    review: {
+      cadenceDays: 7,
+      prompts: [
+        "O que foi publicado?",
+        "Que ideia merece continuar?",
+        "Onde o processo travou?",
+        "Qual conteúdo vem em seguida?",
+      ],
+    },
   }),
   definition({
     id: "project",
@@ -465,20 +1291,104 @@ export const officialDefinitions = [
     category: "Pessoal",
     icon: "△",
     color: "peach",
-    objective: "Conduzir um projeto pessoal com começo, próximos passos e encerramento.",
-    description: "Para mudanças, viagens, eventos, reformas e outros projetos com um resultado concreto.",
+    objective:
+      "Conduzir um projeto pessoal com começo, próximos passos e encerramento.",
+    description:
+      "Para mudanças, viagens, eventos, reformas e outros projetos com um resultado concreto.",
     tag: "UM PASSO DE CADA VEZ",
     focus: 30,
     components: ["tracker", "tasks", "focus", "notes", "links"],
-    onboarding: { intro: "Dê contorno ao projeto sem precisar prever tudo agora.", steps: [
-      { id: "project", title: "Que projeto é este?", fields: [field("projectName", "Nome do projeto", "text", { required: true }), field("projectOutcome", "Como você saberá que terminou?", "textarea", { required: true }), field("deadline", "Data desejada", "date")] },
-      { id: "plan", title: "Quais partes você já enxerga?", optional: true, fields: [field("milestones", "Marcos", "list"), field("constraints", "Limites ou cuidados", "textarea"), field("focusMinutes", "Duração de uma sessão", "number", { min: 10, max: 180, default: 30 })] },
-    ] },
+    onboarding: {
+      intro: "Dê contorno ao projeto sem precisar prever tudo agora.",
+      steps: [
+        {
+          id: "project",
+          title: "Que projeto é este?",
+          fields: [
+            field("projectName", "Nome do projeto", "text", { required: true }),
+            field(
+              "projectOutcome",
+              "Como você saberá que terminou?",
+              "textarea",
+              { required: true },
+            ),
+            field("deadline", "Data desejada", "date"),
+          ],
+        },
+        {
+          id: "plan",
+          title: "Quais partes você já enxerga?",
+          optional: true,
+          fields: [
+            field("milestones", "Marcos", "list"),
+            field("constraints", "Limites ou cuidados", "textarea"),
+            field("focusMinutes", "Duração de uma sessão", "number", {
+              min: 10,
+              max: 180,
+              default: 30,
+            }),
+          ],
+        },
+      ],
+    },
     stages: ["Definição", "Planejamento", "Execução", "Ajustes", "Concluído"],
-    goals: [{ id: "milestones", title: "Marcos concluídos", targetProperty: "milestoneCount", unit: "marcos" }],
-    componentConfig: { tracker: tracker("Plano do projeto", "item do projeto", ["Planejado", "Em andamento", "Aguardando", "Concluído"], [field("title", "Título", "text", { required: true }), field("kind", "Tipo", "select", { options: ["Milestone", "Tarefa", "Decisão", "Custo", "Contato"] }), field("dueAt", "Data", "date"), field("link", "Referência", "url"), field("notes", "Contexto", "textarea")], "Adicione um marco ou o primeiro passo concreto.") },
-    metrics: [metric("milestonesDone", "Marcos concluídos", { type: "tracker", field: "kind", values: ["Milestone"], statuses: ["Concluído"] }), metric("milestonesTotal", "Marcos planejados", { type: "tracker", field: "kind", values: ["Milestone"] }), metric("tasksDone", "Itens concluídos", { type: "tracker", statuses: ["Concluído"] }), metric("sessions", "Sessões", { type: "sessions", aggregate: "count" })],
-    progress: { mode: "ratio", numeratorMetric: "milestonesDone", denominatorMetric: "milestonesTotal" },
-    review: { cadenceDays: 7, prompts: ["O que avançou?", "O que ficou esperando?", "Algum limite mudou?", "Qual é o próximo marco?"] },
+    goals: [
+      {
+        id: "milestones",
+        title: "Marcos concluídos",
+        metricId: "milestonesDone",
+        targetProperty: "milestoneCount",
+        unit: "marcos",
+      },
+    ],
+    componentConfig: {
+      tracker: tracker(
+        "Plano do projeto",
+        "item do projeto",
+        ["Planejado", "Em andamento", "Aguardando", "Concluído"],
+        [
+          field("title", "Título", "text", { required: true }),
+          field("kind", "Tipo", "select", {
+            options: ["Milestone", "Tarefa", "Decisão", "Custo", "Contato"],
+          }),
+          field("dueAt", "Data", "date"),
+          field("link", "Referência", "url"),
+          field("notes", "Contexto", "textarea"),
+        ],
+        "Adicione um marco ou o primeiro passo concreto.",
+      ),
+    },
+    metrics: [
+      metric("milestonesDone", "Marcos concluídos", {
+        type: "tracker",
+        field: "kind",
+        values: ["Milestone"],
+        statuses: ["Concluído"],
+      }),
+      metric("milestonesTotal", "Marcos planejados", {
+        type: "tracker",
+        field: "kind",
+        values: ["Milestone"],
+      }),
+      metric("tasksDone", "Itens concluídos", {
+        type: "tracker",
+        statuses: ["Concluído"],
+      }),
+      metric("sessions", "Sessões", { type: "sessions", aggregate: "count" }),
+    ],
+    progress: {
+      mode: "ratio",
+      numeratorMetric: "milestonesDone",
+      denominatorMetric: "milestonesTotal",
+    },
+    review: {
+      cadenceDays: 7,
+      prompts: [
+        "O que avançou?",
+        "O que ficou esperando?",
+        "Algum limite mudou?",
+        "Qual é o próximo marco?",
+      ],
+    },
   }),
 ];

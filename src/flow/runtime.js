@@ -2,7 +2,10 @@ const DAY = 86400000;
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 function toTime(value) {
-  const time = value ? new Date(value).getTime() : NaN;
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))
+    ? `${value}T12:00:00`
+    : value;
+  const time = normalized ? new Date(normalized).getTime() : NaN;
   return Number.isFinite(time) ? time : null;
 }
 
@@ -41,6 +44,8 @@ function filteredTracker(flow, source, now) {
 
 function metricValue(flow, definition, resolved, now) {
   const source = definition.source || {};
+  if (source.type === "manual")
+    return Number(flow.properties?.manualMetrics?.[definition.id]) || 0;
   if (source.type === "tracker")
     return filteredTracker(flow, source, now).length;
   if (source.type === "trackerSum")
@@ -82,12 +87,26 @@ function metricValue(flow, definition, resolved, now) {
       return Math.floor(
         sessions.reduce((total, session) => total + session.seconds, 0) / 60,
       );
+    if (source.aggregate === "hours")
+      return Number(
+        (
+          sessions.reduce((total, session) => total + session.seconds, 0) / 3600
+        ).toFixed(1),
+      );
     return sessions.length;
   }
   if (source.type === "tasks")
     return (flow.componentData?.tasks?.items || []).filter(
-      (item) => source.done === undefined || item.done === source.done,
+      (item) =>
+        (source.done === undefined || item.done === source.done) &&
+        (!source.group || item.group === source.group),
     ).length;
+  if (source.type === "kanban")
+    return (
+      (flow.componentData?.kanban || []).find(
+        (column) => column.title === source.column,
+      )?.cards?.length || 0
+    );
   if (source.type === "reviews")
     return (flow.review?.history || []).filter(
       (entry) => !source.status || entry.status === source.status,
@@ -113,6 +132,7 @@ export function calculateMetrics(flow, now = Date.now()) {
       value,
       target,
       unit: definition.unit || "",
+      manual: definition.source?.type === "manual",
     };
   }
   return resolved;
@@ -121,6 +141,22 @@ export function calculateMetrics(flow, now = Date.now()) {
 export function refreshFlowDerivedState(flow, now = Date.now()) {
   if (!flow) return flow;
   flow.metrics = calculateMetrics(flow, now);
+  flow.goals = (flow.goals || []).map((goal) => {
+    const metric = goal.metricId ? flow.metrics[goal.metricId] : null;
+    const target = goal.targetProperty
+      ? Number(flow.properties?.[goal.targetProperty]) || goal.target || null
+      : goal.target || null;
+    const current = metric?.value ?? goal.current ?? null;
+    return {
+      ...goal,
+      target,
+      current,
+      status:
+        target && current !== null && current >= target
+          ? "completed"
+          : "active",
+    };
+  });
   const strategy = flow.progress?.strategy || { mode: "indicators" };
   let value = null;
   if (strategy.mode === "ratio") {
@@ -153,7 +189,9 @@ function firstOpenTask(flow) {
 
 function upcomingItems(flow) {
   return trackerItems(flow)
-    .filter((item) => item.status !== "Concluído" && item.status !== "Encerrada")
+    .filter(
+      (item) => item.status !== "Concluído" && item.status !== "Encerrada",
+    )
     .map((item) => ({
       item,
       time: toTime(
@@ -182,12 +220,30 @@ export function getFlowHome(flow, now = Date.now()) {
   if (id === "job") {
     home.eyebrow = "SUA BUSCA, COM CONTEXTO";
     home.title = properties.targetRole || "Seu próximo capítulo";
-    home.facts = [properties.seniority, (properties.workModels || []).join(" · ")].filter(Boolean);
-    home.nextActions = upcomingItems(flow).slice(0, 3).map(({ item }) => {
-      const action = item.values?.nextAction || `Acompanhar ${item.values?.company || "oportunidade"}`;
-      const date = dateLabel(item.values?.nextActionAt);
-      return date ? `${action} · ${date}` : action;
-    });
+    home.facts = [
+      properties.seniority,
+      (properties.workModels || []).join(" · "),
+    ].filter(Boolean);
+    const pipeline =
+      flow.components?.find((item) => item.type === "tracker")?.config
+        ?.stages || [];
+    const furthest = trackerItems(flow).reduce(
+      (best, item) =>
+        pipeline.indexOf(item.status) > pipeline.indexOf(best)
+          ? item.status
+          : best,
+      pipeline[0] || "",
+    );
+    home.currentStage = furthest;
+    home.nextActions = upcomingItems(flow)
+      .slice(0, 3)
+      .map(({ item }) => {
+        const action =
+          item.values?.nextAction ||
+          `Acompanhar ${item.values?.company || "oportunidade"}`;
+        const date = dateLabel(item.values?.nextActionAt);
+        return date ? `${action} · ${date}` : action;
+      });
   } else if (id === "enem") {
     home.eyebrow = "O QUE ESTUDAR HOJE";
     home.title =
@@ -196,7 +252,9 @@ export function getFlowHome(flow, now = Date.now()) {
       "Escolha uma prioridade";
     home.facts = [
       properties.examDate ? `Prova em ${dateLabel(properties.examDate)}` : "",
-      properties.weeklyHours ? `${properties.weeklyHours} h disponíveis por semana` : "",
+      properties.weeklyHours
+        ? `${properties.weeklyHours} h disponíveis por semana`
+        : "",
     ].filter(Boolean);
     const next = trackerItems(flow).find((item) => item.status !== "Concluído");
     home.nextActions = [
@@ -208,33 +266,69 @@ export function getFlowHome(flow, now = Date.now()) {
   } else if (id === "code") {
     home.eyebrow = "PRÓXIMO INCREMENTO";
     home.title = properties.projectName || flow.identity.name;
-    home.facts = [properties.currentStage, properties.deadline ? `Prazo ${dateLabel(properties.deadline)}` : ""].filter(Boolean);
-    const current = trackerItems(flow).find((item) => item.status !== "Concluído");
-    home.nextActions = [current?.values?.title, firstOpenTask(flow)].filter(Boolean);
+    home.facts = [
+      properties.currentStage,
+      properties.deadline ? `Prazo ${dateLabel(properties.deadline)}` : "",
+    ].filter(Boolean);
+    const current = trackerItems(flow).find(
+      (item) => item.status !== "Concluído",
+    );
+    home.nextActions = [current?.values?.title, firstOpenTask(flow)].filter(
+      Boolean,
+    );
   } else if (id === "college") {
     home.eyebrow = "O QUE PEDE ATENÇÃO";
     home.title = `${properties.course || "Faculdade"} · ${properties.semester || "semestre atual"}`;
     home.facts = (properties.subjects || []).slice(0, 3);
     home.nextActions = upcomingItems(flow)
       .slice(0, 3)
-      .map(({ item }) => `${item.values?.title || "Prazo"} · ${dateLabel(item.values?.dueAt)}`);
+      .map(
+        ({ item }) =>
+          `${item.values?.title || "Prazo"} · ${dateLabel(item.values?.dueAt)}`,
+      );
   } else if (id === "week") {
     home.eyebrow = "O QUE IMPORTA NESTA SEMANA";
     home.title = "Até três prioridades. Um pouco por vez.";
-    home.facts = [properties.protectedTime ? `Tempo protegido: ${properties.protectedTime}` : "", properties.habit ? `Lembrar: ${properties.habit}` : ""].filter(Boolean);
+    home.facts = [
+      properties.protectedTime
+        ? `Tempo protegido: ${properties.protectedTime}`
+        : "",
+      properties.habit ? `Lembrar: ${properties.habit}` : "",
+    ].filter(Boolean);
     home.nextActions = trackerItems(flow)
-      .filter((item) => item.values?.kind === "Prioridade" && item.status !== "Concluído")
+      .filter(
+        (item) =>
+          item.values?.kind === "Prioridade" && item.status !== "Concluído",
+      )
       .slice(0, 3)
       .map((item) => item.values.title);
   } else if (["skill", "content", "project"].includes(id)) {
-    home.title = properties.skillName || properties.projectName || properties.channel || flow.identity.name;
-    home.facts = [properties.desiredOutcome || properties.projectOutcome || properties.contentGoal].filter(Boolean);
+    home.title =
+      properties.skillName ||
+      properties.projectName ||
+      properties.channel ||
+      flow.identity.name;
+    home.facts = [
+      properties.desiredOutcome ||
+        properties.projectOutcome ||
+        properties.contentGoal,
+    ].filter(Boolean);
     home.nextActions = [
-      trackerItems(flow).find((item) => !["Concluído", "Aprendido", "Publicado"].includes(item.status))?.values?.title,
+      trackerItems(flow).find(
+        (item) =>
+          !["Concluído", "Aprendido", "Publicado"].includes(item.status),
+      )?.values?.title,
       firstOpenTask(flow),
     ].filter(Boolean);
   } else {
-    home.nextActions = [firstOpenTask(flow), ...(flow.context?.prompts || [])].filter(Boolean).slice(0, 3);
+    home.nextActions = [firstOpenTask(flow), ...(flow.context?.prompts || [])]
+      .filter(Boolean)
+      .slice(0, 3);
+    if (id === "blank")
+      home.indicators = [
+        ...Object.values(metrics).filter((metric) => metric.manual),
+        ...Object.values(metrics).filter((metric) => !metric.manual),
+      ].slice(0, 4);
   }
 
   if (!home.nextActions.length)

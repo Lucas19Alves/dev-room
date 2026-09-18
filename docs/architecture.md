@@ -24,6 +24,10 @@ Uma instância (`flow_instance`) pertence ao usuário. O formato atual usa `sche
 
 `src/flow/model.js` é a fronteira desse contrato. Contas antigas são normalizadas em memória antes de entrar no store. A migração preserva IDs, datas, tarefas, notas, links, duração de foco, sessões e dados das ferramentas conhecidas.
 
+`src/flow/officialDefinitions.js` contém definições oficiais serializáveis e versionadas. `src/flow/setup.js` transforma respostas de onboarding em propriedades, metas, etapas e dados iniciais. `src/flow/runtime.js` calcula indicadores a partir das fontes privadas, atualiza metas derivadas, produz o contexto da home e registra revisões. Essa separação impede que uma definição pública receba conteúdo pessoal.
+
+Uma instância nunca acompanha silenciosamente a versão mais nova de uma definição. O catálogo compara versões e apresenta apenas um aviso. A atualização automática permanece proibida porque componentes, propriedades e conteúdo podem ter sido personalizados.
+
 ## Persistência
 
 | Dado | IndexedDB | Supabase | Público |
@@ -43,7 +47,11 @@ Contas autenticadas usam compare-and-swap por revisão na função `save_flow_ac
 
 Ferramentas recebem um namespace próprio via `useFlowComponentStorage(type, fallback)`. O composable grava somente em `flow.componentData[type]`. Remover um componente da composição não remove seu conteúdo, por isso adicioná-lo novamente recupera o estado anterior.
 
+O Tracker estruturado é um componente universal configurado pela definição do Flow. A configuração declara nome, etapas e campos; os registros continuam em `componentData.tracker`. Carreira, estudo, projetos, semana e faculdade compartilham a mesma implementação e oferecem mudança de etapa por `select`, o que mantém o uso por teclado e em telas de toque.
+
 As ferramentas nativas (`focus`, `tasks`, `notes`, `links`) usam o mesmo mapa de dados. As demais são carregadas sob demanda para limitar o bundle inicial.
+
+Métricas são descrições de leitura, não contadores paralelos. O runtime deriva valores de sessões, tarefas, revisões, Kanban e Tracker. Uma porcentagem única só aparece quando existe uma razão defensável, como milestones concluídos sobre milestones planejados. Busca de emprego, ENEM, faculdade e semana mostram indicadores separados.
 
 ## Rotas e autenticação
 

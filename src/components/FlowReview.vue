@@ -27,7 +27,8 @@ function complete() {
     <span class="eyebrow">UM MOMENTO PARA OLHAR O CAMINHO</span>
     <h2 id="modal-title">Revisar “{{ flow.identity.name }}”</h2>
     <p>
-      Não precisa ser uma avaliação. Registre o que ajuda você a escolher o próximo passo.
+      Não precisa ser uma avaliação. Registre o que ajuda você a escolher o
+      próximo passo.
     </p>
     <div class="review-questions">
       <label
@@ -46,8 +47,12 @@ function complete() {
       </label>
     </div>
     <div class="review-actions">
-      <button class="text-button" @click="emit('skip')">Ignorar esta vez</button>
-      <button class="outline" @click="emit('postpone')">Adiar por 2 dias</button>
+      <button class="text-button" @click="emit('skip')">
+        Ignorar esta vez
+      </button>
+      <button class="outline" @click="emit('postpone')">
+        Adiar por 2 dias
+      </button>
       <button class="dark-button" @click="complete">Concluir revisão</button>
     </div>
   </div>

@@ -17,6 +17,7 @@ import {
   completeReview,
   getFlowHome,
   postponeReview,
+  refreshFlowDerivedState,
   skipReview,
 } from "../src/flow/runtime.js";
 
@@ -100,7 +101,10 @@ test("every official Flow creates a specialized, versioned instance", () => {
     assert.ok(flow.stages.length > 0);
     if (template.id !== "blank") {
       assert.ok(componentIds(flow).includes("tracker"));
-      assert.ok(flow.components.find((item) => item.type === "tracker").config.fields.length > 0);
+      assert.ok(
+        flow.components.find((item) => item.type === "tracker").config.fields
+          .length > 0,
+      );
     }
   }
 });
@@ -113,7 +117,9 @@ test("official onboarding answers create useful initial data", () => {
   );
   assert.equal(job.properties.targetRole, "Analista de suporte");
   assert.equal(job.goals[0].target, 5);
-  assert.ok(job.componentData.tasks.items.some((item) => item.group === "Perfil"));
+  assert.ok(
+    job.componentData.tasks.items.some((item) => item.group === "Perfil"),
+  );
   assert.equal(job.componentData.links.items[0].title, "Currículo");
   assert.equal(getFlowHome(job).title, "Analista de suporte");
 
@@ -147,6 +153,17 @@ test("official onboarding answers create useful initial data", () => {
     ).length,
     2,
   );
+
+  const blank = makeFlow(
+    templates.find((item) => item.id === "blank"),
+    "Mudança",
+    answers.blank,
+  );
+  const manualId = blank.metricDefinitions.find(
+    (item) => item.source.type === "manual",
+  ).id;
+  blank.properties.manualMetrics[manualId] = 3;
+  assert.equal(calculateMetrics(blank)[manualId].value, 3);
 });
 
 test("metrics reflect activity without inventing outcome progress", () => {
@@ -181,6 +198,25 @@ test("metrics reflect activity without inventing outcome progress", () => {
   assert.equal(metrics.responses.value, 1);
   assert.equal(metrics.returnRate.value, 50);
   assert.equal(flow.progress.value, null);
+  refreshFlowDerivedState(flow);
+  assert.equal(
+    flow.goals.find((goal) => goal.id === "weekly-applications").current,
+    2,
+  );
+});
+
+test("project progress uses completed milestones only when a denominator exists", () => {
+  const flow = makeFlow(
+    templates.find((item) => item.id === "code"),
+    "Projeto",
+    { ...answers.code, currentStage: "Ideia" },
+  );
+  assert.equal(flow.progress.value, 0);
+  flow.componentData.tracker.items[0].status = "Concluído";
+  refreshFlowDerivedState(flow);
+  assert.equal(flow.metrics.milestonesDone.value, 1);
+  assert.equal(flow.metrics.milestonesTotal.value, 2);
+  assert.equal(flow.progress.value, 50);
 });
 
 test("reviews can complete, postpone and skip while preserving history", () => {
@@ -190,7 +226,11 @@ test("reviews can complete, postpone and skip while preserving history", () => {
     answers.code,
   );
   const start = Date.now();
-  completeReview(flow, [{ prompt: "O que avançou?", answer: "Onboarding" }], start);
+  completeReview(
+    flow,
+    [{ prompt: "O que avançou?", answer: "Onboarding" }],
+    start,
+  );
   assert.equal(flow.review.history[0].status, "completed");
   assert.equal(flow.review.lastAt, start);
   assert.ok(flow.review.nextAt > start);
@@ -204,7 +244,11 @@ test("reviews can complete, postpone and skip while preserving history", () => {
 
 test("definition updates are detected without overwriting an instance", () => {
   const definition = templates.find((item) => item.id === "job");
-  const old = makeFlow({ ...definition, version: 1 }, "Busca antiga", answers.job);
+  const old = makeFlow(
+    { ...definition, version: 1 },
+    "Busca antiga",
+    answers.job,
+  );
   old.componentData.notes.text = "Conteúdo preservado";
   assert.deepEqual(definitionUpdate(old), {
     id: "job",
@@ -212,7 +256,10 @@ test("definition updates are detected without overwriting an instance", () => {
     availableVersion: 2,
   });
   assert.equal(old.componentData.notes.text, "Conteúdo preservado");
-  assert.equal(definitionUpdate(makeFlow(definition, "Atual", answers.job)), null);
+  assert.equal(
+    definitionUpdate(makeFlow(definition, "Atual", answers.job)),
+    null,
+  );
 });
 
 test("Flow instances are independent and public models exclude private content", () => {
@@ -298,7 +345,12 @@ test("early Flow v2 instances gain review and progress fields without data loss"
         kind: "flow_instance",
         id: "v2-early",
         definitionRef: { source: "official", id: "job", version: 1 },
-        identity: { name: "Busca", category: "Carreira", color: "blue", icon: "↗" },
+        identity: {
+          name: "Busca",
+          category: "Carreira",
+          color: "blue",
+          icon: "↗",
+        },
         components: [{ id: "notes", type: "notes", order: 0 }],
         componentData: { notes: { text: "Não perder" } },
         review: { cadenceDays: 7, prompts: ["O que avançou?"] },

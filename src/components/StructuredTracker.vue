@@ -70,7 +70,8 @@ function validUrl(value) {
 function submit() {
   if (
     fields.value.some(
-      (field) => field.required && !String(form.value.values[field.key] || "").trim(),
+      (field) =>
+        field.required && !String(form.value.values[field.key] || "").trim(),
     )
   )
     return;
@@ -133,22 +134,38 @@ function secondaryValues(item) {
 
 <template>
   <ToolLayout
-    :caption="`${items.length} ${componentConfig.singular || 'item'}${items.length === 1 ? '' : 's'} neste Flow.`"
+    :caption="`${items.length} ${items.length === 1 ? componentConfig.singular || 'item' : componentConfig.plural || 'itens'} neste Flow.`"
     id="structured-tracker"
   >
     <template #actions>
-      <button class="dark-button" @click="formOpen ? (formOpen = false) : startAdd()">
-        {{ formOpen ? "Fechar" : `＋ Adicionar ${componentConfig.singular || "item"}` }}
+      <button
+        class="dark-button"
+        @click="formOpen ? (formOpen = false) : startAdd()"
+      >
+        {{
+          formOpen
+            ? "Fechar"
+            : `＋ Adicionar ${componentConfig.singular || "item"}`
+        }}
       </button>
     </template>
 
     <form v-if="formOpen" class="tracker-editor" @submit.prevent="submit">
       <div class="tracker-editor__heading">
         <div>
-          <span class="tool-section-label">{{ editingId ? "EDITAR" : "NOVO REGISTRO" }}</span>
+          <span class="tool-section-label">{{
+            editingId ? "EDITAR" : "NOVO REGISTRO"
+          }}</span>
           <h4>{{ componentConfig.title || "Tracker" }}</h4>
         </div>
-        <button type="button" class="tool-icon" aria-label="Fechar formulário" @click="formOpen = false">×</button>
+        <button
+          type="button"
+          class="tool-icon"
+          aria-label="Fechar formulário"
+          @click="formOpen = false"
+        >
+          ×
+        </button>
       </div>
       <div class="tracker-fields">
         <label
@@ -171,7 +188,13 @@ function secondaryValues(item) {
             v-model="form.values[field.key]"
           >
             <option value="">Escolher depois</option>
-            <option v-for="option in optionsFor(field)" :key="option" :value="option">{{ option }}</option>
+            <option
+              v-for="option in optionsFor(field)"
+              :key="option"
+              :value="option"
+            >
+              {{ option }}
+            </option>
           </select>
           <input
             v-else
@@ -184,13 +207,19 @@ function secondaryValues(item) {
         </label>
         <label class="tool-field" for="tracker-status"
           >Etapa<select id="tracker-status" v-model="form.status">
-            <option v-for="stage in stages" :key="stage" :value="stage">{{ stage }}</option>
+            <option v-for="stage in stages" :key="stage" :value="stage">
+              {{ stage }}
+            </option>
           </select></label
         >
       </div>
       <div class="button-group tracker-editor__actions">
-        <button type="button" class="outline" @click="formOpen = false">Cancelar</button>
-        <button class="dark-button">{{ editingId ? "Salvar alterações" : "Adicionar ao Flow" }}</button>
+        <button type="button" class="outline" @click="formOpen = false">
+          Cancelar
+        </button>
+        <button class="dark-button">
+          {{ editingId ? "Salvar alterações" : "Adicionar ao Flow" }}
+        </button>
       </div>
     </form>
 
@@ -198,52 +227,99 @@ function secondaryValues(item) {
       <section v-for="stage in stages" :key="stage" class="tracker-group">
         <header>
           <span>{{ stage }}</span>
-          <small>{{ items.filter((item) => item.status === stage).length }}</small>
+          <small>{{
+            items.filter((item) => item.status === stage).length
+          }}</small>
         </header>
         <div class="tracker-list">
           <article
-            v-for="item in items.filter((candidate) => candidate.status === stage)"
+            v-for="item in items.filter(
+              (candidate) => candidate.status === stage,
+            )"
             :key="item.id"
             class="tracker-card"
           >
             <div class="tracker-card__main">
               <button class="tracker-card__title" @click="startEdit(item)">
-                {{ item.values?.[primaryField] || `Sem ${fields.find((field) => field.key === primaryField)?.label?.toLowerCase() || 'título'}` }}
+                {{
+                  item.values?.[primaryField] ||
+                  `Sem ${fields.find((field) => field.key === primaryField)?.label?.toLowerCase() || "título"}`
+                }}
               </button>
-              <p v-if="secondaryValues(item).length">{{ secondaryValues(item).join(" · ") }}</p>
+              <p v-if="secondaryValues(item).length">
+                {{ secondaryValues(item).join(" · ") }}
+              </p>
               <a
-                v-for="field in fields.filter((candidate) => candidate.type === 'url' && validUrl(item.values?.[candidate.key]))"
+                v-for="field in fields.filter(
+                  (candidate) =>
+                    candidate.type === 'url' &&
+                    validUrl(item.values?.[candidate.key]),
+                )"
                 :key="field.key"
                 :href="validUrl(item.values[field.key])"
                 target="_blank"
                 rel="noopener noreferrer"
-              >{{ field.label }} ↗</a>
+                >{{ field.label }} ↗</a
+              >
             </div>
             <div class="tracker-card__actions">
               <label>
-                <span class="sr-only">Etapa de {{ item.values?.[primaryField] }}</span>
+                <span class="sr-only"
+                  >Etapa de {{ item.values?.[primaryField] }}</span
+                >
                 <select
                   :value="item.status"
                   :aria-label="`Atualizar etapa de ${item.values?.[primaryField] || 'item'}`"
                   @change="changeStatus(item, $event.target.value)"
                 >
-                  <option v-for="target in stages" :key="target" :value="target">{{ target }}</option>
+                  <option
+                    v-for="target in stages"
+                    :key="target"
+                    :value="target"
+                  >
+                    {{ target }}
+                  </option>
                 </select>
               </label>
-              <button class="tool-icon" :aria-label="`Editar ${item.values?.[primaryField] || 'item'}`" @click="startEdit(item)">✎</button>
-              <button class="tool-icon" :aria-label="`Excluir ${item.values?.[primaryField] || 'item'}`" @click="remove(item)">×</button>
+              <button
+                class="tool-icon"
+                :aria-label="`Editar ${item.values?.[primaryField] || 'item'}`"
+                @click="startEdit(item)"
+              >
+                ✎
+              </button>
+              <button
+                class="tool-icon"
+                :aria-label="`Excluir ${item.values?.[primaryField] || 'item'}`"
+                @click="remove(item)"
+              >
+                ×
+              </button>
             </div>
-            <div v-if="pendingDelete === item.id" class="tool-inline-warning" role="alert">
-              Excluir este registro?<button @click="remove(item)">Excluir</button><button @click="pendingDelete = null">Cancelar</button>
+            <div
+              v-if="pendingDelete === item.id"
+              class="tool-inline-warning"
+              role="alert"
+            >
+              Excluir este registro?<button @click="remove(item)">
+                Excluir</button
+              ><button @click="pendingDelete = null">Cancelar</button>
             </div>
           </article>
-          <p v-if="!items.some((item) => item.status === stage)" class="tool-empty compact">Nada aqui por enquanto.</p>
+          <p
+            v-if="!items.some((item) => item.status === stage)"
+            class="tool-empty compact"
+          >
+            Nada aqui por enquanto.
+          </p>
         </div>
       </section>
     </div>
     <div v-else class="tool-empty">
       <span>◎</span>
-      <p>{{ componentConfig.empty || "Adicione o primeiro item deste Flow." }}</p>
+      <p>
+        {{ componentConfig.empty || "Adicione o primeiro item deste Flow." }}
+      </p>
       <button class="outline" @click="startAdd">Adicionar primeiro item</button>
     </div>
   </ToolLayout>

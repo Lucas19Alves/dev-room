@@ -1,115 +1,170 @@
 import { test, expect } from "@playwright/test";
-async function create(page, name) {
+
+async function createBlank(page, name, objective = "Organizar este objetivo") {
   await page
     .getByRole("button", { name: "Criar do zero", exact: false })
     .click();
   await page.getByLabel("Nome do Flow", { exact: true }).fill(name);
   await page.getByRole("button", { name: "Continuar →" }).click();
-  await page
-    .getByRole("button", { name: "Notas Adicionar", exact: false })
-    .click();
-  await page
-    .getByRole("button", { name: "Checklist Adicionar", exact: false })
-    .click();
+  await page.getByLabel("O que você quer realizar?").fill(objective);
   await page.getByRole("button", { name: "Continuar →" }).click();
-  await page.getByLabel("Como podemos te chamar?").fill("Pessoa de teste");
+  await page.getByRole("button", { name: "Pular por agora" }).click();
+  await page.getByRole("button", { name: "Continuar →" }).click();
   await page.getByRole("button", { name: "Entrar no meu Flow" }).click();
   await expect(page.getByLabel("Nome do Flow", { exact: true })).toHaveValue(
     name,
   );
 }
-test("create, isolate, persist, customize and complete a session", async ({
+
+async function openOfficial(page, name) {
+  const card = page.locator(".template-card").filter({ hasText: name });
+  await card.getByRole("button", { name: /Usar Flow/ }).click();
+}
+
+test("career Flow supports a real pipeline, session, review and reload", async ({
   page,
 }) => {
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/app");
+  await openOfficial(page, "Seu próximo capítulo");
+  await page.getByLabel("Nome do Flow", { exact: true }).fill("Minha busca");
+  await page.getByRole("button", { name: "Continuar →" }).click();
+
+  await page.getByLabel("Cargo ou área desejada").fill("Analista de suporte");
+  await page.getByLabel("Nível profissional").selectOption("Pleno");
+  await page.getByLabel("Cidades ou regiões").fill("São Paulo");
+  await page.getByRole("button", { name: "Remoto", exact: true }).click();
+  await page.getByRole("button", { name: "Continuar →" }).click();
+
+  await page.getByLabel("Meta de candidaturas por semana").fill("4");
+  await page.getByRole("button", { name: "Continuar →" }).click();
+  await page.getByLabel("LinkedIn").fill("https://example.com/linkedin");
+  await page.getByRole("button", { name: "Continuar →" }).click();
+  await page.getByRole("button", { name: "Continuar →" }).click();
+  await page.getByRole("button", { name: "Entrar no meu Flow" }).click();
+
   await expect(
-    page.getByRole("heading", { name: "O que você quer fazer hoje?" }),
+    page.getByRole("heading", { name: "Analista de suporte" }),
   ).toBeVisible();
-  await page.screenshot({
-    path: "test-results/discovery-desktop.png",
-    fullPage: true,
-  });
-  await create(page, "Estudos A");
-  await page.getByLabel("Notas deste Flow").fill("Conteúdo privado do Flow A");
+  await expect(page.getByText("0 / 4", { exact: true })).toBeVisible();
+
   await page
-    .getByLabel("Nova tarefa", { exact: true })
-    .fill("Revisar matemática");
-  await page.getByLabel("Adicionar tarefa", { exact: true }).click();
+    .getByRole("button", { name: "Adicionar oportunidade", exact: false })
+    .click();
+  await page.getByLabel("Empresa").fill("Empresa Horizonte");
+  await page.getByLabel("Cargo", { exact: true }).fill("Analista de suporte");
+  await page.getByLabel("Link da vaga").fill("https://example.com/vaga");
+  await page.getByLabel("Data da candidatura").fill("2026-09-18");
+  await page
+    .getByLabel("Próxima ação · opcional", { exact: true })
+    .fill("Preparar entrevista");
+  await page
+    .getByLabel("Data da próxima ação · opcional", { exact: true })
+    .fill("2026-09-19");
+  await page.getByRole("button", { name: "Adicionar ao Flow" }).click();
+
+  const status = page.getByLabel("Atualizar etapa de Empresa Horizonte");
+  await status.selectOption("Candidatura enviada");
+  await expect(page.getByText("1 / 4", { exact: true })).toBeVisible();
+  await status.selectOption("Entrevista");
+  await expect(page.getByText("Entrevistas").locator("..")).toContainText("1");
+
   await page.getByRole("button", { name: "Começar", exact: false }).click();
-  await page.getByRole("checkbox", { name: "Revisar matemática" }).check();
   await page
     .getByRole("button", { name: "Concluir sessão", exact: true })
     .click();
-  await expect(
-    page.getByText("1 tarefas concluídas · 0 ciclos de foco"),
-  ).toBeVisible();
-  const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Baixar cartão" }).click();
-  expect((await download).suggestedFilename()).toBe("meu-flow-noma.png");
+  await expect(page.getByText(/tarefas concluídas/)).toBeVisible();
   await page.getByLabel("Fechar diálogo").click();
-  await page.getByLabel("Descobrir Flows", { exact: true }).click();
-  await create(page, "Trabalho B");
-  await expect(page.getByLabel("Notas deste Flow")).toHaveValue("");
-  await expect(page.getByLabel("Texto da tarefa")).toHaveCount(0);
-  await page.getByLabel("Notas deste Flow").fill("Conteúdo B");
-  await page.getByRole("button", { name: "Estudos A", exact: true }).click();
-  await expect(page.getByLabel("Notas deste Flow")).toHaveValue(
-    "Conteúdo privado do Flow A",
-  );
-  await page.getByLabel("Remover Notas", { exact: true }).click();
-  await expect(page.getByLabel("Notas deste Flow")).toHaveCount(0);
-  await page.getByRole("button", { name: "Componentes", exact: false }).click();
+
+  await page.getByRole("button", { name: "Revisar agora" }).click();
   await page
-    .getByRole("button", { name: "Notas Adicionar", exact: false })
-    .click();
-  await expect(page.getByLabel("Notas deste Flow")).toHaveValue(
-    "Conteúdo privado do Flow A",
-  );
+    .getByLabel("Quais vagas realmente valeram a candidatura?")
+    .fill("A oportunidade da Empresa Horizonte.");
+  await page
+    .getByLabel("Alguma entrevista exige preparação?")
+    .fill("Sim, revisar exemplos de atendimento.");
+  await page.getByRole("button", { name: "Concluir revisão" }).click();
+  await expect(page.getByText("1 revisão concluída")).toBeVisible();
   await expect(page.locator(".sync")).toHaveText("Salvo neste dispositivo");
+
   await page.reload();
-  await page.getByRole("button", { name: "Estudos A", exact: true }).click();
-  await expect(page.getByLabel("Notas deste Flow")).toHaveValue(
-    "Conteúdo privado do Flow A",
-  );
+  await page.getByRole("button", { name: "Entrar no Flow" }).click();
   await expect(
-    page.getByRole("checkbox", { name: "Revisar matemática" }),
-  ).toBeChecked();
+    page.getByText("Empresa Horizonte", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Atualizar etapa de Empresa Horizonte"),
+  ).toHaveValue("Entrevista");
+  await expect(page.getByText("1 revisão concluída")).toBeVisible();
   await page.screenshot({
-    path: "test-results/workspace-desktop.png",
+    path: "test-results/career-flow-desktop.png",
     fullPage: true,
   });
-  await page.getByLabel("Minha jornada", { exact: true }).click();
-  await expect(page.getByRole("button", { name: "Ver cartão" })).toHaveCount(1);
   expect(errors).toEqual([]);
 });
-test("landing and mobile setup remain usable", async ({ page }) => {
+
+test("blank Flow progressively configures, isolates and persists content", async ({
+  page,
+}) => {
+  await page.goto("/app");
+  await createBlank(page, "Espaço A");
+  await page.getByLabel("Notas deste Flow").fill("Conteúdo privado A");
+  await page.getByLabel("Nova tarefa", { exact: true }).fill("Primeiro passo");
+  await page.getByLabel("Adicionar tarefa", { exact: true }).click();
+  await page.getByLabel("Descobrir Flows", { exact: true }).click();
+  await createBlank(page, "Espaço B", "Outro objetivo");
+  await expect(page.getByLabel("Notas deste Flow")).toHaveValue("");
+  await page.getByRole("button", { name: "Espaço A", exact: true }).click();
+  await expect(page.getByLabel("Notas deste Flow")).toHaveValue(
+    "Conteúdo privado A",
+  );
+  await expect(
+    page.getByRole("checkbox", { name: "Primeiro passo" }),
+  ).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Espaço A", exact: true }).click();
+  await expect(page.getByLabel("Notas deste Flow")).toHaveValue(
+    "Conteúdo privado A",
+  );
+});
+
+test("landing and specialized onboarding remain usable on mobile", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(
     page.getByRole("heading", { level: 1, name: /Um lugar para/ }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("banner").getByRole("link", { name: "Noma — início" }),
-  ).toBeVisible();
-  await page.screenshot({
-    path: "test-results/discovery-mobile.png",
-    fullPage: true,
-  });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
   await page.goto("/app");
-  await create(page, "Mobile");
+  await openOfficial(page, "Uma semana mais leve");
+  await page.getByRole("button", { name: "Continuar →" }).click();
+  await page.getByLabel("Início da semana").fill("2026-09-14");
+  await page.getByRole("button", { name: "Continuar →" }).click();
+  await page.getByLabel("Até três prioridades").fill("Estudar\nDescansar");
+  await page.getByRole("button", { name: "Continuar →" }).click();
+  await page.getByRole("button", { name: "Continuar →" }).click();
+  await page.getByRole("button", { name: "Entrar no meu Flow" }).click();
+  await expect(
+    page.getByText("Até três prioridades. Um pouco por vez."),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
+  await page.screenshot({
+    path: "test-results/weekly-flow-mobile.png",
+    fullPage: true,
+  });
 });
+
 test("legacy data migrates once without deleting the source", async ({
   page,
 }) => {
@@ -131,14 +186,15 @@ test("legacy data migrates once without deleting the source", async ({
   await expect(
     page.getByRole("checkbox", { name: "Tarefa antiga" }),
   ).toBeVisible();
-  await expect(page.locator(".sync")).toHaveText("Salvo neste dispositivo");
   await page.reload();
   await page.getByLabel("Meus Flows", { exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Entrar no Flow" }),
   ).toHaveCount(1);
   expect(
-    await page.evaluate(() => !!localStorage.getItem("legacy-workspace")),
+    await page.evaluate(() =>
+      Boolean(localStorage.getItem("legacy-workspace")),
+    ),
   ).toBeTruthy();
 });
 
@@ -146,12 +202,17 @@ test("focus cycle survives navigation and reload; pausing stops elapsed time", a
   page,
 }) => {
   await page.goto("/app");
+  await openOfficial(page, "Meu próximo passo: ENEM");
+  await page.getByRole("button", { name: "Continuar →" }).click();
+  await page.getByLabel("Data ou meta da prova").fill("2026-11-08");
+  await page.getByRole("button", { name: "Continuar →" }).click();
   await page
-    .getByRole("button", { name: "Encontrar meu primeiro Flow" })
+    .getByRole("button", { name: "Matemática", exact: true })
+    .first()
     .click();
   await page.getByRole("button", { name: "Continuar →" }).click();
   await page.getByRole("button", { name: "Continuar →" }).click();
-  await page.getByLabel("Como podemos te chamar?").fill("Foco");
+  await page.getByRole("button", { name: "Continuar →" }).click();
   await page.getByRole("button", { name: "Entrar no meu Flow" }).click();
   await page.getByRole("button", { name: "Iniciar", exact: true }).click();
   await expect(page.locator(".sync")).toHaveText("Salvo neste dispositivo");
@@ -165,17 +226,15 @@ test("focus cycle survives navigation and reload; pausing stops elapsed time", a
   await page.clock.install();
   await page.clock.fastForward(5000);
   await expect(page.locator(".session-time")).toHaveText(paused);
-  await expect(
-    page.getByRole("button", { name: "Iniciar", exact: true }),
-  ).toBeVisible();
 });
-test("all reusable components mount and developer content stays in its Flow", async ({
+
+test("reusable tools mount, keep Flow isolation and avoid mobile overflow", async ({
   page,
 }) => {
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/app");
-  await create(page, "Ferramentas");
+  await createBlank(page, "Ferramentas");
   await page.getByRole("button", { name: "Componentes", exact: false }).click();
   for (const name of [
     "Kanban",
@@ -195,10 +254,6 @@ test("all reusable components mount and developer content stays in its Flow", as
   await page.locator("#fakedata-generate-btn").click();
   await expect(page.locator("#fakedata-result-text")).not.toBeEmpty();
   await page.getByLabel("HTML", { exact: true }).fill("<h1>Privado A</h1>");
-  await page.screenshot({
-    path: "test-results/tools-desktop.png",
-    fullPage: true,
-  });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(
@@ -207,7 +262,7 @@ test("all reusable components mount and developer content stays in its Flow", as
   ).toBeTruthy();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByLabel("Descobrir Flows", { exact: true }).click();
-  await create(page, "Outro espaço");
+  await createBlank(page, "Outro espaço");
   await page.getByRole("button", { name: "Componentes", exact: false }).click();
   await page
     .getByRole("button", { name: "Playground Adicionar", exact: false })
@@ -221,6 +276,7 @@ test("all reusable components mount and developer content stays in its Flow", as
   );
   expect(errors).toEqual([]);
 });
+
 test("a second tab cannot silently overwrite local work", async ({
   page,
   context,

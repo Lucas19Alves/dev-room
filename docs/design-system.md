@@ -14,3 +14,11 @@ Componentes reutilizáveis em `src/components/ui`:
 Os componentes mantêm foco visível, área de toque mínima, rótulos acessíveis e feedback por `role=status` ou `role=alert`. Ferramentas usam as mesmas classes para toolbar, campos, abas, listas, vazio, progresso e feedback. Em telas estreitas, editores e formulários deixam de usar múltiplas colunas antes de causar rolagem horizontal.
 
 Novos componentes devem começar pelos tokens e pelos componentes acima. Uma exceção deve representar uma necessidade do conteúdo, não uma nova linguagem visual.
+
+As experiências de Flow acrescentam três padrões internos:
+
+- `FlowOnboarding`: etapas curtas, campos declarativos, seleção acessível e possibilidade de pular blocos opcionais;
+- `FlowHome`: contexto, próximos passos, indicadores, metas, etapas e revisão antes das ferramentas;
+- `StructuredTracker`: formulário e pipeline configuráveis, com mudança de status disponível por teclado e toque.
+
+Esses padrões reutilizam os mesmos controles, foco visível, superfícies e feedback do restante do produto.

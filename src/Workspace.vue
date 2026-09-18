@@ -58,6 +58,7 @@ const {
   createFlow,
   openFlow,
   update,
+  updateManualMetric,
   addTask,
   addLink,
   editComponents,
@@ -467,7 +468,7 @@ const {
                 aria-label="Nome do Flow"
                 @change="update"
               />
-              <p>Um objetivo. Suas ferramentas. Tudo no mesmo lugar.</p>
+              <p>Contexto, próximos passos e progresso no mesmo lugar.</p>
             </div>
             <div class="button-group">
               <button class="outline" @click="adding = !adding">
@@ -487,6 +488,7 @@ const {
             :flow="active"
             :update="activeDefinitionUpdate"
             @review="modal = 'review'"
+            @metric="updateManualMetric"
           />
           <section class="session-bar">
             <span class="session-dot"></span>
@@ -557,7 +559,13 @@ const {
               <header>
                 <h3>
                   <span>{{ components.find((c) => c.id === id)?.icon }}</span
-                  >{{ components.find((c) => c.id === id)?.name }}
+                  >{{
+                    id === "tracker"
+                      ? active.components.find(
+                          (component) => component.type === id,
+                        )?.config?.title || "Tracker"
+                      : components.find((c) => c.id === id)?.name
+                  }}
                 </h3>
                 <div>
                   <button
@@ -632,9 +640,17 @@ const {
                     ＋
                   </button>
                 </form>
-                <div v-for="group in taskGroups" :key="group.name" class="task-group">
+                <div
+                  v-for="group in taskGroups"
+                  :key="group.name"
+                  class="task-group"
+                >
                   <h4>{{ group.name }}</h4>
-                  <div v-for="task in group.items" :key="task.id" class="task-row">
+                  <div
+                    v-for="task in group.items"
+                    :key="task.id"
+                    class="task-row"
+                  >
                     <input
                       v-model="task.done"
                       type="checkbox"

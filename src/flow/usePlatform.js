@@ -276,6 +276,12 @@ export function usePlatform() {
     }
     changed();
   }
+  function updateManualMetric(id, value) {
+    if (!active.value) return;
+    active.value.properties.manualMetrics ||= {};
+    active.value.properties.manualMetrics[id] = Math.max(0, Number(value) || 0);
+    update();
+  }
   function addTask() {
     if (!newTask.value.trim()) return;
     const tasks = componentData(active.value, "tasks", { items: [] });
@@ -694,6 +700,7 @@ export function usePlatform() {
     createFlow,
     openFlow,
     update,
+    updateManualMetric,
     addTask,
     addLink,
     editComponents,

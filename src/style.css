@@ -3546,6 +3546,12 @@ h1 {
   font-size: 9px;
   font-style: normal;
 }
+.manual-metric input {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  font-size: 11px;
+}
 .metric-bar {
   height: 4px;
   overflow: hidden;
@@ -3563,6 +3569,58 @@ h1 {
   overflow-x: auto;
   gap: 0;
   padding-bottom: 4px;
+}
+.flow-goals {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+.flow-goals > span {
+  color: var(--noma-ink-muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.9px;
+}
+.flow-goals > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.flow-goals article {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 170px;
+  padding: 9px 11px;
+  border: 1px solid var(--noma-border);
+  border-radius: var(--noma-radius-sm);
+  background: var(--noma-surface);
+}
+.flow-goals article > i {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
+  font-size: 10px;
+  font-style: normal;
+}
+.flow-goals article > div {
+  display: grid;
+  gap: 2px;
+}
+.flow-goals strong {
+  font-size: 10px;
+}
+.flow-goals small {
+  color: var(--noma-ink-muted);
+  font-size: 9px;
+}
+.flow-goals article.completed {
+  border-color: #cfe2d3;
+  background: #f5faf5;
 }
 .flow-stages > div {
   position: relative;
@@ -3675,6 +3733,7 @@ h1 {
 }
 .tracker-card__main {
   min-width: 0;
+  flex-basis: 100%;
   flex: 1;
 }
 .tracker-card__title {
@@ -3698,9 +3757,13 @@ h1 {
 }
 .tracker-card__actions {
   align-items: center;
+  width: 100%;
+}
+.tracker-card__actions label {
+  flex: 1;
 }
 .tracker-card__actions select {
-  width: 120px;
+  width: 100%;
   min-height: 34px;
   padding: 6px 8px;
   font-size: 9px;

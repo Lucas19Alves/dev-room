@@ -29,7 +29,10 @@ export function onboardingDefaults(definition, supplied = {}) {
       if (field.type === "number" && answers[field.key] !== undefined) {
         const number = Number(answers[field.key]);
         answers[field.key] = Number.isFinite(number)
-          ? Math.max(field.min ?? -Infinity, Math.min(field.max ?? Infinity, number))
+          ? Math.max(
+              field.min ?? -Infinity,
+              Math.min(field.max ?? Infinity, number),
+            )
           : field.default;
       }
     }
@@ -65,8 +68,18 @@ function validLink(url, title) {
 
 function prepareJob(flow, a) {
   flow.componentData.tasks.items = [
-    task(a.resumeUrl ? "Revisar o currículo para o cargo alvo" : "Preparar uma versão atual do currículo", "Perfil"),
-    task(a.linkedinUrl ? "Revisar o título e o resumo do LinkedIn" : "Completar o perfil do LinkedIn", "Perfil"),
+    task(
+      a.resumeUrl
+        ? "Revisar o currículo para o cargo alvo"
+        : "Preparar uma versão atual do currículo",
+      "Perfil",
+    ),
+    task(
+      a.linkedinUrl
+        ? "Revisar o título e o resumo do LinkedIn"
+        : "Completar o perfil do LinkedIn",
+      "Perfil",
+    ),
     ...(a.portfolioUrl
       ? [task("Conferir os projetos mais relevantes do portfólio", "Perfil")]
       : [task("Decidir se um portfólio ajuda nesta busca", "Perfil")]),
@@ -175,10 +188,22 @@ function prepareWeek(flow, a) {
       record("Prioridades", { title, kind: "Prioridade", when: "", notes: "" }),
     ),
     ...commitments.map((title) =>
-      record("Esta semana", { title, kind: "Compromisso", when: "", notes: "" }),
+      record("Esta semana", {
+        title,
+        kind: "Compromisso",
+        when: "",
+        notes: "",
+      }),
     ),
     ...(a.habit
-      ? [record("Esta semana", { title: a.habit, kind: "Hábito", when: "", notes: "" })]
+      ? [
+          record("Esta semana", {
+            title: a.habit,
+            kind: "Hábito",
+            when: "",
+            notes: "",
+          }),
+        ]
       : []),
   ];
   flow.componentData.tasks.items = [
@@ -210,6 +235,7 @@ function prepareBlank(flow, a) {
       order: index,
       status: index === 0 ? "current" : "upcoming",
     }));
+  if (metrics.length) flow.properties.manualMetrics ||= {};
   if (metrics.length)
     flow.metricDefinitions.push(
       ...metrics.map((label, index) => ({
@@ -227,7 +253,10 @@ function prepareSkill(flow, a) {
     record("A explorar", { title, kind: "Recurso", resource: "", notes: "" }),
   );
   flow.componentData.tasks.items = [
-    task(`Fazer a primeira prática de ${a.skillName || "sua habilidade"}`, "Prática"),
+    task(
+      `Fazer a primeira prática de ${a.skillName || "sua habilidade"}`,
+      "Prática",
+    ),
     task("Registrar o que ficou mais claro", "Revisão"),
   ];
 }
@@ -253,7 +282,9 @@ function prepareProject(flow, a) {
   );
   flow.componentData.tasks.items = [
     task("Definir o primeiro passo concreto", "Começo"),
-    ...(a.constraints ? [task("Revisar limites e cuidados do projeto", "Contexto")] : []),
+    ...(a.constraints
+      ? [task("Revisar limites e cuidados do projeto", "Contexto")]
+      : []),
   ];
 }
 
@@ -273,7 +304,10 @@ export function applyDefinitionSetup(flow, definition, suppliedAnswers = {}) {
   }));
   const currentStage = answers.currentStage;
   flow.stages = (definition.stages || []).map((stage, index) => ({
-    id: String(stage).toLowerCase().replace(/[^a-z0-9]+/g, "-") || `stage-${index}`,
+    id:
+      String(stage)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-") || `stage-${index}`,
     title: stage,
     order: index,
     status:

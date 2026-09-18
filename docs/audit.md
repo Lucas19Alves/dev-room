@@ -25,7 +25,9 @@
 - O manifest existe, mas não há service worker para reabrir o app offline após limpar o cache HTTP.
 - Áudios enviados pelo usuário usam URLs temporárias do navegador e não sobrevivem a uma nova sessão.
 - O conversor depende de uma API externa para novas cotações e mantém apenas o último resultado.
-- Modelos oficiais ainda são empacotados no frontend; a próxima fase deve versioná-los e testar migrações específicas por modelo.
+- Modelos oficiais continuam empacotados no frontend, agora com versão explícita; distribuição remota e atualização guiada ainda não existem.
+- O Tracker atual usa um namespace por tipo de componente. Uma futura composição com dois Trackers no mesmo Flow exigirá namespace por `component.id` em todas as ferramentas.
+- Revisões aparecem ao abrir o Flow; não há agendamento em segundo plano ou notificação push.
 - A rota manual é suficiente para o escopo atual, mas guardas e páginas adicionais podem justificar um roteador dedicado depois.
 
 ## Decisões pendentes
@@ -33,3 +35,9 @@
 - Aplicar ao projeto remoto a migração `202609170001_flow_definition_v2.sql`, que adiciona versão e status aos modelos públicos e restringe leitura anônima aos publicados.
 - Definir se áudios enviados devem ficar apenas no dispositivo ou usar Supabase Storage com quota e política de retenção.
 - Escolher a estratégia futura de sincronização granular: tabela por entidade, log de operações ou snapshots por Flow.
+
+## Auditoria dos Flows oficiais
+
+A reconstrução dos Flows confirmou quatro lacunas comuns: onboarding sem efeito no domínio, estrutura oficial sem metas ou etapas úteis, ausência de revisão e ferramentas exibidas antes do contexto. A auditoria e as decisões por Flow estão registradas em [Flows oficiais v2](official-flows.md).
+
+Esta fase manteve o schema da instância em `2` porque todas as mudanças são aditivas. A normalização de leitura acrescenta `review.history`, estratégia de progresso e defaults ausentes sem apagar propriedades ou conteúdo existentes. As definições oficiais avançaram para a versão `2`, de forma independente do schema da instância.
