@@ -64,6 +64,7 @@ const {
   update,
   updateManualMetric,
   executeAction,
+  executeCommand,
   createOpportunity,
   updateOpportunity,
   updateOpportunityStatus,
@@ -487,6 +488,7 @@ const {
             @review="modal = 'review'"
             @metric="updateManualMetric"
             @action="executeAction"
+            @command="executeCommand"
             @opportunity="createOpportunity"
             @opportunity-update="updateOpportunity"
             @opportunity-status="updateOpportunityStatus"

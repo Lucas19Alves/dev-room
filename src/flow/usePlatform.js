@@ -37,6 +37,7 @@ import {
 import { elapsedSeconds, formatClock } from "./time.js";
 import { buildFlowExperience, findExperienceSource } from "./experience.js";
 import { getExperienceComponent } from "./experienceRegistry.js";
+import { executeDeclarativeCommand } from "./declarativeRuntime.js";
 import {
   completeReview,
   postponeReview,
@@ -308,6 +309,42 @@ export function usePlatform() {
     if (!source) return notify("A origem desta ação não está mais disponível.");
     const item = source.item;
     if (operation.type === "open") return;
+    if (source.type === "entity") {
+      try {
+        if (operation.type === "complete")
+          executeDeclarativeCommand(active.value, {
+            type: "complete_entity",
+            entity: source.entityType,
+            entityId: item.id,
+          });
+        if (operation.type === "postpone")
+          executeDeclarativeCommand(active.value, {
+            type: "schedule_action",
+            entity: source.entityType,
+            entityId: item.id,
+            field: action.dueField || "nextActionAt",
+            days: 2,
+            set: { nextAction: item.values?.nextAction || action.title },
+          });
+        if (operation.type === "dismiss") {
+          item.values ||= {};
+          item.values.actionDismissedAt = Date.now();
+          item.values.nextAction = "";
+          item.updatedAt = Date.now();
+        }
+        update();
+        notify(
+          operation.type === "complete"
+            ? "Ação concluída e contexto atualizado."
+            : operation.type === "postpone"
+              ? "Ação adiada por 2 dias."
+              : "Ação dispensada.",
+        );
+      } catch (error) {
+        notify(error.message);
+      }
+      return;
+    }
     if (source.type === "tasks") {
       if (operation.type === "complete") item.done = true;
       if (operation.type === "dismiss") item.dismissedAt = Date.now();
@@ -352,6 +389,16 @@ export function usePlatform() {
           ? "Ação adiada por 2 dias."
           : "Ação dispensada.",
     );
+  }
+  function executeCommand(command) {
+    if (!active.value) return;
+    try {
+      executeDeclarativeCommand(active.value, command);
+      update();
+      notify("O contexto foi atualizado.");
+    } catch (error) {
+      notify(error.message);
+    }
   }
   function trackerData() {
     return componentData(active.value, "tracker", { items: [] });
@@ -871,6 +918,7 @@ export function usePlatform() {
     update,
     updateManualMetric,
     executeAction,
+    executeCommand,
     createOpportunity,
     updateOpportunity,
     updateOpportunityStatus,

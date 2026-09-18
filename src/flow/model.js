@@ -151,6 +151,9 @@ export function createFlowInstance(
     objective: definition.objective || definition.description || name,
     description:
       definition.description || "Um espaço preparado para este objetivo.",
+    definitionSchemaVersion: definition.definitionSchemaVersion || 1,
+    protocol: clone(definition.protocol || null),
+    experience: clone(definition.experience || null),
     onboarding: {
       status: "completed",
       currentStep: 0,
@@ -177,6 +180,7 @@ export function createFlowInstance(
       tasks: { items: tasks },
       notes: { text: "" },
       links: { items: [] },
+      collections: {},
       ...clone(definition.initialData || {}),
     },
     metricDefinitions: clone(definition.metrics || []),
@@ -187,6 +191,8 @@ export function createFlowInstance(
       updatedAt: now,
     },
     sessions: [],
+    events: [],
+    checkins: [],
     context: clone(definition.instructions || { summary: "", prompts: [] }),
     review: {
       cadenceDays: definition.review?.cadenceDays || 7,
@@ -227,6 +233,9 @@ function migrateLegacyFlow(flow) {
     };
     migrated.onboarding.answers ||= {};
     migrated.properties ||= { focusMinutes: 25 };
+    migrated.definitionSchemaVersion ||= 1;
+    migrated.protocol ??= null;
+    migrated.experience ??= null;
     migrated.goals ||= [];
     migrated.stages = (migrated.stages || []).map((stage, order) =>
       typeof stage === "string"
@@ -247,6 +256,8 @@ function migrateLegacyFlow(flow) {
     };
     migrated.progress.strategy ||= { mode: "indicators" };
     migrated.sessions ||= [];
+    migrated.events ||= [];
+    migrated.checkins ||= [];
     migrated.context ||= { summary: migrated.description || "", prompts: [] };
     migrated.review ||= { cadenceDays: 7, prompts: [] };
     migrated.review.history ||= [];
@@ -366,6 +377,9 @@ export function toPublicDefinition(flow) {
       ]),
     ),
     initialData: {},
+    definitionSchemaVersion: flow.definitionSchemaVersion || 1,
+    protocol: clone(flow.protocol || null),
+    experience: clone(flow.experience || null),
     metrics: clone(flow.metricDefinitions || []),
     progress: clone(flow.progress?.strategy || { mode: "indicators" }),
     instructions: clone(flow.context || { summary: "", prompts: [] }),

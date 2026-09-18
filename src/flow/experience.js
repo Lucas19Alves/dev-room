@@ -1,5 +1,11 @@
 import { componentDataEntries } from "./model.js";
 import { calculateMetrics, reviewStatus } from "./runtime.js";
+import {
+  actionMatchesItem,
+  actionTemplate,
+  declarativeEntityItems,
+  entityStateLabels,
+} from "./declarativeRuntime.js";
 
 const DAY = 86400000;
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -322,6 +328,176 @@ function resourcesFor(flow) {
   );
 }
 
+function declarativeRecords(flow, entityId) {
+  const records = declarativeEntityItems(flow, entityId);
+  if (records.length) return records.map((item) => ({ item, source: "entity" }));
+  const tracker = trackerItems(flow);
+  return tracker.map(({ item }) => ({ item, source: "tracker" }));
+}
+
+function declarativeActions(flow, now) {
+  const actions = [];
+  for (const actionDefinition of flow.protocol?.actions || []) {
+    for (const entry of declarativeRecords(flow, actionDefinition.entity)) {
+      const item = entry.item;
+      if (!actionMatchesItem(actionDefinition, item)) continue;
+      if (item.values?.actionDismissedAt) continue;
+      const values = item.values || {};
+      const dueAt = actionDefinition.dueField
+        ? values[actionDefinition.dueField] || ""
+        : "";
+      const due = dateValue(dueAt);
+      const actionId = `${entry.source}:${actionDefinition.entity}:${item.id}:${actionDefinition.id}`;
+      const operations = (actionDefinition.operations || [
+        "open",
+        "complete",
+        "postpone",
+        "dismiss",
+      ]).map((type) =>
+        operation(
+          actionId,
+          type,
+          type === "open"
+            ? "Abrir item"
+            : type === "complete"
+              ? "Concluir"
+              : type === "postpone"
+                ? "Adiar"
+                : "Dispensar",
+        ),
+      );
+      actions.push({
+        id: actionId,
+        type: actionDefinition.id,
+        title: actionTemplate(actionDefinition.title, item),
+        description: actionTemplate(actionDefinition.description, item),
+        priority:
+          due !== null && due <= now + DAY
+            ? "high"
+            : actionDefinition.priority || "normal",
+        dueAt,
+        source: entry.source,
+        sourceId: item.id,
+        entityType: actionDefinition.entity,
+        dueField: actionDefinition.dueField || null,
+        flowId: flow.id,
+        actions: operations,
+      });
+    }
+  }
+  for (const entry of taskItems(flow)) {
+    if (entry.item.done || entry.item.dismissedAt) continue;
+    actions.push(
+      makeAction({
+        flow,
+        sourceType: "tasks",
+        sourceId: entry.item.id,
+        type: "continue_task",
+        title: entry.item.text || "Continuar tarefa",
+        description: entry.item.description || "Um próximo passo disponível neste Flow.",
+        dueAt: entry.item.dueDate,
+        priority: entry.item.priority || "normal",
+      }),
+    );
+  }
+  return actions.slice(0, 12);
+}
+
+function declarativeHistory(flow) {
+  return [
+    ...(flow.events || []).map((event) => ({
+      id: event.id,
+      type: "event",
+      title: event.type.replaceAll(".", " · "),
+      at: event.timestamp,
+      detail: event.entityType || "",
+    })),
+    ...(flow.sessions || []).map((session) => ({
+      id: session.id,
+      type: "session",
+      title: "Sessão de foco concluída",
+      at: session.endedAt,
+      detail: `${Math.floor((session.seconds || 0) / 60)} min`,
+    })),
+    ...(flow.review?.history || []).map((review) => ({
+      id: review.id,
+      type: "review",
+      title: `Revisão ${review.status === "completed" ? "concluída" : review.status}`,
+      at: review.createdAt,
+      detail: "",
+    })),
+  ]
+    .filter((entry) => entry.at)
+    .sort((a, b) => b.at - a.at)
+    .slice(0, 12);
+}
+
+function declarativeSection(flow, definition, actions, metrics, history) {
+  const itemsFor = (section) =>
+    section.entity
+      ? declarativeRecords(flow, section.entity).map(({ item, source }) => ({
+          id: item.id,
+          title: item.values?.title || item.values?.topic || item.values?.company || item.text || "Sem título",
+          subtitle: [item.values?.subject, item.values?.kind, item.status].filter(Boolean).join(" · "),
+          status: item.status,
+          dueAt: item.values?.dueAt || item.values?.when || item.values?.publishAt || item.values?.nextActionAt || "",
+          source,
+          sourceId: item.id,
+          entityType: section.entity,
+          values: clone(item.values || {}),
+          item,
+        }))
+      : [];
+  const layout = flow.experience?.layout || [];
+  return layout.map((section) => ({
+    ...clone(section),
+    title: section.title || section.eyebrow || "",
+    items:
+      section.source === "actions"
+        ? actions.slice(0, section.limit || 8)
+        : section.source === "metrics"
+          ? Object.values(metrics).slice(0, section.limit || 8)
+          : section.source === "history"
+            ? history.slice(0, section.limit || 8)
+            : itemsFor(section).slice(0, section.limit || 20),
+    stateLabels: section.entity
+      ? entityStateLabels(flow.protocol?.entities?.[section.entity])
+      : [],
+  }));
+}
+
+function buildDeclarativeFlowExperience(flow, now) {
+  const metrics = calculateMetrics(flow, now);
+  const actions = declarativeActions(flow, now);
+  const history = declarativeHistory(flow);
+  const layout = declarativeSection(flow, flow.experience, actions, metrics, history);
+  const hero = layout.find((section) => section.type === "hero") || {};
+  const resolve = (value, fallback = "") => {
+    if (!value || typeof value !== "object") return value || fallback;
+    if (value.property) return flow.properties?.[value.property] || value.fallback || fallback;
+    return value.text || fallback;
+  };
+  const heroContext = {
+    eyebrow: hero.eyebrow || "SEU FLOW",
+    title: resolve(hero.title, flow.objective),
+    subtitle: resolve(hero.subtitle, flow.description),
+    facts: [],
+  };
+  return {
+    id: flow.definitionRef?.id,
+    variant: "declarative",
+    declarative: true,
+    layout,
+    context: heroContext,
+    actions,
+    history,
+    opportunities: layout.find((section) => section.entity)?.items || [],
+    sections: { hero: heroContext, layout },
+    progress: { metrics: Object.values(metrics), goals: clone(flow.goals || []), stages: clone(flow.stages || []), value: flow.progress?.value ?? null },
+    week: { metrics: Object.values(metrics).slice(0, 5) },
+  };
+}
+
 function itemViews(flow, type = "tracker") {
   const entries = componentDataEntries(flow, type);
   return entries.flatMap(({ data }) =>
@@ -599,6 +775,8 @@ function domainSections(
 
 export function buildFlowExperience(flow, now = Date.now()) {
   if (!flow) return null;
+  if (flow.protocol?.entities && flow.experience?.layout)
+    return buildDeclarativeFlowExperience(flow, now);
   const id = flow.definitionRef?.id;
   const metrics = calculateMetrics(flow, now);
   const actions = buildActions(flow, now, id);
@@ -693,6 +871,14 @@ export function buildFlowExperience(flow, now = Date.now()) {
 }
 
 export function findExperienceSource(flow, sourceType, sourceId) {
+  if (sourceType === "entity") {
+    for (const [entityType, items] of Object.entries(
+      flow?.componentData?.collections || {},
+    )) {
+      const item = items?.find((candidate) => candidate.id === sourceId);
+      if (item) return { type: sourceType, entityType, item };
+    }
+  }
   if (sourceType === "tracker") {
     for (const { data } of componentDataEntries(flow, "tracker")) {
       const item = data.items?.find((candidate) => candidate.id === sourceId);

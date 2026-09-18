@@ -7,6 +7,7 @@ import CollegeExperience from "../components/experience/CollegeExperience.vue";
 import WeekExperience from "../components/experience/WeekExperience.vue";
 import SkillExperience from "../components/experience/SkillExperience.vue";
 import ContentExperience from "../components/experience/ContentExperience.vue";
+import DynamicExperience from "../components/experience/DynamicExperience.vue";
 
 const raw = (component) => markRaw(component);
 
@@ -15,6 +16,7 @@ const raw = (component) => markRaw(component);
  * experience. Definitions remain data; experiences remain composition.
  */
 export const experienceRegistry = Object.freeze({
+  declarative: raw(DynamicExperience),
   job: raw(JobExperience),
   enem: raw(StudyExperience),
   code: raw(ProjectExperience),
@@ -27,6 +29,8 @@ export const experienceRegistry = Object.freeze({
 });
 
 export function getExperienceComponent(flow) {
+  if (flow?.experience?.layout && flow?.protocol?.entities)
+    return experienceRegistry.declarative;
   return (
     experienceRegistry[flow?.definitionRef?.id] || experienceRegistry.blank
   );

@@ -1,3 +1,5 @@
+import { declarativeForOfficial } from "./declarative.js";
+
 const field = (key, label, type = "text", options = {}) => ({
   key,
   label,
@@ -55,6 +57,7 @@ const definition = (value) => ({
   review: { cadenceDays: 7, prompts: [] },
   initialData: {},
   ...value,
+  ...declarativeForOfficial(value),
   componentConfig: {
     tasks: {
       groups: ["Próximos passos", "Esta semana", "Depois"],
