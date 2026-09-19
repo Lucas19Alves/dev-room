@@ -112,9 +112,9 @@ export const officialDefinitions = [
     category: "Carreira",
     icon: "↗",
     color: "blue",
-    objective: "Conduzir uma busca de trabalho organizada e consciente.",
+    objective: "Organizar uma busca por trabalho com clareza e ritmo real.",
     description:
-      "Acompanhe oportunidades, prepare conversas e cuide de cada próximo passo.",
+      "Acompanhe oportunidades, prepare conversas e transforme cada próximo passo em movimento.",
     tag: "NOVAS POSSIBILIDADES",
     focus: 25,
     components: ["tracker", "tasks", "notes", "links", "focus"],
@@ -329,9 +329,9 @@ export const officialDefinitions = [
     category: "Estudos",
     icon: "✳",
     color: "mint",
-    objective: "Construir uma preparação contínua e sustentável para o ENEM.",
+    objective: "Construir uma preparação consistente para o ENEM sem perder o ritmo.",
     description:
-      "Organize prioridades, pratique, revise erros e saiba o que estudar hoje.",
+      "Organize prioridades, pratique com foco e volte aos erros quando eles ainda estiverem frescos.",
     tag: "COMECE POR AQUI",
     focus: 40,
     components: ["tracker", "tasks", "focus", "notes", "links", "music"],
@@ -564,9 +564,9 @@ export const officialDefinitions = [
     category: "Programação",
     icon: "⌘",
     color: "lavender",
-    objective: "Levar uma ideia de software até uma entrega validada.",
+    objective: "Levar uma ideia de software até uma entrega com direção.",
     description:
-      "Defina o escopo, construa, teste, publique e continue aprendendo com o projeto.",
+      "Defina o escopo, construa com foco, teste antes de entregar e aprenda no caminho.",
     tag: "DEEP WORK",
     focus: 50,
     components: [
@@ -756,9 +756,9 @@ export const officialDefinitions = [
     icon: "▧",
     color: "yellow",
     objective:
-      "Acompanhar disciplinas, entregas, leituras e prazos da vida acadêmica.",
+      "Manter a faculdade em dia sem perder o fio do semestre.",
     description:
-      "Reúna cada disciplina e enxergue o que pede atenção antes do prazo.",
+      "Reúna disciplinas, entregas e prazos em um só lugar e veja o que precisa de atenção primeiro.",
     tag: "VIDA ACADÊMICA",
     focus: 50,
     components: ["tracker", "tasks", "focus", "notes", "links"],
@@ -918,9 +918,9 @@ export const officialDefinitions = [
     icon: "◈",
     color: "peach",
     objective:
-      "Organizar prioridades sem transformar a semana em uma cobrança.",
+      "Organizar a semana com espaço para o que importa.",
     description:
-      "Escolha até três prioridades, proteja seu tempo e deixe o restante encontrar seu lugar.",
+      "Escolha até três prioridades, proteja seu tempo e deixe o resto da vida encontrar seu lugar.",
     tag: "ENCONTRE SEU RITMO",
     focus: 25,
     components: ["tracker", "tasks", "notes"],
@@ -1045,9 +1045,9 @@ export const officialDefinitions = [
     category: "Personalizado",
     icon: "+",
     color: "plain",
-    objective: "Criar um espaço próprio para um objetivo específico.",
+    objective: "Criar um espaço próprio para um objetivo do seu jeito.",
     description:
-      "Comece simples e aprofunde apenas o que ajudar você a continuar.",
+      "Comece simples e adicione só o que realmente ajuda você a avançar.",
     tag: "CRIE DO ZERO",
     focus: 25,
     components: ["tasks", "notes"],
@@ -1134,9 +1134,9 @@ export const officialDefinitions = [
     icon: "◇",
     color: "mint",
     objective:
-      "Construir uma prática consistente para desenvolver uma habilidade.",
+      "Transformar prática em progresso real.",
     description:
-      "Defina uma trilha, pratique com intenção e registre os marcos do aprendizado.",
+      "Defina uma trilha, pratique com intenção e acompanhe os marcos do seu aprendizado.",
     tag: "APRENDER FAZENDO",
     focus: 35,
     components: ["tracker", "tasks", "focus", "notes", "links"],
@@ -1252,9 +1252,9 @@ export const officialDefinitions = [
     icon: "◐",
     color: "lavender",
     objective:
-      "Levar ideias de conteúdo até a publicação com contexto preservado.",
+      "Levar ideias de conteúdo até a publicação sem perder o rumo.",
     description:
-      "Reúna pesquisa, roteiro, produção e publicação em um fluxo contínuo.",
+      "Reúna pesquisa, roteiro, produção e publicação em um fluxo que mantém o contexto vivo.",
     tag: "DA IDEIA À PUBLICAÇÃO",
     focus: 40,
     components: ["tracker", "tasks", "focus", "notes", "links"],
@@ -1351,9 +1351,9 @@ export const officialDefinitions = [
     icon: "△",
     color: "peach",
     objective:
-      "Conduzir um projeto pessoal com começo, próximos passos e encerramento.",
+      "Conduzir um projeto pessoal com começo, passos claros e conclusão.",
     description:
-      "Para mudanças, viagens, eventos, reformas e outros projetos com um resultado concreto.",
+      "Para mudanças, viagens, eventos, reformas e outros projetos que precisam virar resultado concreto.",
     tag: "UM PASSO DE CADA VEZ",
     focus: 30,
     components: ["tracker", "tasks", "focus", "notes", "links"],

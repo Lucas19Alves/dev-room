@@ -19,6 +19,26 @@
     <meta name="theme-color" content="#294a38" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/n-logo.png" />
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem("noma-theme");
+          var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var theme =
+            saved === "dark" || saved === "light"
+              ? saved
+              : saved === "system" || !saved
+                ? (prefersDark ? "dark" : "light")
+                : "light";
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+          var metaTheme = document.querySelector('meta[name="theme-color"]');
+          if (metaTheme) {
+            metaTheme.setAttribute("content", theme === "dark" ? "#0c1412" : "#294a38");
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

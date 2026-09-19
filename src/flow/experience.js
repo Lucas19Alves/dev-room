@@ -483,16 +483,51 @@ function buildDeclarativeFlowExperience(flow, now) {
     subtitle: resolve(hero.subtitle, flow.description),
     facts: [],
   };
+  const primarySection =
+    layout.find((section) => section.source === "actions" || section.type === "next-actions") || {
+      title: "Agora",
+      items: actions,
+    };
+  const progressSection =
+    layout.find((section) => section.source === "metrics" || section.type === "progress") || {
+      title: "Progresso",
+      items: Object.values(metrics),
+    };
+  const secondary = layout
+    .filter(
+      (section) =>
+        !["hero", "next-actions", "progress", "metrics", "timeline"].includes(section.type) &&
+        section.type !== "history",
+    )
+    .map((section) => ({
+      label: String(section.title || section.type || "SECAO").toUpperCase(),
+      title: section.title || "Seção",
+      items: section.items || [],
+    }));
   return {
     id: flow.definitionRef?.id,
-    variant: "declarative",
+    variant: flow.definitionRef?.id || "generic",
     declarative: true,
     layout,
     context: heroContext,
     actions,
     history,
     opportunities: layout.find((section) => section.entity)?.items || [],
-    sections: { hero: heroContext, layout },
+    sections: {
+      hero: heroContext,
+      primary: {
+        label: "AGORA",
+        title: primarySection.title || "Agora",
+        items: primarySection.items || actions,
+      },
+      secondary,
+      progress: {
+        label: "PROGRESSO",
+        title: progressSection.title || "Progresso",
+        items: progressSection.items || Object.values(metrics),
+      },
+      layout,
+    },
     progress: { metrics: Object.values(metrics), goals: clone(flow.goals || []), stages: clone(flow.stages || []), value: flow.progress?.value ?? null },
     week: { metrics: Object.values(metrics).slice(0, 5) },
   };
@@ -775,7 +810,7 @@ function domainSections(
 
 export function buildFlowExperience(flow, now = Date.now()) {
   if (!flow) return null;
-  if (flow.protocol?.entities && flow.experience?.layout)
+  if (flow.definitionRef?.source !== "official" && flow.protocol?.entities && flow.experience?.layout)
     return buildDeclarativeFlowExperience(flow, now);
   const id = flow.definitionRef?.id;
   const metrics = calculateMetrics(flow, now);

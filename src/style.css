@@ -16,11 +16,45 @@
   --window-header: #f8faf8;
   color-scheme: light;
 }
+:root[data-theme="dark"] {
+  --text-main: var(--noma-ink);
+  --text-secondary: var(--noma-ink-soft);
+  --text-muted: var(--noma-ink-muted);
+  --bg-panel: var(--noma-surface);
+  --input-bg: var(--noma-surface-soft);
+  --accent: var(--noma-brand);
+  --glass-border: var(--noma-border);
+  --bg-main: var(--noma-canvas);
+  --window-header: var(--noma-surface-soft);
+  color-scheme: dark;
+}
+html {
+  transition:
+    background-color var(--noma-transition),
+    color var(--noma-transition);
+}
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--noma-border-strong);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--noma-ink-muted);
+}
 * {
   box-sizing: border-box;
 }
 body {
   margin: 0;
+  background: var(--noma-canvas);
+  color: var(--noma-ink);
 }
 button,
 a,
@@ -59,11 +93,18 @@ select {
 input,
 textarea,
 select {
-  border: 1px solid #dfe6df;
+  border: 1px solid var(--noma-border);
   border-radius: 9px;
   padding: 11px 12px;
-  background: #fff;
+  background: var(--noma-surface);
   min-width: 0;
+}
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select {
+  background: var(--noma-surface-soft);
+  border-color: var(--noma-border-strong);
+  color: var(--noma-ink);
 }
 input:focus,
 textarea:focus,
@@ -159,6 +200,30 @@ a:focus-visible,
   to {
     transform: rotate(360deg);
   }
+}
+.app-shell {
+  min-height: 100vh;
+}
+.theme-toggle {
+  position: fixed;
+  right: 18px;
+  top: 18px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid var(--noma-border);
+  background: rgb(255 255 255 / 72%);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--noma-shadow-sm);
+  font-size: 18px;
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .theme-toggle {
+  background: rgb(14 24 22 / 72%);
 }
 .n-field {
   display: flex;
@@ -3004,7 +3069,7 @@ h1 {
     Consolas,
     monospace;
   resize: vertical;
-  background: #f8faf8;
+  background: var(--noma-surface);
 }
 .playground-preview {
   margin-top: 18px;
@@ -3896,4 +3961,1100 @@ h1 {
   .sidebar nav button {
     font-size: 0;
   }
+}
+
+/* ==========================================================================
+   NOMA PROFESSIONAL DARK BOTANICAL THEME
+   ========================================================================== */
+
+/* Base & Typography */
+:root[data-theme="dark"] h1,
+:root[data-theme="dark"] h2,
+:root[data-theme="dark"] h3,
+:root[data-theme="dark"] h4,
+:root[data-theme="dark"] strong {
+  color: var(--noma-ink);
+}
+
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select {
+  background: var(--noma-surface-soft);
+  border-color: var(--noma-border-strong);
+  color: var(--noma-ink);
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder {
+  color: var(--noma-ink-muted);
+}
+
+:root[data-theme="dark"] input:focus,
+:root[data-theme="dark"] textarea:focus,
+:root[data-theme="dark"] select:focus {
+  outline-color: var(--noma-focus);
+  border-color: var(--noma-focus);
+}
+
+/* Sidebar */
+:root[data-theme="dark"] .sidebar {
+  background: var(--noma-surface);
+  border-right-color: var(--noma-border);
+  border-top-color: var(--noma-border);
+}
+:root[data-theme="dark"] .sidebar nav button {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .sidebar nav button:hover {
+  background: var(--noma-surface-soft);
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .sidebar nav button.selected {
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
+  font-weight: 600;
+}
+:root[data-theme="dark"] .sidebar nav b {
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .sidebar nav small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .workspace-label,
+:root[data-theme="dark"] .recent p {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .recent {
+  border-top-color: var(--noma-border);
+}
+:root[data-theme="dark"] .recent button {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .recent button:hover {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .small-promo {
+  border-color: var(--noma-border);
+  background: var(--noma-surface-soft);
+}
+:root[data-theme="dark"] .small-promo > span {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .small-promo strong {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .small-promo p {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .profile {
+  border-top-color: var(--noma-border);
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .profile:hover {
+  background: var(--noma-surface-soft);
+}
+:root[data-theme="dark"] .avatar {
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
+  font-weight: 700;
+}
+:root[data-theme="dark"] .profile small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .profile > span:last-child {
+  color: var(--noma-ink-muted);
+}
+
+/* Topbar */
+:root[data-theme="dark"] .topbar {
+  border-bottom-color: var(--noma-border);
+  background: var(--noma-glass-bg);
+  backdrop-filter: blur(12px);
+}
+:root[data-theme="dark"] .breadcrumb {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .slash {
+  color: var(--noma-border-strong);
+}
+:root[data-theme="dark"] .sync {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .icon-button {
+  border-color: var(--noma-border);
+  background: var(--noma-surface);
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .icon-button:hover {
+  background: var(--noma-surface-soft);
+  border-color: var(--noma-border-strong);
+}
+
+/* Buttons & Core Controls */
+:root[data-theme="dark"] .outline {
+  background: var(--noma-surface);
+  border-color: var(--noma-border-strong);
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .outline:hover {
+  background: var(--noma-surface-soft);
+  border-color: var(--noma-focus);
+}
+:root[data-theme="dark"] .dark-button {
+  background: var(--noma-brand);
+  color: var(--noma-brand-contrast);
+  font-weight: 650;
+}
+:root[data-theme="dark"] .dark-button:hover {
+  filter: brightness(1.08);
+}
+:root[data-theme="dark"] .text-button {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .danger {
+  background: var(--noma-danger);
+  color: #170806;
+  font-weight: 650;
+}
+:root[data-theme="dark"] .n-button--primary {
+  background: var(--noma-brand);
+  color: var(--noma-brand-contrast);
+}
+:root[data-theme="dark"] .n-button--secondary {
+  border-color: var(--noma-border-strong);
+  background: var(--noma-surface);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .n-button--secondary:hover {
+  background: var(--noma-surface-soft);
+}
+:root[data-theme="dark"] .n-button--ghost {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .n-button--danger {
+  background: var(--noma-danger-soft);
+  color: var(--noma-danger);
+  border: 1px solid rgba(243, 141, 130, 0.25);
+}
+
+/* Headings, Filters & Search */
+:root[data-theme="dark"] .eyebrow {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .page-heading p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .section-title p,
+:root[data-theme="dark"] .count,
+:root[data-theme="dark"] .section-title > span {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .filters button {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .filters button:hover {
+  background: var(--noma-surface-soft);
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .filters .active {
+  background: var(--noma-brand-soft);
+  border-color: var(--noma-brand);
+  color: var(--noma-brand);
+  font-weight: 600;
+}
+:root[data-theme="dark"] .search {
+  border-color: var(--noma-border);
+  background: var(--noma-surface);
+}
+:root[data-theme="dark"] .search span {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .search input {
+  color: var(--noma-ink);
+}
+
+/* Hero Section */
+:root[data-theme="dark"] .hero {
+  background: linear-gradient(135deg, #13241e 0%, #193128 100%);
+  border-color: var(--noma-border);
+}
+:root[data-theme="dark"] .hero h2 {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .hero h2 em {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .hero p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .hero-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--noma-border-strong);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .hero-copy > small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .orbit {
+  border-color: var(--noma-border);
+}
+:root[data-theme="dark"] .mini-card {
+  background: rgba(20, 34, 29, 0.94);
+  border-color: var(--noma-border-strong);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+}
+:root[data-theme="dark"] .mini-card > span {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .mini-focus > strong {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .mini-progress {
+  background: linear-gradient(
+    to right,
+    var(--noma-brand) 70%,
+    var(--noma-border) 70%
+  );
+}
+:root[data-theme="dark"] .mini-focus small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .mini-tasks p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .mini-tasks b,
+:root[data-theme="dark"] .mini-tasks i {
+  border-color: var(--noma-border);
+  background: var(--noma-surface-soft);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .floating-label {
+  background: var(--noma-surface-soft);
+  border-color: var(--noma-border-strong);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .art-spark {
+  color: var(--noma-brand);
+}
+
+/* Template Cards & Visual Categories */
+:root[data-theme="dark"] .template-card {
+  border-color: var(--noma-border);
+  background: var(--noma-surface);
+  box-shadow: var(--noma-shadow-sm);
+}
+:root[data-theme="dark"] .template-card:hover {
+  box-shadow: var(--noma-shadow-lg);
+  border-color: var(--noma-border-strong);
+}
+:root[data-theme="dark"] .card-body > small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .card-body h3 {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .card-body > p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .component-chips span {
+  background: var(--noma-surface-soft);
+  border-color: var(--noma-border);
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .card-footer {
+  border-top-color: var(--noma-border);
+}
+:root[data-theme="dark"] .card-footer > span {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .card-footer button {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .bottom-note {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .bottom-note span {
+  color: var(--noma-brand);
+}
+
+/* Category cards tuned for dark mode */
+:root[data-theme="dark"] .mint {
+  background: #10281f;
+  color: #6ed199;
+}
+:root[data-theme="dark"] .lavender {
+  background: #241c35;
+  color: #bfaee8;
+}
+:root[data-theme="dark"] .peach {
+  background: #311f17;
+  color: #f2ad85;
+}
+:root[data-theme="dark"] .blue {
+  background: #142436;
+  color: #8bbdf0;
+}
+:root[data-theme="dark"] .yellow {
+  background: #2c2615;
+  color: #ebd376;
+}
+:root[data-theme="dark"] .plain {
+  background: #1a2721;
+  color: #9cb5a2;
+}
+:root[data-theme="dark"] .card-category {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+/* Stats, Saved Flows & Workspace Home */
+:root[data-theme="dark"] .stats > div {
+  background: var(--noma-surface);
+  border-color: var(--noma-border);
+}
+:root[data-theme="dark"] .stats small,
+:root[data-theme="dark"] .stats em {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .stats strong {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .saved-flow {
+  background: var(--noma-surface);
+  border-color: var(--noma-border);
+}
+:root[data-theme="dark"] .saved-flow h2 {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .saved-flow p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .saved-flow small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .resume {
+  background: var(--noma-surface-soft);
+  border: 1px solid var(--noma-border);
+}
+:root[data-theme="dark"] .resume h2 {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .resume p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .empty {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .flow-title {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .session-bar {
+  background: var(--noma-surface-soft);
+  border-color: var(--noma-border);
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .session-bar small {
+  color: var(--noma-ink-muted);
+}
+
+/* Tool Panels & Shared Tool UI */
+:root[data-theme="dark"] .tool-panel {
+  border-color: var(--noma-border);
+  background: var(--noma-surface);
+}
+:root[data-theme="dark"] .tool-panel > header {
+  border-bottom-color: var(--noma-border);
+}
+:root[data-theme="dark"] .tool-panel > header h3 {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .tool-panel > header h3 span {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .tool-panel > header button {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .timer-ring {
+  border-color: var(--noma-border);
+  border-top-color: var(--noma-brand);
+}
+:root[data-theme="dark"] .timer-ring strong {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .timer-ring small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .focus-tool label {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .tool-timer-display {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .subtle {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .inline-form button {
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .task-row {
+  border-bottom-color: var(--noma-border);
+}
+:root[data-theme="dark"] .task-row input:not([type]) {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .task-row .done {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .task-row button,
+:root[data-theme="dark"] .link-row button {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .link-row {
+  border-bottom-color: var(--noma-border);
+}
+:root[data-theme="dark"] .hint {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .notes-area {
+  background: repeating-linear-gradient(
+    var(--noma-surface),
+    var(--noma-surface) 28px,
+    var(--noma-border) 29px
+  );
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .component-picker {
+  background: var(--noma-surface);
+  border-color: var(--noma-border);
+}
+:root[data-theme="dark"] .component-picker p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .picker-grid button {
+  border-color: var(--noma-border);
+  background: var(--noma-surface);
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .picker-grid button:hover {
+  background: var(--noma-surface-soft);
+  border-color: var(--noma-border-strong);
+}
+:root[data-theme="dark"] .picker-grid .chosen {
+  background: var(--noma-brand-soft);
+  border-color: var(--noma-brand);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .picker-grid button > span {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .picker-grid small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .tool-body {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .tool-caption,
+:root[data-theme="dark"] .tool-hint {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .tool-badge {
+  color: var(--noma-brand);
+  background: var(--noma-brand-soft);
+}
+:root[data-theme="dark"] .tool-progress {
+  background: var(--noma-surface-soft);
+}
+:root[data-theme="dark"] .tool-progress i {
+  background: var(--noma-brand);
+}
+:root[data-theme="dark"] .tool-tabs button {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .tool-tabs button.active {
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .tool-footer {
+  border-top-color: var(--noma-border);
+}
+:root[data-theme="dark"] .tool-feedback {
+  background: var(--noma-surface-soft);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .tool-empty {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .tool-list-row {
+  border-bottom-color: var(--noma-border);
+}
+:root[data-theme="dark"] .tool-list-row small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .tool-icon {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .tool-divider {
+  border-top-color: var(--noma-border);
+}
+:root[data-theme="dark"] .tool-field {
+  color: var(--noma-ink-soft);
+}
+
+/* Kanban */
+:root[data-theme="dark"] .kanban-column {
+  background: var(--noma-surface-soft);
+  border-color: var(--noma-border);
+}
+:root[data-theme="dark"] .kanban-dot {
+  background: var(--noma-brand);
+}
+:root[data-theme="dark"] .kanban-heading input {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .kanban-heading small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .kanban-task {
+  background: var(--noma-surface);
+  border-color: var(--noma-border-strong);
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .kanban-task input {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .kanban-task textarea {
+  background: var(--noma-surface-soft);
+  color: var(--noma-ink);
+  border-color: var(--noma-border);
+}
+:root[data-theme="dark"] .card-grip {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .tool-inline-warning {
+  background: var(--noma-warning-soft);
+  color: var(--noma-warning);
+  border: 1px solid rgba(243, 196, 100, 0.25);
+}
+
+/* Modals & Dialogs */
+:root[data-theme="dark"] .modal-backdrop,
+:root[data-theme="dark"] .n-modal-backdrop {
+  background: var(--noma-overlay-bg);
+  backdrop-filter: blur(8px);
+}
+:root[data-theme="dark"] .modal,
+:root[data-theme="dark"] .n-modal {
+  background: var(--noma-surface);
+  border-color: var(--noma-border-strong);
+  box-shadow: var(--noma-shadow-lg);
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .modal-close,
+:root[data-theme="dark"] .n-modal__close {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .modal-close:hover,
+:root[data-theme="dark"] .n-modal__close:hover {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .modal h2 {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .modal p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .modal label {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .modal hr {
+  border-top-color: var(--noma-border);
+}
+:root[data-theme="dark"] .modal .local-info,
+:root[data-theme="dark"] .setup-info {
+  background: var(--noma-surface-soft);
+  border: 1px solid var(--noma-border);
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .step-progress i {
+  background: var(--noma-surface-soft);
+}
+:root[data-theme="dark"] .step-progress .filled {
+  background: var(--noma-brand);
+}
+:root[data-theme="dark"] .review-flow {
+  background: var(--noma-surface-soft);
+  border: 1px solid var(--noma-border);
+}
+:root[data-theme="dark"] .summary-card {
+  background: #142820;
+  border-color: var(--noma-border-strong);
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .summary-card .eyebrow {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .summary-card p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .summary-card small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .toast {
+  background: var(--noma-surface-elevated);
+  border: 1px solid var(--noma-border-strong);
+  color: var(--noma-ink);
+  box-shadow: var(--noma-shadow-lg);
+}
+
+/* Flow Home & Structured Tracker */
+:root[data-theme="dark"] .flow-home {
+  background:
+    radial-gradient(circle at 95% 5%, rgb(82 183 136 / 15%), transparent 32%),
+    var(--noma-surface);
+}
+:root[data-theme="dark"] .flow-goals article.completed {
+  border-color: rgba(82, 183, 136, 0.35);
+  background: rgba(82, 183, 136, 0.1);
+}
+:root[data-theme="dark"] .definition-update {
+  background: var(--noma-info-soft);
+  border-color: rgba(121, 192, 255, 0.25);
+  color: var(--noma-info);
+}
+:root[data-theme="dark"] .product-state {
+  background: var(--noma-surface-soft);
+  border-color: var(--noma-border-strong);
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .product-state strong {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .product-state__icon {
+  background: var(--noma-surface);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .product-state--error {
+  background: var(--noma-danger-soft);
+  border-color: rgba(243, 141, 130, 0.3);
+}
+:root[data-theme="dark"] .product-state--success {
+  background: var(--noma-success-soft);
+  border-color: rgba(114, 213, 141, 0.3);
+}
+:root[data-theme="dark"] .product-state--offline {
+  background: var(--noma-warning-soft);
+  border-color: rgba(243, 196, 100, 0.3);
+}
+:root[data-theme="dark"] .tracker-group {
+  background: var(--noma-canvas);
+  border-color: var(--noma-border);
+}
+:root[data-theme="dark"] .tracker-card {
+  background: var(--noma-surface);
+  border-color: var(--noma-border);
+}
+:root[data-theme="dark"] .tracker-editor {
+  background: var(--noma-surface-soft);
+  border-color: var(--noma-border-strong);
+}
+
+/* Code Snippets & Playground */
+:root[data-theme="dark"] .playground-preview {
+  border-color: var(--noma-border);
+  background: var(--noma-surface);
+}
+:root[data-theme="dark"] .playground-preview > span {
+  border-bottom-color: var(--noma-border);
+  background: var(--noma-surface-soft);
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .snippet-card {
+  border-color: var(--noma-border);
+  background: var(--noma-surface);
+}
+:root[data-theme="dark"] .snippet-card header {
+  background: var(--noma-surface-soft);
+  border-bottom-color: var(--noma-border);
+}
+:root[data-theme="dark"] .snippet-card header strong {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .snippet-card header span {
+  color: var(--noma-brand);
+  background: var(--noma-surface);
+  border: 1px solid var(--noma-border);
+}
+:root[data-theme="dark"] .snippet-card pre {
+  background: #0b1411;
+  color: #e0eee6;
+  border-top-color: var(--noma-border);
+}
+
+/* Syntax Highlighting for Dark Mode */
+:root[data-theme="dark"] .hljs {
+  color: #d6e4dc;
+  background: #0b1411;
+}
+:root[data-theme="dark"] .hljs-keyword,
+:root[data-theme="dark"] .hljs-selector-tag,
+:root[data-theme="dark"] .hljs-subst {
+  color: #f08d7e;
+}
+:root[data-theme="dark"] .hljs-string,
+:root[data-theme="dark"] .hljs-title,
+:root[data-theme="dark"] .hljs-section,
+:root[data-theme="dark"] .hljs-attribute,
+:root[data-theme="dark"] .hljs-literal,
+:root[data-theme="dark"] .hljs-template-tag,
+:root[data-theme="dark"] .hljs-template-variable,
+:root[data-theme="dark"] .hljs-type,
+:root[data-theme="dark"] .hljs-addition {
+  color: #79d799;
+}
+:root[data-theme="dark"] .hljs-comment,
+:root[data-theme="dark"] .hljs-quote,
+:root[data-theme="dark"] .hljs-deletion,
+:root[data-theme="dark"] .hljs-meta {
+  color: #657e70;
+  font-style: italic;
+}
+:root[data-theme="dark"] .hljs-number,
+:root[data-theme="dark"] .hljs-regexp,
+:root[data-theme="dark"] .hljs-link {
+  color: #82c4f8;
+}
+:root[data-theme="dark"] .hljs-variable,
+:root[data-theme="dark"] .hljs-tag,
+:root[data-theme="dark"] .hljs-name {
+  color: #52b788;
+}
+:root[data-theme="dark"] .hljs-built_in,
+:root[data-theme="dark"] .hljs-class .hljs-title {
+  color: #f3c464;
+}
+
+/* Journey & Heatmap */
+:root[data-theme="dark"] .journey {
+  border-color: var(--noma-border);
+  background: var(--noma-surface);
+}
+:root[data-theme="dark"] .heatmap > div {
+  background: var(--noma-surface-soft);
+}
+:root[data-theme="dark"] .heatmap .level-1 {
+  background: #1c4533;
+}
+:root[data-theme="dark"] .heatmap .level-2 {
+  background: #2e6d4c;
+}
+:root[data-theme="dark"] .heatmap .level-3 {
+  background: #52b788;
+}
+:root[data-theme="dark"] .history-row {
+  border-bottom-color: var(--noma-border);
+}
+:root[data-theme="dark"] .history-row strong {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .history-row small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .history-row > span:not(.flow-icon) {
+  color: var(--noma-brand);
+}
+
+/* Landing Page (Marketing) */
+:root[data-theme="dark"] .marketing {
+  color: var(--noma-ink);
+  background: var(--noma-canvas);
+}
+:root[data-theme="dark"] .landing-nav {
+  border-bottom-color: var(--noma-border);
+  background: var(--noma-glass-bg);
+  backdrop-filter: blur(12px);
+}
+:root[data-theme="dark"] .landing-nav nav {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .landing-nav nav a:hover {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .landing-intro h1 em,
+:root[data-theme="dark"] .landing-section-heading h2 em {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .landing-intro > p,
+:root[data-theme="dark"] .landing-section-heading > p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .landing-secondary {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .landing-assurances {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .landing-preview {
+  border-color: var(--noma-border);
+  background: var(--noma-surface);
+  box-shadow: var(--noma-shadow-lg);
+}
+:root[data-theme="dark"] .preview-bar {
+  color: var(--noma-ink-muted);
+  border-bottom-color: var(--noma-border);
+}
+:root[data-theme="dark"] .preview-canvas {
+  background: var(--noma-canvas);
+}
+:root[data-theme="dark"] .preview-title small {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .preview-avatar {
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .preview-status {
+  background: var(--noma-surface-soft);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .preview-widget {
+  background: var(--noma-surface);
+  border-color: var(--noma-border);
+}
+:root[data-theme="dark"] .preview-widget header {
+  color: var(--noma-brand);
+  border-bottom-color: var(--noma-border);
+}
+:root[data-theme="dark"] .preview-widget header span {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .preview-ring {
+  border-color: var(--noma-border);
+  border-top-color: var(--noma-brand);
+}
+:root[data-theme="dark"] .preview-ring small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .preview-pause {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .preview-meta {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .preview-task {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .preview-task i {
+  border-color: var(--noma-border-strong);
+}
+:root[data-theme="dark"] .preview-task.complete {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .preview-task.complete i {
+  background: var(--noma-brand);
+  color: var(--noma-brand-contrast);
+}
+:root[data-theme="dark"] .preview-add {
+  border-top-color: var(--noma-border);
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .preview-note p {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .preview-note small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .record-art {
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .preview-music p small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .preview-wave i {
+  background: var(--noma-brand);
+}
+:root[data-theme="dark"] .preview-caption {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .landing-values {
+  border-top-color: var(--noma-border);
+  border-bottom-color: var(--noma-border);
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .landing-steps article {
+  border-color: var(--noma-border);
+  background: var(--noma-surface);
+}
+:root[data-theme="dark"] .landing-steps article > span {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .step-illustration {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .landing-steps h3 {
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .landing-steps p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .intent-options button {
+  border-color: var(--noma-border);
+  background: var(--noma-surface);
+  color: var(--noma-ink);
+}
+:root[data-theme="dark"] .intent-options button span:first-child {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .intent-options button span:last-child {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .intent-options button.chosen {
+  background: var(--noma-brand-soft);
+  border-color: var(--noma-brand);
+}
+:root[data-theme="dark"] .intent-card {
+  background: var(--noma-surface);
+  border: 1px solid var(--noma-border);
+}
+:root[data-theme="dark"] .intent-card p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .intent-count {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .landing-continuity {
+  background: var(--noma-surface);
+  border: 1px solid var(--noma-border);
+}
+:root[data-theme="dark"] .landing-continuity p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .journey-illustration {
+  background: var(--noma-canvas);
+  border: 1px solid var(--noma-border);
+}
+:root[data-theme="dark"] .journey-label {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .sample-map i {
+  background: var(--noma-surface-soft);
+}
+:root[data-theme="dark"] .sample-map i.sample-1 {
+  background: #1c4533;
+}
+:root[data-theme="dark"] .sample-map i.sample-2 {
+  background: #2e6d4c;
+}
+:root[data-theme="dark"] .sample-map i.sample-3 {
+  background: #52b788;
+}
+:root[data-theme="dark"] .journey-illustration > p {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .faq-list details {
+  border-bottom-color: var(--noma-border);
+}
+:root[data-theme="dark"] .faq-list summary span {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .faq-list details p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .landing-final {
+  background: var(--noma-surface);
+  border-top-color: var(--noma-border);
+}
+:root[data-theme="dark"] .landing-final > span {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .landing-final p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .landing-footer {
+  color: var(--noma-ink-muted);
+  border-top-color: var(--noma-border);
+}
+
+/* Auth Page */
+:root[data-theme="dark"] .auth-layout {
+  background: var(--noma-canvas);
+}
+:root[data-theme="dark"] .auth-story {
+  background: var(--noma-surface);
+  border-right-color: var(--noma-border);
+}
+:root[data-theme="dark"] .auth-story-copy h1 em {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .auth-story-copy > p {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .auth-note {
+  border-top-color: var(--noma-border);
+}
+:root[data-theme="dark"] .auth-note > span {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .auth-note p {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .auth-note small {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .auth-story-footer {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .auth-back {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .auth-description {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .auth-form label {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .password-field button {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .forgot-link {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .auth-divider {
+  border-top-color: var(--noma-border);
+}
+:root[data-theme="dark"] .auth-divider span {
+  background: var(--noma-canvas);
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .auth-switch {
+  color: var(--noma-ink-soft);
+}
+:root[data-theme="dark"] .auth-switch button {
+  color: var(--noma-brand);
+}
+:root[data-theme="dark"] .auth-private,
+:root[data-theme="dark"] .auth-bottom {
+  color: var(--noma-ink-muted);
+}
+:root[data-theme="dark"] .auth-private {
+  background: var(--noma-surface-soft);
+  border: 1px solid var(--noma-border);
+}
+:root[data-theme="dark"] .auth-error {
+  background: var(--noma-danger-soft);
+  color: var(--noma-danger);
+  border: 1px solid rgba(243, 141, 130, 0.25);
+}
+:root[data-theme="dark"] .auth-success {
+  background: var(--noma-success-soft);
+  color: var(--noma-success);
+  border: 1px solid rgba(114, 213, 141, 0.25);
+}
+:root[data-theme="dark"] .auth-notice {
+  background: var(--noma-surface-soft);
+  color: var(--noma-ink-soft);
+  border: 1px solid var(--noma-border);
 }

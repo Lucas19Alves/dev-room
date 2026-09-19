@@ -13,9 +13,15 @@ import BrandLogo from "./components/ui/BrandLogo.vue";
 import ProductState from "./components/ui/ProductState.vue";
 import NButton from "./components/ui/NButton.vue";
 import { initialize, store } from "./flow/store";
+import { useTheme } from "./composables/useTheme";
+
 const Workspace = defineAsyncComponent(() => import("./Workspace.vue"));
-const path = ref(location.pathname),
-  booting = ref(true);
+const path = ref(location.pathname);
+const booting = ref(true);
+
+// Initialize centralized theme management
+useTheme();
+
 const callbackError = ref(
   new URLSearchParams(location.hash.slice(1)).get("error_description") ||
     new URLSearchParams(location.search).get("error_description") ||
@@ -31,6 +37,7 @@ const authMode = computed(() =>
         : "login",
 );
 const privateRoute = computed(() => path.value === "/app");
+
 function navigate(to, replace = false) {
   history[replace ? "replaceState" : "pushState"]({}, "", to);
   path.value = location.pathname;
@@ -62,6 +69,7 @@ watch(
     if (!store.user && privateRoute.value) navigate("/login", true);
   },
 );
+
 onMounted(async () => {
   const flow = new URLSearchParams(location.search).get("flow");
   if (flow) sessionStorage.setItem("noma-intended-flow", flow);
@@ -73,38 +81,40 @@ onMounted(async () => {
 onUnmounted(() => window.removeEventListener("popstate", onPop));
 </script>
 <template>
-  <LandingPage
-    v-if="path === '/'"
-    :signed-in="!!store.user"
-    @enter="enter"
-    @login="navigate(store.user ? '/app' : '/login')"
-  />
-  <div
-    v-else-if="booting || (privateRoute && !store.ready)"
-    class="auth-loading"
-  >
-    <BrandLogo compact /><ProductState
-      :kind="store.error ? 'error' : 'loading'"
-      :title="
-        store.error
-          ? 'Não foi possível abrir seu espaço'
-          : 'Preparando seu espaço…'
-      "
-      :description="store.error"
-      compact
-      ><NButton v-if="store.error" variant="secondary" @click="initialize"
-        >Tentar novamente</NButton
-      ></ProductState
+  <div class="app-shell">
+    <LandingPage
+      v-if="path === '/'"
+      :signed-in="!!store.user"
+      @enter="enter"
+      @login="navigate(store.user ? '/app' : '/login')"
+    />
+    <div
+      v-else-if="booting || (privateRoute && !store.ready)"
+      class="auth-loading"
     >
+      <BrandLogo compact /><ProductState
+        :kind="store.error ? 'error' : 'loading'"
+        :title="
+          store.error
+            ? 'Não foi possível abrir seu espaço'
+            : 'Preparando seu espaço…'
+        "
+        :description="store.error"
+        compact
+        ><NButton v-if="store.error" variant="secondary" @click="initialize"
+          >Tentar novamente</NButton
+        ></ProductState
+      >
+    </div>
+    <Workspace
+      v-else-if="privateRoute && store.user && store.ready && !store.recovery"
+      :key="store.user.id"
+    />
+    <AuthPage
+      v-else
+      :mode="authMode"
+      :callback-error="callbackError"
+      @navigate="navigate"
+    />
   </div>
-  <Workspace
-    v-else-if="privateRoute && store.user && store.ready && !store.recovery"
-    :key="store.user.id"
-  />
-  <AuthPage
-    v-else
-    :mode="authMode"
-    :callback-error="callbackError"
-    @navigate="navigate"
-  />
 </template>

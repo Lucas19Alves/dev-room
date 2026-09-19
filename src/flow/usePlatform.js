@@ -38,6 +38,10 @@ import { elapsedSeconds, formatClock } from "./time.js";
 import { buildFlowExperience, findExperienceSource } from "./experience.js";
 import { getExperienceComponent } from "./experienceRegistry.js";
 import { executeDeclarativeCommand } from "./declarativeRuntime.js";
+import { billingState, can, mayActivateFlow } from "./billing.js";
+import { isFlowArchived, activeFlows } from "./entitlements.js";
+import { validateDeclarativeDefinition } from "./declarative.js";
+import { recordProductEvent } from "./analytics.js";
 import {
   completeReview,
   postponeReview,
@@ -95,12 +99,18 @@ export function usePlatform() {
     linkUrl = ref(""),
     now = ref(Date.now()),
     community = ref([]),
+    communityLoading = ref(false),
+    communityError = ref(""),
+    previewTemplate = ref(null),
+    showArchived = ref(false),
+    experienceView = ref(null),
     summary = ref(null);
+  const savedFlows = computed(() => store.account.flows.filter((flow) => showArchived.value ? isFlowArchived(flow) : !isFlowArchived(flow)));
   const active = computed(() =>
     store.account.flows.find((f) => f.id === activeId.value),
   );
   const activeDefinitionUpdate = computed(() => definitionUpdate(active.value));
-  const experience = computed(() => buildFlowExperience(active.value));
+  const experience = computed(() => buildFlowExperience(active.value, now.value));
   const experienceComponent = computed(() =>
     getExperienceComponent(active.value),
   );
@@ -216,12 +226,13 @@ export function usePlatform() {
     try {
       await fn();
     } catch (error) {
-      notify(error.message);
+      notify(error.message?.match(/^[A-ZÀ-Ú][^\n]*[.!]$/) && !/error|supabase|fetch|sql|jwt|permission/i.test(error.message) ? error.message : "Não foi possível concluir. Suas alterações salvas continuam aqui. Tente novamente.");
     } finally {
       busy.value = false;
     }
   }
   function choose(template) {
+    if (!mayActivateFlow(store.account.flows)) { modal.value = "account"; return notify("Seu plano permite 3 Flows ativos. Arquive um Flow para liberar espaço ou conheça o Pro."); }
     draft.value = clone(template);
     draft.value.components = draft.value.components.filter((item) =>
       components.some(
@@ -241,6 +252,7 @@ export function usePlatform() {
       : draft.value.components.splice(index, 1);
   }
   async function createFlow(payload = null) {
+    if (!mayActivateFlow(store.account.flows)) { modal.value = "account"; return; }
     const selectedComponents = payload?.components || draft.value.components;
     const name = payload?.name || flowName.value;
     const person = payload?.displayName || displayName.value;
@@ -250,13 +262,14 @@ export function usePlatform() {
       (!store.account.onboarded && !person?.trim())
     )
       return;
-    const definition = clone(draft.value);
+    const definition = clone(payload?.definition || draft.value);
     definition.components = selectedComponents;
     const flow = makeFlow(definition, name, payload?.answers || {});
     store.account.flows.push(flow);
     store.account.name = person?.trim() || store.account.name;
     store.account.onboarded = true;
     changed();
+    recordProductEvent(draft.value?.owner ? "template_installed" : "flow_created");
     modal.value = null;
     await openFlow(flow);
   }
@@ -280,6 +293,7 @@ export function usePlatform() {
     );
     activeId.value = flow.id;
     page.value = "workspace";
+    recordProductEvent("flow_returned");
   }
   function update() {
     if (active.value) {
@@ -308,30 +322,19 @@ export function usePlatform() {
     );
     if (!source) return notify("A origem desta ação não está mais disponível.");
     const item = source.item;
-    if (operation.type === "open") return;
+    if (operation.type === "open") {
+      if (experienceView.value?.openSource) return experienceView.value.openSource(action);
+      adding.value = true;
+      return;
+    }
     if (source.type === "entity") {
       try {
-        if (operation.type === "complete")
-          executeDeclarativeCommand(active.value, {
-            type: "complete_entity",
-            entity: source.entityType,
-            entityId: item.id,
-          });
-        if (operation.type === "postpone")
-          executeDeclarativeCommand(active.value, {
-            type: "schedule_action",
-            entity: source.entityType,
-            entityId: item.id,
-            field: action.dueField || "nextActionAt",
-            days: 2,
-            set: { nextAction: item.values?.nextAction || action.title },
-          });
-        if (operation.type === "dismiss") {
-          item.values ||= {};
-          item.values.actionDismissedAt = Date.now();
-          item.values.nextAction = "";
-          item.updatedAt = Date.now();
-        }
+        if (operation.type === "complete" && action.completionFields?.length && experienceView.value?.handleAction) return experienceView.value.handleAction(action, operation);
+        executeDeclarativeCommand(active.value, {
+          type: `${operation.type}_action`, entity: source.entityType,
+          entityId: item.id, actionId: action.actionId || action.type, days: 2,
+        });
+        if (operation.type === "complete") recordProductEvent("action_completed");
         update();
         notify(
           operation.type === "complete"
@@ -346,7 +349,7 @@ export function usePlatform() {
       return;
     }
     if (source.type === "tasks") {
-      if (operation.type === "complete") item.done = true;
+      if (operation.type === "complete") { item.done = true; item.completedAt = Date.now(); }
       if (operation.type === "dismiss") item.dismissedAt = Date.now();
       if (operation.type === "postpone") {
         const base = new Date(item.dueDate || Date.now());
@@ -396,6 +399,7 @@ export function usePlatform() {
       executeDeclarativeCommand(active.value, command);
       update();
       notify("O contexto foi atualizado.");
+      if (command.type === "complete_action") recordProductEvent("action_completed");
     } catch (error) {
       notify(error.message);
     }
@@ -654,7 +658,10 @@ export function usePlatform() {
   }
   async function loadCommunity() {
     community.value = [];
-    if (!supabase) return;
+    communityError.value = "";
+    if (!supabase) { communityError.value = "Não foi possível carregar os Flows compartilhados. Tente novamente mais tarde."; return; }
+    communityLoading.value = true;
+    try {
     const { data, error } = await supabase
       .from("flow_templates")
       .select("id,user_id,blueprint")
@@ -666,9 +673,30 @@ export function usePlatform() {
         (row) =>
           row.blueprint &&
           typeof row.blueprint.name === "string" &&
-          Array.isArray(row.blueprint.components),
+          Array.isArray(row.blueprint.components) && validateDeclarativeDefinition(row.blueprint).valid,
       )
       .map((row) => ({ ...row.blueprint, id: row.id, owner: row.user_id }));
+    } catch { communityError.value = "Não foi possível carregar os Flows compartilhados. Confira sua conexão e tente novamente."; }
+    finally { communityLoading.value = false; }
+  }
+  function viewTemplate(template) { previewTemplate.value = template; modal.value = "preview"; }
+  async function executeOverviewAction(action, operation) {
+    const flow = store.account.flows.find((flow) => flow.id === action.flowId);
+    if (!flow) return;
+    await openFlow(flow);
+    await nextTick();
+    executeAction(action, operation);
+  }
+  function archiveFlow(flow) {
+    if (!flow) return;
+    if (session.value?.flowId === flow.id) return notify("Finalize o momento de foco antes de arquivar este Flow.");
+    if (isFlowArchived(flow)) {
+      if (!mayActivateFlow(store.account.flows, flow.id)) { modal.value = "account"; return notify("Arquive outro Flow para liberar espaço."); }
+      flow.archivedAt = null; flow.status = "active";
+    } else { flow.archivedAt = Date.now(); flow.status = "archived"; }
+    flow.updatedAt = Date.now(); changed();
+    notify(isFlowArchived(flow) ? "Flow arquivado. Seu conteúdo e histórico continuam guardados." : "Flow reativado.");
+    if (active.value?.id === flow.id) navigate("flows");
   }
   async function navigate(destination) {
     activeId.value = null;
@@ -859,6 +887,9 @@ export function usePlatform() {
     },
   );
   return {
+    now, billingState, can, savedFlows, showArchived, archiveFlow,
+    communityLoading, communityError, loadCommunity, previewTemplate, viewTemplate,
+    executeOverviewAction, experienceView,
     components,
     componentIds,
     componentTypes,

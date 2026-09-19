@@ -1,5 +1,6 @@
 const DATABASE_NAME = "noma";
 const STORE_NAME = "accounts";
+const RECOVERY_STORE = "recoveries";
 let connection;
 
 function openNamedDatabase(name, version) {
@@ -10,8 +11,13 @@ function openNamedDatabase(name, version) {
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(STORE_NAME))
         request.result.createObjectStore(STORE_NAME);
+      if (name === DATABASE_NAME && !request.result.objectStoreNames.contains(RECOVERY_STORE))
+        request.result.createObjectStore(RECOVERY_STORE, { keyPath: "id" });
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      request.result.onversionchange = () => { request.result.close(); connection = null; };
+      resolve(request.result);
+    };
     request.onerror = () => reject(request.error);
   });
 }
@@ -65,7 +71,7 @@ async function importPreviousDatabase(target) {
 
 export function openDatabase() {
   if (!connection)
-    connection = openNamedDatabase(DATABASE_NAME, 1)
+    connection = openNamedDatabase(DATABASE_NAME, 2)
       .then(async (db) => {
         await importPreviousDatabase(db);
         return db;
@@ -75,6 +81,40 @@ export function openDatabase() {
         throw error;
       });
   return connection;
+}
+
+export async function preserveRecovery(key, envelope, reason = "sync_conflict") {
+  const db = await openDatabase();
+  const recovery = JSON.parse(JSON.stringify({ id: crypto.randomUUID(), key, createdAt: Date.now(), reason, ...envelope }));
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(RECOVERY_STORE, "readwrite");
+    transaction.objectStore(RECOVERY_STORE).put(recovery);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error || new Error("Gravação interrompida."));
+  });
+  return recovery;
+}
+
+export async function recoveryCopies(key) {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(RECOVERY_STORE).objectStore(RECOVERY_STORE).getAll();
+    request.onsuccess = () => resolve(request.result.filter((item) => item.key === key).sort((a,b) => b.createdAt-a.createdAt));
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deleteAccountData(key) {
+  const db = await openDatabase();
+  const copies = await recoveryCopies(key);
+  return new Promise((resolve,reject) => {
+    const transaction = db.transaction([STORE_NAME,RECOVERY_STORE], "readwrite");
+    transaction.objectStore(STORE_NAME).delete(key);
+    for(const copy of copies) transaction.objectStore(RECOVERY_STORE).delete(copy.id);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+  });
 }
 
 export async function readAccount(key) {

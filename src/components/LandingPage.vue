@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { templates } from "../flow/catalog";
 import BrandLogo from "./ui/BrandLogo.vue";
+import ThemeToggle from "./ui/ThemeToggle.vue";
 defineProps({ signedIn: Boolean });
 const emit = defineEmits(["enter", "login"]);
 const selected = ref("enem");
@@ -39,6 +40,7 @@ const faqs = [
         ><a href="#perguntas">Perguntas</a>
       </nav>
       <div class="button-group">
+        <ThemeToggle />
         <button class="text-button" @click="emit('login')">
           {{ signedIn ? "Meu espaço" : "Entrar" }}</button
         ><button class="dark-button" @click="emit('enter')">

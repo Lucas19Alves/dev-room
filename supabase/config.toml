@@ -1,0 +1,12 @@
+project_id = "noma"
+
+# Authenticated functions verify the access token with auth.getUser. This also
+# supports publishable keys without trusting client-provided identity.
+[functions.billing]
+verify_jwt = false
+[functions.account-delete]
+verify_jwt = false
+
+# Stripe authenticates requests using the raw-body signature, not a user JWT.
+[functions.stripe-webhook]
+verify_jwt = false

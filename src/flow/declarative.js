@@ -1,3 +1,5 @@
+import { validateDefinitionData } from "./declarativeValidation.js";
+export { DEFINITION_LIMITS } from "./declarativeValidation.js";
 export const DECLARATIVE_SCHEMA_VERSION = 1;
 
 export const FIELD_TYPES = Object.freeze([
@@ -34,6 +36,11 @@ export const COMMAND_TYPES = Object.freeze([
   "record_checkin",
   "add_note",
   "add_resource",
+  "complete_action",
+  "postpone_action",
+  "dismiss_action",
+  "transition_stage",
+  "emit_event",
 ]);
 
 export const SECTION_TYPES = Object.freeze([
@@ -50,6 +57,7 @@ export const SECTION_TYPES = Object.freeze([
   "agenda",
   "stages",
   "text",
+  "checkins",
 ]);
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -64,6 +72,7 @@ function normalizeField(field = {}) {
     ...(field.required ? { required: true } : {}),
     ...(field.default !== undefined ? { default: clone(field.default) } : {}),
     ...(field.options ? { options: clone(field.options) } : {}),
+    ...(field.optionsFromProperty ? { optionsFromProperty: field.optionsFromProperty } : {}),
     ...(field.placeholder ? { placeholder: field.placeholder } : {}),
   };
 }
@@ -76,6 +85,7 @@ function normalizedStates(states = []) {
           id: state.id || state.label || `state-${order + 1}`,
           label: state.label || state.id || `Estado ${order + 1}`,
           order,
+          ...(state.terminal ? { terminal: true } : {}),
         },
   );
 }
@@ -95,6 +105,7 @@ export function protocolFromDefinition(definition = {}) {
         label: definition.entity?.label || tracker?.title || "Itens",
         singular: definition.entity?.singular || tracker?.singular || "item",
         primaryField: tracker?.primaryField || fields[0]?.key || "title",
+        ...(tracker ? { storage: { component: "tracker" } } : {}),
         fields,
         states,
       },
@@ -140,61 +151,11 @@ export function experienceFromDefinition(definition = {}) {
   };
 }
 
-function walk(value, depth = 0) {
-  if (depth > 8) return ["estrutura profunda demais"];
-  if (!value || typeof value !== "object") return [];
-  return Object.values(value).flatMap((child) => walk(child, depth + 1));
-}
-
-function checkRule(rule, path, errors) {
-  if (!rule || typeof rule !== "object") {
-    errors.push(`${path} deve ser um objeto`);
-    return;
-  }
-  const operator = rule.operator || rule.when?.operator;
-  if (operator && !RULE_OPERATORS.includes(operator))
-    errors.push(`${path}.operator desconhecido: ${operator}`);
-  for (const effect of rule.then || []) {
-    if (!COMMAND_TYPES.includes(effect.type))
-      errors.push(`${path}.then contém comando desconhecido: ${effect.type}`);
-  }
-}
-
 export function validateDeclarativeDefinition(definition, options = {}) {
-  const errors = [];
-  if (!definition || typeof definition !== "object")
-    errors.push("a definição precisa ser um objeto");
-  if (JSON.stringify(definition || {}).length > (options.maxBytes || 250000))
-    errors.push("a definição excede o tamanho permitido");
-  errors.push(...walk(definition).filter((error) => error));
-  const protocol = definition?.protocol;
-  if (protocol) {
-    if (protocol.schemaVersion !== DECLARATIVE_SCHEMA_VERSION)
-      errors.push("protocol.schemaVersion incompatível");
-    for (const [entityId, entity] of Object.entries(protocol.entities || {})) {
-      if (!/^[a-z][a-z0-9_-]{0,48}$/.test(entityId))
-        errors.push(`entidade inválida: ${entityId}`);
-      for (const field of entity.fields || []) {
-        if (!FIELD_TYPES.includes(field.type))
-          errors.push(`tipo de campo desconhecido: ${field.type}`);
-        if (["select", "multi-select"].includes(field.type) && !Array.isArray(field.options))
-          errors.push(`campo ${field.id} precisa de opções`);
-      }
-    }
-    for (const command of protocol.commands || [])
-      if (!COMMAND_TYPES.includes(command))
-        errors.push(`comando desconhecido: ${command}`);
-    for (const [index, rule] of (protocol.rules || []).entries())
-      checkRule(rule, `protocol.rules[${index}]`, errors);
-  }
-  const layout = definition?.experience?.layout;
-  if (layout) {
-    if (!Array.isArray(layout)) errors.push("experience.layout deve ser uma lista");
-    for (const [index, section] of layout.entries())
-      if (!SECTION_TYPES.includes(section.type))
-        errors.push(`tipo de seção desconhecido: ${section.type}`);
-  }
-  return { valid: errors.length === 0, errors };
+  return validateDefinitionData(definition, {
+    fields: FIELD_TYPES, operators: RULE_OPERATORS,
+    commands: COMMAND_TYPES, sections: SECTION_TYPES,
+  }, options);
 }
 
 const common = {

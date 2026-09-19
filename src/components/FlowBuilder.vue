@@ -1,257 +1,61 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, nextTick, reactive, ref } from "vue";
 import { buildFlowExperience } from "../flow/experience.js";
+import { createFlowInstance } from "../flow/model.js";
+import { executeDeclarativeCommand } from "../flow/declarativeRuntime.js";
+import { refreshFlowDerivedState } from "../flow/runtime.js";
+import { builderPresets, builderFieldTypes, builderSections, newBuilderCollection, buildCustomDefinition } from "../flow/builder.js";
 import DynamicExperience from "./experience/DynamicExperience.vue";
-
 const emit = defineEmits(["complete", "cancel"]);
-const step = ref(0);
-const name = ref("");
-const description = ref("");
-const objective = ref("");
-const category = ref("Personalizado");
-const icon = ref("✳");
-const color = ref("mint");
-const displayName = ref("Pessoa Noma");
-const entities = ref([]);
-const stages = ref("");
-const highlights = ref(["next-actions", "collection", "progress"]);
-const cadenceDays = ref(7);
-const fieldDrafts = ref({});
-
-const presets = [
-  { id: "tasks", label: "Tarefas", description: "Passos simples para concluir." },
-  { id: "stages", label: "Algo que passa por etapas", description: "Uma coleção com estados e caminho." },
-  { id: "deadlines", label: "Datas e prazos", description: "Itens com datas para chamar atenção." },
-  { id: "practice", label: "Hábitos e práticas", description: "Registros recorrentes e check-ins." },
-  { id: "content", label: "Conteúdos", description: "Ideias, materiais e publicações." },
-  { id: "simple", label: "Começar simples", description: "Você pode aprofundar depois." },
-];
-const fieldTypes = ["text", "textarea", "number", "date", "datetime", "boolean", "url", "select", "multi-select"];
-const sectionOptions = [
-  ["next-actions", "Agora"],
-  ["collection", "Lista"],
-  ["pipeline", "Pipeline"],
-  ["progress", "Progresso"],
-  ["agenda", "Agenda"],
-  ["resources", "Materiais"],
-  ["notes", "Notas"],
-  ["metrics", "Métricas"],
-];
-
-function slug(value, fallback = "item") {
-  return String(value || fallback)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "") || fallback;
+const step = ref(0), heading = ref(null), error = ref(""), displayName = ref("Pessoa Noma"), pathText = ref(""), previewFlow = ref(null), selectedCollection = ref("");
+const draft = reactive({ name: "", objective: "", description: "", category: "Personalizado", icon: "✳", color: "mint", collections: [], stages: [], reminders: [], sections: ["next-actions", "collection", "progress", "timeline"], reviewEnabled: true, cadenceDays: 7 });
+const stagesText = reactive({});
+const previewExperience = computed(() => previewFlow.value ? buildFlowExperience(previewFlow.value) : null);
+const currentCollection = computed(() => draft.collections.find((collection) => collection.id === selectedCollection.value) || draft.collections[0]);
+const headings = ["Dê um nome ao que você quer realizar.", "Qual é o propósito deste Flow?", "O que você precisa acompanhar?", "Quais informações importam?", "Existe um caminho?", "Quando vale chamar sua atenção?", "Como você quer acompanhar?", "Um momento para ajustar o caminho.", "Seu Flow, antes de começar."];
+const descriptions = ["Pode ser uma turma, uma mudança ou algo que você quer aprender.", "Escreva o resultado que você procura. O resto pode ser ajustado depois.", "Escolha uma ou mais bases. Elas já vêm com o essencial preparado.", "Cada lista pode guardar informações diferentes. Mantenha apenas o que ajuda.", "Itens podem passar por etapas. O objetivo também pode ter seus próprios marcos.", "Lembretes ligados ao que está acontecendo, sem criar mais trabalho.", "Escolha o que ajuda você a continuar. Agora será sempre seu ponto de partida.", "Uma revisão é opcional. Escolha um ritmo confortável.", "Experimente adicionar algo. Os exemplos desta prévia não serão salvos no seu Flow."];
+const canContinue = computed(() => step.value === 0 ? Boolean(draft.name.trim()) : step.value === 1 ? Boolean(draft.objective.trim()) : true);
+function addCollection(preset = { id: "list", singular: "item", label: "Minha lista", fields: [["title", "Título", "text"]], states: ["A fazer", "Concluído"] }) {
+  const collection = newBuilderCollection(preset, draft.collections.length + 1);
+  draft.collections.push(collection); selectedCollection.value = collection.id; stagesText[collection.id] = collection.states.join("\n");
 }
-function addPreset(preset) {
-  if (["tasks", "simple"].includes(preset.id)) return;
-  if (entities.value.length) return;
-  const entityId = preset.id === "content" ? "conteudo" : "atividade";
-  entities.value.push({
-    id: entityId,
-    label: preset.id === "content" ? "Conteúdos" : "Atividades",
-    singular: preset.id === "content" ? "conteúdo" : "atividade",
-    fields:
-      preset.id === "content"
-        ? [
-            { key: "title", label: "Título", type: "text", required: true },
-            { key: "format", label: "Formato", type: "select", options: ["Vídeo", "Texto", "Aula", "Outro"] },
-            { key: "publishAt", label: "Data planejada", type: "date" },
-          ]
-        : [
-            { key: "title", label: "Título", type: "text", required: true },
-            { key: "module", label: "Módulo", type: "text" },
-            { key: "dueAt", label: "Prazo", type: "date" },
-            { key: "completed", label: "Concluído", type: "boolean" },
-          ],
-    states: preset.id === "stages" ? ["Planejado", "Em andamento", "Concluído"] : [],
-  });
+function selectPreset(preset) {
+  const previous = draft.collections.find((item) => item.preset === preset.id);
+  if (previous) { selectedCollection.value = previous.id; return; }
+  addCollection(preset);
+  if (preset.id === "practice" && !draft.sections.includes("checkins")) draft.sections.push("checkins");
+  if (preset.id === "content" && !draft.sections.includes("resources")) draft.sections.push("resources");
 }
-function addEntity() {
-  const index = entities.value.length + 1;
-  entities.value.push({ id: `colecao_${index}`, label: `Coleção ${index}`, singular: "item", fields: [{ key: "title", label: "Título", type: "text", required: true }], states: [] });
-}
-function addField(entity) {
-  const draft = fieldDrafts.value[entity.id] || { label: "Novo campo", type: "text", options: "" };
-  const key = slug(draft.label, `campo_${entity.fields.length + 1}`);
-  entity.fields.push({
-    key,
-    label: draft.label || key,
-    type: draft.type,
-    ...(draft.type === "select" || draft.type === "multi-select"
-      ? { options: String(draft.options || "").split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean) }
-      : {}),
-  });
-  fieldDrafts.value[entity.id] = { label: "Novo campo", type: "text", options: "" };
-}
-function toggleSection(type) {
-  highlights.value = highlights.value.includes(type)
-    ? highlights.value.filter((item) => item !== type)
-    : [...highlights.value, type];
-}
-function moveSection(index, direction) {
-  const target = index + direction;
-  if (target < 0 || target >= highlights.value.length) return;
-  [highlights.value[index], highlights.value[target]] = [highlights.value[target], highlights.value[index]];
-}
-function skipCollection() {
-  step.value = 5;
-}
-function protocolDefinition() {
-  const normalizedEntities = {};
-  for (const source of entities.value) {
-    const id = slug(source.id || source.label);
-    normalizedEntities[id] = {
-      id,
-      label: source.label || "Itens",
-      singular: source.singular || "item",
-      primaryField: source.fields[0]?.key || "title",
-      fields: source.fields.map((field) => ({ ...field })),
-      states: source.states.map((label, order) => ({ id: slug(label, `state_${order}`), label, order })),
-    };
-  }
-  const commands = ["create_entity", "update_entity", "transition_entity", "complete_entity", "create_task", "complete_task", "schedule_action", "record_checkin", "add_note", "add_resource"];
-  const actions = Object.values(normalizedEntities).flatMap((entity) => {
-    const primary = entity.primaryField;
-    const dueField = entity.fields.find((field) => ["date", "datetime"].includes(field.type))?.key;
-    return [
-      {
-        id: `continue_${entity.id}`,
-        entity: entity.id,
-        title: `Continuar {${primary}}`,
-        description: "Um próximo passo disponível neste Flow.",
-        ...(dueField ? { dueField } : {}),
-        operations: ["open", "complete", "postpone", "dismiss"],
-      },
-    ];
-  });
-  return {
-    schemaVersion: 1,
-    version: 1,
-    entities: normalizedEntities,
-    commands,
-    events: ["entity.created", "entity.updated", "entity.transitioned", "entity.completed", "task.completed", "checkin.recorded", "review.completed"],
-    rules: [],
-    actions,
-  };
-}
-function experienceDefinition(protocol) {
-  const layout = [
-    { type: "hero", eyebrow: "SEU FLOW", title: objective.value || name.value, subtitle: description.value || "Um espaço preparado para continuar." },
-  ];
-  for (const type of highlights.value) {
-    if (type === "collection") {
-      for (const entity of Object.values(protocol.entities)) layout.push({ type: "collection", title: entity.label, entity: entity.id, create: true, createLabel: `Adicionar ${entity.singular}` });
-    } else if (type === "pipeline") {
-      for (const entity of Object.values(protocol.entities).filter((item) => item.states.length)) layout.push({ type: "pipeline", title: `${entity.label} por etapa`, entity: entity.id, create: false });
-    } else if (type === "next-actions") layout.push({ type: "next-actions", title: "Agora", source: "actions", limit: 5 });
-    else if (type === "progress" || type === "metrics") layout.push({ type: type === "progress" ? "progress" : "metrics", title: type === "progress" ? "Progresso" : "Métricas", source: "metrics" });
-    else layout.push({ type, title: sectionOptions.find(([id]) => id === type)?.[1] || type, source: type });
-  }
-  if (!layout.some((section) => section.type === "next-actions")) layout.push({ type: "next-actions", title: "Agora", source: "actions", limit: 5 });
-  return { schemaVersion: 1, version: 1, layout };
-}
-function buildDefinition() {
-  const protocol = protocolDefinition();
-  return {
-    schemaVersion: 2,
-    definitionSchemaVersion: 1,
-    kind: "flow_definition",
-    version: 1,
-    visibility: "private",
-    id: null,
-    name: name.value.trim() || "Novo Flow",
-    category: category.value || "Personalizado",
-    icon: icon.value,
-    color: color.value,
-    objective: objective.value.trim() || name.value.trim() || "Um objetivo em movimento",
-    description: description.value.trim() || "Um espaço preparado para continuar.",
-    components: ["tasks", "notes"],
-    onboarding: { intro: "Este Flow foi criado por você.", steps: [] },
-    properties: { focusMinutes: 25 },
-    goals: Object.values(protocol.entities).map((entity) => ({ id: `${entity.id}-completed`, title: `${entity.label} concluídos`, metricId: `${entity.id}-completed`, unit: "itens" })),
-    stages: stages.value.split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean),
-    metrics: Object.values(protocol.entities).map((entity) => ({ id: `${entity.id}-completed`, label: `${entity.label} concluídos`, source: { type: "entity", entity: entity.id, completed: true } })),
-    progress: { mode: "indicators" },
-    instructions: { summary: description.value.trim(), prompts: ["Qual é o próximo passo?"] },
-    review: { cadenceDays: Math.max(1, Number(cadenceDays.value) || 7), prompts: ["O que avançou?", "O que precisa de atenção?", "Qual é o próximo passo?"] },
-    protocol,
-    experience: experienceDefinition(protocol),
-    initialData: { collections: Object.fromEntries(Object.keys(protocol.entities).map((id) => [id, []])) },
-  };
-}
-const previewFlow = computed(() => {
-  const definition = buildDefinition();
-  return {
-    id: "builder-preview",
-    definitionRef: { id: null, version: 1 },
-    identity: { name: definition.name, category: definition.category, icon: definition.icon, color: definition.color },
-    objective: definition.objective,
-    description: definition.description,
-    properties: definition.properties,
-    protocol: definition.protocol,
-    experience: definition.experience,
-    componentData: { collections: definition.initialData.collections, tasks: { items: [] }, notes: { items: [] } },
-    metricDefinitions: definition.metrics,
-    goals: definition.goals,
-    stages: definition.stages.map((title, order) => ({ id: slug(title), title, order, status: order === 0 ? "current" : "upcoming" })),
-    metrics: {},
-    progress: { strategy: definition.progress, value: null },
-    sessions: [],
-    events: [],
-    review: { nextAt: Date.now() + 7 * 86400000, history: [] },
-  };
-});
-const previewExperience = computed(() => buildFlowExperience(previewFlow.value));
-const canContinue = computed(() => (step.value === 0 ? Boolean(name.value.trim()) : step.value === 1 ? Boolean(objective.value.trim()) : true));
-function next() {
-  if (!canContinue.value) return;
-  step.value = Math.min(6, step.value + 1);
-}
-function finish() {
-  if (!canContinue.value) return;
-  emit("complete", { name: name.value.trim(), displayName: displayName.value.trim() || "Pessoa Noma", answers: {}, components: ["tasks", "notes"], definition: buildDefinition() });
-}
+function removeCollection(collection) { draft.collections = draft.collections.filter((item) => item.id !== collection.id); draft.reminders = draft.reminders.filter((item) => item.collection !== collection.id); selectedCollection.value = draft.collections[0]?.id || ""; }
+function addField(collection) { let index = collection.fields.length + 1; while (collection.fields.some((field) => field.key === `field_${index}`)) index++; collection.fields.push({ key: `field_${index}`, label: "Nova informação", type: "text", required: false }); }
+function updateType(field) { if (["select", "multi-select"].includes(field.type)) field.options ||= ["Opção 1", "Opção 2"]; else delete field.options; }
+function lines(value) { return String(value || "").split(/[\n;]+/).map((item) => item.trim()).filter(Boolean); }
+function addReminder() { const collection = draft.collections[0]; if (!collection) return; const date = collection.fields.find((field) => ["date", "datetime"].includes(field.type)); draft.reminders.push({ id: crypto.randomUUID(), collection: collection.id, kind: date ? "deadline" : "stalled", field: date?.key || "", days: date ? 2 : 7, state: collection.states[0] || "", title: "" }); }
+function reminderCollection(reminder) { return draft.collections.find((item) => item.id === reminder.collection); }
+function resetReminder(reminder) { const collection = reminderCollection(reminder); reminder.field = collection?.fields.find((field) => ["date", "datetime"].includes(field.type))?.key || ""; reminder.state = collection?.states[0] || ""; if (reminder.kind === "deadline" && !reminder.field) reminder.kind = "stalled"; }
+function toggleSection(type) { if (type !== "next-actions") draft.sections = draft.sections.includes(type) ? draft.sections.filter((item) => item !== type) : [...draft.sections, type]; }
+function moveSection(index, direction) { const target = index + direction; if (target < 1 || target >= draft.sections.length) return; [draft.sections[index], draft.sections[target]] = [draft.sections[target], draft.sections[index]]; }
+function definition() { draft.stages = lines(pathText.value); return buildCustomDefinition(draft); }
+async function go(target) { if (target > step.value && !canContinue.value) return; error.value = ""; if (target === 8) { try { previewFlow.value = createFlowInstance(definition()); } catch { error.value = "Revise os nomes e as opções antes de continuar."; return; } } step.value = target; await nextTick(); heading.value?.focus(); }
+function previewCommand(command) { try { executeDeclarativeCommand(previewFlow.value, command); refreshFlowDerivedState(previewFlow.value); error.value = ""; } catch (exception) { error.value = exception.message || "Não foi possível completar esta ação."; } }
+function finish() { emit("complete", { name: draft.name.trim(), displayName: displayName.value.trim() || "Pessoa Noma", answers: {}, components: ["tasks", "notes", "links"], definition: definition() }); }
 </script>
-
 <template>
   <div class="flow-builder">
-    <div class="eyebrow">CRIAR UM FLOW / {{ step + 1 }} DE 7</div>
-    <h2>{{ ["Dê um nome ao que você quer realizar.", "Qual é o propósito deste Flow?", "O que você quer acompanhar?", "Quais etapas isso percorre?", "O que você quer ver neste Flow?", "Quando o Noma deve chamar sua atenção?", "Veja como vai ficar."][step] }}</h2>
-    <p class="onboarding-description">{{ ["Comece simples. Você poderá aprofundar quando fizer sentido.", "Um objetivo claro ajuda o Flow a destacar o próximo passo.", "Escolha uma base ou crie uma coleção própria.", "Etapas são opcionais e podem ser ajustadas depois.", "Escolha apenas os blocos que ajudam você a continuar.", "Uma revisão periódica mantém o contexto vivo.", "Este é o mesmo renderer usado pelo Flow depois de salvo."][step] }}</p>
-    <div class="step-progress" aria-hidden="true"><i v-for="index in 7" :key="index" :class="{ filled: step >= index - 1 }"></i></div>
-
-    <div v-if="step === 0" class="onboarding-fields"><label class="tool-field">Nome do Flow<input v-model="name" autofocus placeholder="Ex.: Introdução a Redes — Turma 2026" /></label></div>
-    <div v-else-if="step === 1" class="onboarding-fields"><label class="tool-field">O que você quer realizar?<textarea v-model="objective" rows="3" placeholder="Ex.: Acompanhar uma disciplina com meus alunos"></textarea></label><label class="tool-field">Descrição · opcional<textarea v-model="description" rows="2" placeholder="O que torna este Flow útil?"></textarea></label><div class="builder-inline-fields"><label class="tool-field">Categoria<select v-model="category"><option>Personalizado</option><option>Estudos</option><option>Organização</option><option>Carreira</option><option>Projetos</option><option>Criativo</option></select></label><label class="tool-field">Símbolo<select v-model="icon"><option>✳</option><option>◈</option><option>◇</option><option>△</option><option>↗</option><option>⌘</option></select></label><label class="tool-field">Cor<select v-model="color"><option>mint</option><option>blue</option><option>lavender</option><option>peach</option><option>yellow</option></select></label></div></div>
-    <div v-else-if="step === 2" class="builder-step"><div class="builder-presets"><button v-for="preset in presets" :key="preset.id" class="builder-preset" type="button" @click="addPreset(preset)"><strong>{{ preset.label }}</strong><small>{{ preset.description }}</small></button></div><button class="outline" type="button" @click="addEntity">＋ Criar outra coleção</button><article v-for="entity in entities" :key="entity.id" class="builder-entity"><div class="builder-inline-fields"><label class="tool-field">Nome da coleção<input v-model="entity.label" /></label><label class="tool-field">Nome no singular<input v-model="entity.singular" /></label></div><div class="builder-fields"><span class="eyebrow">CAMPOS</span><div v-for="field in entity.fields" :key="field.key" class="builder-field"><input v-model="field.label" aria-label="Nome do campo" /><select v-model="field.type" aria-label="Tipo do campo"><option v-for="type in fieldTypes" :key="type">{{ type }}</option></select></div><div class="builder-field builder-field--new"><input v-model="fieldDrafts[entity.id].label" aria-label="Nome do novo campo" placeholder="Nome do novo campo" /><select v-model="fieldDrafts[entity.id].type" aria-label="Tipo do novo campo"><option v-for="type in fieldTypes" :key="type">{{ type }}</option></select><button class="outline" type="button" @click="addField(entity)">Adicionar campo</button></div></div></article></div>
-    <div v-else-if="step === 3" class="builder-step"><label class="tool-field">Etapas · opcional<textarea v-model="stages" rows="5" placeholder="Uma por linha: Fundamentos\nTCP/IP\nSwitching\nRouting\nSegurança"></textarea></label><p class="hint">As etapas são apenas dados do Flow. O Noma usará os mesmos estados para listas, ações e progresso.</p></div>
-    <div v-else-if="step === 4" class="builder-step"><fieldset class="builder-options"><legend>O que você quer ver neste Flow?</legend><label v-for="[id, label] in sectionOptions" :key="id"><input type="checkbox" :checked="highlights.includes(id)" @change="toggleSection(id)" />{{ label }}</label></fieldset><div class="builder-order"><span class="eyebrow">ORDEM DOS BLOCOS</span><div v-for="(id, index) in highlights" :key="id"><span>{{ sectionOptions.find(([item]) => item === id)?.[1] || id }}</span><button type="button" aria-label="Mover bloco para cima" :disabled="index === 0" @click="moveSection(index, -1)">↑</button><button type="button" aria-label="Mover bloco para baixo" :disabled="index === highlights.length - 1" @click="moveSection(index, 1)">↓</button></div></div></div>
-    <div v-else-if="step === 5" class="builder-step"><label class="tool-field">Revisar a cada quantos dias? · opcional<input v-model="cadenceDays" type="number" min="1" max="90" /></label><label class="onboarding-toggle"><input v-model="displayName" placeholder="Seu nome" /><span>Como podemos te chamar?</span></label></div>
-    <div v-else class="builder-preview"><DynamicExperience :flow="previewFlow" :experience="previewExperience" @action="() => {}" @command="() => {}" @review="() => {}" /></div>
-
-    <footer><button v-if="step > 0" type="button" class="outline" @click="step--">← Voltar</button><button v-if="[2, 3, 4].includes(step)" type="button" class="text-button" @click="skipCollection">Pular por agora</button><button v-if="step < 6" type="button" class="dark-button" :disabled="!canContinue" @click="next">Continuar →</button><button v-else type="button" class="dark-button" :disabled="!canContinue" @click="finish">Entrar no meu Flow ↗</button><button type="button" class="text-button" @click="emit('cancel')">Cancelar</button></footer>
+    <header class="builder-intro"><span class="builder-step-label">Criar um Flow <span>{{ step + 1 }} de {{ headings.length }}</span></span><h2 ref="heading" tabindex="-1">{{ headings[step] }}</h2><p>{{ descriptions[step] }}</p><div class="builder-progress" aria-hidden="true"><i v-for="index in headings.length" :key="index" :class="{ filled: step >= index - 1 }"></i></div></header>
+    <p v-if="error" class="builder-error" role="alert">{{ error }}</p>
+    <div v-if="step === 0" class="builder-step"><label class="tool-field">Nome do Flow<input v-model="draft.name" maxlength="100" autofocus placeholder="Ex.: Introdução a Redes — Turma 2026" @keydown.enter.prevent="go(1)" /></label><p class="builder-hint">Outras ideias: Planejamento do casamento · Aprender violão · Minha próxima entrega</p></div>
+    <div v-else-if="step === 1" class="builder-step"><label class="tool-field">O que você quer realizar?<textarea v-model="draft.objective" maxlength="500" rows="3" placeholder="Ex.: Acompanhar as atividades e o avanço de uma disciplina"></textarea></label><label class="tool-field">Descrição · opcional<textarea v-model="draft.description" maxlength="2000" rows="2" placeholder="Contexto que ajuda a começar"></textarea></label><details class="builder-details"><summary>Aparência e categoria</summary><div class="builder-inline"><label class="tool-field">Categoria<select v-model="draft.category"><option>Personalizado</option><option>Estudos</option><option>Organização</option><option>Carreira</option><option>Projetos</option><option>Criativo</option></select></label><label class="tool-field">Símbolo<select v-model="draft.icon"><option>✳</option><option>◈</option><option>◇</option><option>△</option><option>↗</option><option>⌘</option></select></label><label class="tool-field">Cor<select v-model="draft.color"><option value="mint">Verde suave</option><option value="lavender">Lavanda</option><option value="peach">Pêssego</option><option value="yellow">Areia</option><option value="blue">Azul suave</option></select></label></div></details></div>
+    <div v-else-if="step === 2" class="builder-step"><div class="builder-presets"><button v-for="preset in builderPresets" :key="preset.id" type="button" class="builder-preset" :aria-pressed="draft.collections.some((item) => item.preset === preset.id)" @click="selectPreset(preset)"><span class="builder-preset-mark" aria-hidden="true">{{ draft.collections.some((item) => item.preset === preset.id) ? '✓' : '+' }}</span><strong>{{ preset.label }}</strong><span>{{ preset.description }}</span></button></div><button type="button" class="outline" @click="addCollection()">Criar minha própria lista</button><p class="builder-selection" role="status">{{ draft.collections.length ? `${draft.collections.length} lista${draft.collections.length > 1 ? 's' : ''} preparada${draft.collections.length > 1 ? 's' : ''}. Na próxima tela você ajusta os detalhes.` : 'Você também pode começar com um único próximo passo.' }}</p></div>
+    <div v-else-if="step === 3" class="builder-step"><div v-if="!draft.collections.length" class="builder-hint">Uma lista de próximos passos já será preparada. <button class="text-button" @click="selectPreset(builderPresets[0])">Personalizar informações</button></div><template v-else><div class="builder-tabs" aria-label="Listas do Flow"><button v-for="collection in draft.collections" :key="collection.id" type="button" :aria-pressed="currentCollection?.id === collection.id" @click="selectedCollection = collection.id">{{ collection.label }}</button><button type="button" @click="addCollection()" aria-label="Adicionar lista">+</button></div><article v-if="currentCollection" class="builder-collection" :key="currentCollection.id"><div class="builder-inline"><label class="tool-field">Nome da lista<input v-model="currentCollection.label" maxlength="80" /></label><label class="tool-field">Um item se chama<input v-model="currentCollection.singular" maxlength="50" placeholder="Ex.: atividade" /></label></div><div class="builder-field-list"><details v-for="(field, index) in currentCollection.fields" :key="field.key" class="builder-field-editor" :open="field.label === 'Nova informação'"><summary><span>{{ field.label || 'Informação sem nome' }}</span><small>{{ builderFieldTypes.find(([type]) => type === field.type)?.[1] }}</small></summary><div class="builder-field-body"><div class="builder-inline"><label class="tool-field">Nome da informação<input v-model="field.label" maxlength="80" /></label><label class="tool-field">Tipo de informação<select v-model="field.type" @change="updateType(field)"><option v-for="[type, label] in builderFieldTypes" :key="type" :value="type">{{ label }}</option></select></label></div><label v-if="['select', 'multi-select'].includes(field.type)" class="tool-field">Opções, uma por linha<textarea :value="(field.options || []).join('\n')" rows="3" @input="field.options = lines($event.target.value)"></textarea></label><label class="builder-check"><input v-model="field.required" type="checkbox" :disabled="index === 0" />Preencher ao adicionar</label><button v-if="index > 0" type="button" class="text-button" @click="currentCollection.fields.splice(index, 1)">Remover informação</button></div></details></div><button type="button" class="outline" :disabled="currentCollection.fields.length >= 24" @click="addField(currentCollection)">Adicionar informação</button><button type="button" class="text-button builder-remove" @click="removeCollection(currentCollection)">Remover esta lista</button></article></template></div>
+    <div v-else-if="step === 4" class="builder-step"><article v-for="collection in draft.collections" :key="collection.id" class="builder-rule"><h3>{{ collection.label }}</h3><label class="tool-field">Etapas dos itens, uma por linha<textarea v-model="stagesText[collection.id]" rows="3" @input="collection.states = lines($event.target.value)"></textarea></label><label class="builder-check"><input v-model="collection.sequential" type="checkbox" />Seguir as etapas nesta ordem</label><p class="builder-hint">A última etapa indica conclusão. Desmarcado, você pode avançar ou voltar conforme precisar.</p></article><details class="builder-details"><summary>O objetivo inteiro também tem marcos?</summary><label class="tool-field">Marcos do Flow, um por linha<textarea v-model="pathText" rows="4" placeholder="Fundamentos&#10;TCP/IP&#10;Projeto final"></textarea></label><p class="builder-hint">Por exemplo: aprender acordes, tocar uma música, tocar para alguém.</p></details></div>
+    <div v-else-if="step === 5" class="builder-step"><div v-if="!draft.reminders.length" class="builder-hint">As próximas ações já aparecem a partir dos seus itens. Adicione um lembrete quando um prazo, uma mudança ou uma pausa merecer atenção.</div><article v-for="(reminder, index) in draft.reminders" :key="reminder.id" class="builder-rule"><h3>Lembrete {{ index + 1 }}</h3><div class="builder-inline"><label class="tool-field">Acompanhar<select v-model="reminder.collection" @change="resetReminder(reminder)"><option v-for="collection in draft.collections" :key="collection.id" :value="collection.id">{{ collection.label }}</option></select></label><label class="tool-field">Chamar atenção<select v-model="reminder.kind"><option v-if="reminderCollection(reminder)?.fields.some((field) => ['date', 'datetime'].includes(field.type))" value="deadline">Antes de um prazo</option><option value="stalled">Quando algo ficar parado</option><option v-if="reminderCollection(reminder)?.states.length" value="transition">Depois de mudar de etapa</option><option value="periodic">Voltar periodicamente</option></select></label></div><label v-if="reminder.kind === 'deadline'" class="tool-field">Qual data?<select v-model="reminder.field"><option v-for="field in reminderCollection(reminder)?.fields.filter((field) => ['date', 'datetime'].includes(field.type))" :key="field.key" :value="field.key">{{ field.label }}</option></select></label><label v-if="reminder.kind === 'transition'" class="tool-field">Ao chegar em<select v-model="reminder.state"><option v-for="state in reminderCollection(reminder)?.states" :key="state">{{ state }}</option></select></label><div class="builder-inline"><label class="tool-field">Quantos dias?<input v-model.number="reminder.days" type="number" min="1" max="365" /></label><label class="tool-field">O que lembrar? · opcional<input v-model="reminder.title" maxlength="160" placeholder="Ex.: Revisar esta atividade" /></label></div><button type="button" class="text-button" @click="draft.reminders.splice(index, 1)">Remover lembrete</button></article><button type="button" class="outline" :disabled="!draft.collections.length || draft.reminders.length >= 12" @click="addReminder">Adicionar lembrete</button></div>
+    <div v-else-if="step === 6" class="builder-step"><div class="builder-section-options"><label v-for="[type, label, description] in builderSections" :key="type" class="builder-section-option"><input type="checkbox" :checked="draft.sections.includes(type)" :disabled="type === 'next-actions'" @change="toggleSection(type)" /><span><strong>{{ label }}</strong><small>{{ description }}</small></span></label></div><details class="builder-details"><summary>Ajustar a ordem</summary><div class="builder-order"><div v-for="(type, index) in draft.sections" :key="type"><span>{{ builderSections.find(([id]) => id === type)?.[1] }}</span><button type="button" class="outline" :disabled="index <= 1" :aria-label="`Mover ${builderSections.find(([id]) => id === type)?.[1]} para cima`" @click="moveSection(index, -1)">↑</button><button type="button" class="outline" :disabled="index === 0 || index === draft.sections.length - 1" :aria-label="`Mover ${builderSections.find(([id]) => id === type)?.[1]} para baixo`" @click="moveSection(index, 1)">↓</button></div></div></details><details class="builder-details"><summary>Definir uma meta · opcional</summary><label v-for="collection in draft.collections" :key="collection.id" class="tool-field">Quantos itens concluir em {{ collection.label }}?<input v-model.number="collection.target" type="number" min="0" max="100000" /></label><p class="builder-hint">Deixe zero para acompanhar avanços sem uma meta numérica.</p></details></div>
+    <div v-else-if="step === 7" class="builder-step"><label class="builder-check"><input v-model="draft.reviewEnabled" type="checkbox" />Reservar uma revisão periódica</label><label v-if="draft.reviewEnabled" class="tool-field">Revisar a cada quantos dias?<input v-model.number="draft.cadenceDays" type="number" min="1" max="90" /></label><label class="tool-field">Como podemos te chamar?<input v-model="displayName" maxlength="80" autocomplete="given-name" /></label><p class="builder-hint">Você pode avançar por atividades, decisões e marcos. Não precisa iniciar um cronômetro.</p></div>
+    <div v-else class="builder-preview"><div class="builder-preview-label">Prévia interativa <span>Somente para experimentar</span></div><DynamicExperience v-if="previewFlow" :flow="previewFlow" :experience="previewExperience" :preview="true" @command="previewCommand" /></div>
+    <footer class="builder-footer"><button v-if="step > 0" type="button" class="outline" @click="go(step - 1)">← Voltar</button><button v-if="step >= 2 && step <= 6" type="button" class="text-button" @click="go(7)">Pular por agora</button><button v-if="step < 8" type="button" class="dark-button" :disabled="!canContinue" @click="go(step + 1)">Continuar →</button><button v-else type="button" class="dark-button" @click="finish">Entrar no meu Flow ↗</button><button type="button" class="text-button" @click="emit('cancel')">Cancelar</button></footer>
   </div>
 </template>
-
 <style scoped>
-.flow-builder { display: grid; gap: 1rem; }
-.builder-inline-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; }
-.builder-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
-.builder-preset { display: grid; gap: .25rem; padding: .85rem; text-align: left; border: 1px solid var(--noma-border); border-radius: 13px; background: var(--noma-surface); }
-.builder-preset:hover, .builder-preset:focus-visible { border-color: var(--noma-brand); background: var(--noma-surface-soft); }
-.builder-preset small, .builder-field input { color: var(--noma-ink-soft); }
-.builder-entity { display: grid; gap: .8rem; padding: 1rem; border: 1px solid var(--noma-border); border-radius: 14px; }
-.builder-fields { display: grid; gap: .4rem; }
-.builder-field { display: grid; grid-template-columns: 1fr 12rem auto; gap: .45rem; }
-.builder-field input, .builder-field select { min-height: 2.25rem; border: 1px solid var(--noma-border); border-radius: 8px; padding: .45rem .6rem; background: var(--noma-surface); }
-.builder-options { display: grid; gap: .55rem; border: 1px solid var(--noma-border); border-radius: 13px; padding: 1rem; }
-.builder-order { display: grid; gap: .35rem; }
-.builder-order > div { display: flex; align-items: center; gap: .4rem; padding: .45rem .6rem; border-bottom: 1px solid var(--noma-border); }
-.builder-order > div span { flex: 1; }
-.builder-preview { max-height: 28rem; overflow: auto; border: 1px solid var(--noma-border); border-radius: 14px; padding: .8rem; }
-.builder-preview :deep(.specialized-experience__hero) { padding-top: .2rem; }
-@media (max-width: 700px) { .builder-inline-fields, .builder-presets { grid-template-columns: 1fr; } .builder-field { grid-template-columns: 1fr; } }
+.flow-builder{display:grid;gap:1.4rem;min-width:0}.builder-intro h2{margin:.8rem 0 .6rem;font-size:clamp(1.6rem,4vw,2.2rem);line-height:1.15;letter-spacing:-.03em}.builder-intro h2:focus{outline:none}.builder-intro p,.builder-hint{color:var(--noma-ink-soft);line-height:1.6;font-size:.94rem;margin:0}.builder-step-label{display:flex;align-items:center;gap:.8rem;color:var(--noma-brand);font-size:.86rem;font-weight:700}.builder-step-label span{color:var(--noma-ink-soft);font-weight:400}.builder-progress{display:flex;gap:4px;margin-top:1.2rem}.builder-progress i{flex:1;height:3px;border-radius:2px;background:var(--noma-border)}.builder-progress i.filled{background:var(--noma-brand)}.builder-step,.builder-collection,.builder-field-body{display:grid;gap:1rem;min-width:0}.builder-inline{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.8rem}.builder-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.builder-preset{position:relative;display:grid;gap:.35rem;text-align:left;padding:1.1rem 2.2rem 1.1rem 1rem;border:1px solid var(--noma-border);border-radius:14px;background:var(--noma-surface);color:var(--noma-ink)}.builder-preset[aria-pressed=true]{border-color:var(--noma-brand);background:var(--noma-brand-soft)}.builder-preset strong{font-size:.98rem}.builder-preset>span:last-child{color:var(--noma-ink-soft);font-size:.87rem;line-height:1.45}.builder-preset-mark{position:absolute;inset:1rem .8rem auto auto;color:var(--noma-brand)}.builder-selection{margin:0;font-size:.9rem;color:var(--noma-brand)}.builder-tabs{display:flex;flex-wrap:wrap;gap:.4rem}.builder-tabs button{border:1px solid var(--noma-border);background:transparent;border-radius:30px;padding:.6rem 1rem;min-height:44px}.builder-tabs button[aria-pressed=true]{background:var(--noma-brand);color:white}.builder-field-list{display:grid}.builder-field-editor{border-bottom:1px solid var(--noma-border)}.builder-field-editor summary{display:flex;align-items:center;justify-content:space-between;gap:.7rem;padding:.85rem .2rem;cursor:pointer}.builder-field-editor summary small{font-size:.8rem;color:var(--noma-ink-soft)}.builder-field-body{padding:.2rem .2rem 1rem}.builder-check{display:flex;align-items:center;gap:.65rem;min-height:44px;font-size:.94rem}.builder-check input,.builder-section-option input{accent-color:var(--noma-brand);width:18px;height:18px;flex:0 0 auto}.builder-details{border-top:1px solid var(--noma-border);padding-top:.9rem}.builder-details summary{cursor:pointer;font-weight:600;min-height:44px}.builder-details[open]>:not(summary){margin-top:.6rem}.builder-rule{display:grid;gap:.8rem;padding-bottom:1rem;border-bottom:1px solid var(--noma-border)}.builder-rule h3{margin:0;font-size:1.1rem}.builder-section-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem 1rem}.builder-section-option{display:flex;align-items:flex-start;gap:.7rem;padding:.7rem 0;cursor:pointer}.builder-section-option>span{display:grid;gap:.25rem}.builder-section-option small{color:var(--noma-ink-soft);font-size:.82rem;line-height:1.4}.builder-order>div{display:flex;align-items:center;gap:.4rem;padding:.4rem 0}.builder-order>div>span{flex:1}.builder-preview{min-width:0;border-top:1px solid var(--noma-border)}.builder-preview-label{display:flex;justify-content:space-between;gap:.8rem;padding:.8rem 0;font-size:.85rem;color:var(--noma-brand)}.builder-preview-label span{color:var(--noma-ink-soft)}.builder-preview :deep(.specialized-experience__hero h2){font-size:1.8rem}.builder-error{padding:.8rem 1rem;border-radius:10px;background:var(--noma-danger-soft);color:var(--noma-danger)}.builder-footer{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.5rem;padding-top:1rem;border-top:1px solid var(--noma-border)}.builder-footer button,.builder-step>button{min-height:44px}.builder-remove{justify-self:start;color:var(--noma-danger)}@media(max-width:600px){.builder-presets,.builder-section-options{grid-template-columns:1fr}.builder-footer .dark-button{flex:1}.builder-preview-label{flex-wrap:wrap}.builder-field-editor summary{align-items:start;flex-direction:column;gap:.2rem}}
 </style>

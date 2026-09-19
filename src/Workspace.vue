@@ -5,6 +5,7 @@ import ProductState from "./components/ui/ProductState.vue";
 import NModal from "./components/ui/NModal.vue";
 import FlowOnboarding from "./components/FlowOnboarding.vue";
 import FlowReview from "./components/FlowReview.vue";
+import ThemeToggle from "./components/ui/ThemeToggle.vue";
 const {
   components,
   componentIds,
@@ -179,8 +180,9 @@ const {
           }}
         </div>
         <div class="top-actions">
-          <span class="sync"><i></i>{{ store.status }}</span
-          ><button
+          <span class="sync"><i></i>{{ store.status }}</span>
+          <ThemeToggle />
+          <button
             class="icon-button"
             aria-label="Abrir conta"
             @click="modal = 'account'"
