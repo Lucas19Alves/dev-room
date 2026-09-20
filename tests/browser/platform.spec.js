@@ -196,19 +196,65 @@ test("code Flow composes a project workspace and persists execution across reloa
   await expect(
     page.getByRole("button", { name: /Compartilhar|Personalizar Flow/ }),
   ).toHaveCount(0);
+  await expect(page.getByText("RETOME DE ONDE PAROU")).toBeVisible();
+  await page.getByRole("button", { name: "Editar contexto" }).click();
+  const contextDialog = page.getByRole("dialog");
   await expect(
-    page.getByText("Fluxo principal funcionando", { exact: false }),
+    contextDialog.getByRole("heading", { name: "Contexto do projeto" }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Continuar este passo →", exact: true })
-    .click();
   await expect(
-    page.getByRole("dialog").locator('input[type="checkbox"]'),
-  ).toHaveCount(3);
+    contextDialog.getByLabel("Quando esta versão estará pronta?"),
+  ).toHaveValue("Fluxo principal funcionando");
+  await contextDialog
+    .getByRole("button", { name: "API/serviço", exact: true })
+    .click();
+  await contextDialog.getByLabel("Janela geral").selectOption("2 semanas");
+  await contextDialog.getByRole("button", { name: "Salvar contexto" }).click();
+  await expect(page.getByText("Seu caminho mudou.")).toBeVisible();
+  await page.getByRole("button", { name: "Agora não" }).click();
+  await expect(page.getByText("Seu caminho mudou.")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Continuar daqui →", exact: true })
+    .click();
+  expect(
+    await page.getByRole("dialog").locator('input[type="checkbox"]').count(),
+  ).toBeGreaterThanOrEqual(5);
   await expect(
     page.getByRole("dialog").getByLabel("Tamanho do passo"),
   ).toHaveValue("Média");
   await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Bloquear", exact: true }).click();
+  await page
+    .getByLabel("O que está impedindo este passo?")
+    .fill("Acesso temporariamente indisponível.");
+  await page.getByRole("button", { name: "Salvar impedimento" }).click();
+  await expect(page.getByText("Impedimento registrado.")).toBeVisible();
+  await page.getByRole("button", { name: "Desbloquear" }).click();
+  await expect(page.getByText("Passo desbloqueado.")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Registrar decisão", exact: true })
+    .click();
+  await page
+    .getByLabel("Qual decisão foi tomada?")
+    .fill("Manter login por email nesta versão.");
+  await page.getByRole("button", { name: "Registrar", exact: true }).click();
+  await expect(page.getByText("Decisão registrada.")).toBeVisible();
+  await page.getByRole("button", { name: "Replanejar", exact: true }).click();
+  await page.getByRole("button", { name: "Esta semana", exact: true }).click();
+  await expect(
+    page.getByText("Data atualizada sem alterar seu progresso."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Ideia", exact: true }).click();
+  await page
+    .getByLabel("Nova captura: idea")
+    .fill("Explorar entrada social depois.");
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(
+    page
+      .locator(".code-project__capture-list")
+      .getByText("Explorar entrada social depois.", { exact: false }),
+  ).toBeVisible();
 
   await expect(
     page.getByRole("tab", { name: "Agora", exact: true }),

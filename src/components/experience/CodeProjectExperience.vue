@@ -1,18 +1,29 @@
 <script setup>
 import { computed, reactive, ref, watch, nextTick, onBeforeUnmount } from "vue";
 import {
+  acknowledgeProjectPathReview,
+  addProjectCapture,
   addProjectFeature,
   addProjectStage,
   ensureProjectWorkspace,
   FEATURE_AREAS,
+  finishProject,
+  PROJECT_OBJECTIVES,
   PROJECT_SIZE_SESSIONS,
+  PROJECT_TYPES,
+  projectCompletionSummary,
   projectInsights,
   projectNextStep,
+  projectOutcomeOptions,
+  projectResumeContext,
   projectStatusLabel,
+  recordProjectDecision,
+  recordProjectStepActivity,
   rescheduleProjectTarget,
   rescheduleProjectStep,
   setProjectStepState,
   STACK_CATALOG,
+  updateProjectContext,
 } from "../../flow/projectFlow.js";
 import "./experience.css";
 
@@ -26,6 +37,8 @@ const props = defineProps({
 const emit = defineEmits(["change", "review", "session", "delete"]);
 const project = computed(() => ensureProjectWorkspace(props.flow));
 const stats = computed(() => projectInsights(props.flow));
+const resume = computed(() => projectResumeContext(props.flow));
+const completion = computed(() => projectCompletionSummary(props.flow));
 const ordered = computed(() =>
   [...project.value.steps].sort((a, b) => a.order - b.order),
 );
@@ -45,6 +58,10 @@ const blockers = computed(() =>
 );
 const decisions = computed(() =>
   ordered.value.filter((step) => step.status === "decision"),
+);
+const actionStep = computed(() => resume.value.resumeStep || focusStep.value);
+const recentCaptures = computed(() =>
+  [...(project.value.captures || [])].reverse().slice(0, 3),
 );
 const expandedId = ref("");
 const panel = ref("");
@@ -125,6 +142,8 @@ function closeDialog() {
 
 function saveDialogChange() {
   dialogDirty.value = false;
+  if (selectedStep.value)
+    recordProjectStepActivity(props.flow, selectedStep.value.id);
   changed();
 }
 function trapDialogFocus(event) {
@@ -174,6 +193,24 @@ const checklistDraft = ref("");
 const snippetDraft = reactive({ title: "", language: "javascript", code: "" });
 const customDate = reactive({});
 const stateDraft = reactive({ stepId: "", status: "" });
+const quickAction = ref("");
+const quickFeedback = ref("");
+const quickReason = ref("");
+const quickDecision = ref("");
+const quickCapture = reactive({ kind: "step", text: "" });
+const contextStackDraft = ref("");
+const contextForm = reactive({
+  objective: "",
+  description: "",
+  projectTypes: [],
+  stack: [],
+  intendedOutcome: "",
+  targetWindow: "Sem prazo",
+  targetDate: "",
+});
+const contextOutcomes = computed(() =>
+  projectOutcomeOptions(contextForm.objective, contextForm.projectTypes),
+);
 const stageForm = reactive({
   name: "",
   type: "implementation",
@@ -257,6 +294,116 @@ const statusText = (step) => projectStatusLabel(step);
 function changed() {
   props.flow.updatedAt = Date.now();
   emit("change");
+}
+
+function openContextPanel() {
+  Object.assign(contextForm, {
+    objective: project.value.objective,
+    description: project.value.description,
+    projectTypes: [...project.value.projectTypes],
+    stack: [...project.value.stack],
+    intendedOutcome: project.value.intendedOutcome,
+    targetWindow: project.value.targetWindow || "Sem prazo",
+    targetDate: project.value.targetAt || "",
+  });
+  contextStackDraft.value = "";
+  panel.value = "context";
+}
+
+function toggleContextValue(key, value) {
+  contextForm[key] = contextForm[key].includes(value)
+    ? contextForm[key].filter((item) => item !== value)
+    : [...contextForm[key], value];
+}
+
+function addContextStack() {
+  const value = contextStackDraft.value.trim();
+  if (!value || contextForm.stack.includes(value)) return;
+  contextForm.stack = [...contextForm.stack, value];
+  contextStackDraft.value = "";
+}
+
+function submitContext() {
+  updateProjectContext(props.flow, contextForm);
+  panel.value = "";
+  changed();
+}
+
+function reviewChangedPath(reviewed) {
+  acknowledgeProjectPathReview(props.flow, reviewed);
+  if (reviewed) activeTab.value = "plan";
+  changed();
+}
+
+function startQuickAction(action) {
+  quickAction.value = quickAction.value === action ? "" : action;
+  quickFeedback.value = "";
+  quickReason.value = "";
+  quickDecision.value = "";
+}
+
+function completeNow() {
+  if (!actionStep.value) return;
+  changeState(actionStep.value, "completed");
+  quickFeedback.value = "Passo concluído. O próximo já está pronto.";
+  quickAction.value = "";
+}
+
+function unblockNow() {
+  if (!actionStep.value) return;
+  changeState(actionStep.value, "active");
+  quickFeedback.value = "Passo desbloqueado.";
+  quickAction.value = "";
+}
+
+function blockNow() {
+  if (!actionStep.value || !quickReason.value.trim()) return;
+  actionStep.value.blockedReason = quickReason.value.trim();
+  changeState(actionStep.value, "blocked");
+  quickFeedback.value = "Impedimento registrado.";
+  quickAction.value = "";
+}
+
+function decideNow() {
+  if (!actionStep.value || !quickDecision.value.trim()) return;
+  recordProjectDecision(props.flow, {
+    text: quickDecision.value,
+    stepId: actionStep.value.id,
+    title: actionStep.value.title,
+  });
+  if (actionStep.value.status === "decision")
+    setProjectStepState(props.flow, actionStep.value.id, "active");
+  quickFeedback.value = "Decisão registrada.";
+  quickAction.value = "";
+  quickDecision.value = "";
+  changed();
+}
+
+function replanNow(choice) {
+  if (!actionStep.value) return;
+  if (!replan(actionStep.value, choice)) return;
+  quickFeedback.value = "Data atualizada sem alterar seu progresso.";
+  quickAction.value = "";
+}
+
+function captureNow() {
+  try {
+    addProjectCapture(props.flow, quickCapture);
+    quickFeedback.value = "Registro guardado no contexto atual.";
+    quickCapture.text = "";
+    changed();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+function finishNow(action) {
+  try {
+    finishProject(props.flow, action);
+    changed();
+  } catch (error) {
+    window.alert(error.message);
+  }
 }
 
 function saveProjectName() {
@@ -390,6 +537,7 @@ function addChecklist(step) {
   step.checklist ||= [];
   step.checklist.push({ id: crypto.randomUUID(), text, done: false });
   checklistDraft.value = "";
+  recordProjectStepActivity(props.flow, step.id, "project_checklist_updated");
   changed();
 }
 
@@ -398,6 +546,7 @@ function updateFeatureFromChecklist(step) {
     (item) => item.id === step.featureId,
   );
   if (!feature) {
+    recordProjectStepActivity(props.flow, step.id, "project_checklist_updated");
     changed();
     return;
   }
@@ -414,6 +563,7 @@ function updateFeatureFromChecklist(step) {
   if (step.checklist?.length && step.checklist.every((item) => item.done))
     setProjectStepState(props.flow, step.id, "completed");
   else feature.status = step.status;
+  recordProjectStepActivity(props.flow, step.id, "project_checklist_updated");
   changed();
 }
 
@@ -428,6 +578,7 @@ function addLink(step) {
       url: url.href,
     });
     Object.assign(linkDraft, { title: "", url: "" });
+    recordProjectStepActivity(props.flow, step.id, "project_link_added");
     changed();
   } catch {
     window.alert("Insira um link válido começando com http:// ou https://.");
@@ -444,6 +595,7 @@ function addSnippet(step) {
     code: snippetDraft.code,
   });
   Object.assign(snippetDraft, { title: "", language: "javascript", code: "" });
+  recordProjectStepActivity(props.flow, step.id, "project_code_saved");
   changed();
 }
 
@@ -451,8 +603,10 @@ function replan(step, choice) {
   try {
     rescheduleProjectStep(props.flow, step.id, choice, customDate[step.id]);
     changed();
+    return true;
   } catch (error) {
     window.alert(error.message);
+    return false;
   }
 }
 
@@ -467,6 +621,7 @@ function replanTarget(choice) {
 
 function beginSession(step) {
   if (activeSessionFor(step)) closeDialog();
+  recordProjectStepActivity(props.flow, step.id, "project_focus_toggled");
   emit("session", step.id);
 }
 </script>
@@ -502,6 +657,9 @@ function beginSession(step) {
         </div>
       </div>
       <div class="code-project__header-meta">
+        <button class="outline" @click="openContextPanel">
+          Editar contexto
+        </button>
         <details class="code-project__project-details">
           <summary>Detalhes do projeto</summary>
           <span>{{
@@ -567,100 +725,270 @@ function beginSession(step) {
       aria-labelledby="project-tab-now"
       class="code-project__tab-content"
     >
-      <section class="code-project__now">
+      <section
+        v-if="project.pathReview?.pending && !completion.ready"
+        class="code-project__path-review"
+        role="status"
+      >
+        <div>
+          <strong>Seu caminho mudou.</strong>
+          <span>Deseja revisar os próximos passos?</span>
+        </div>
+        <div class="code-project__actions">
+          <button class="outline" @click="reviewChangedPath(true)">
+            Revisar passos
+          </button>
+          <button class="text-button" @click="reviewChangedPath(false)">
+            Agora não
+          </button>
+        </div>
+      </section>
+
+      <section v-if="completion.ready" class="code-project__finish">
+        <span class="eyebrow">{{
+          project.lifecycle === "closed"
+            ? "PROJETO ENCERRADO"
+            : "TRABALHO PRINCIPAL CONCLUÍDO"
+        }}</span>
+        <h2>
+          {{
+            project.lifecycle === "closed"
+              ? "Esta versão foi encerrada."
+              : "Você chegou ao resultado desta versão."
+          }}
+        </h2>
+        <p>
+          {{ completion.completedSteps.length }} passos concluídos ·
+          {{ completion.deliveries.length }} entregas ·
+          {{ completion.sessions }} períodos de foco ·
+          {{ completion.minutes }} min
+        </p>
+        <div class="code-project__finish-list">
+          <strong>O que foi concluído</strong>
+          <span
+            v-for="item in completion.completedSteps.slice(0, 6)"
+            :key="item.id"
+          >
+            {{ item.title }}
+          </span>
+        </div>
+        <div
+          v-if="completion.deliveries.length"
+          class="code-project__finish-list"
+        >
+          <strong>Principais entregas</strong>
+          <span v-for="item in completion.deliveries" :key="item.id">
+            {{ item.name }}
+          </span>
+        </div>
+        <div
+          v-if="completion.decisions.length"
+          class="code-project__finish-list"
+        >
+          <strong>Decisões tomadas</strong>
+          <span v-for="item in completion.decisions" :key="item.id">
+            {{ item.text }}
+          </span>
+        </div>
+        <div
+          v-if="completion.optionalPending.length"
+          class="code-project__finish-list"
+        >
+          <strong>Pendências opcionais</strong>
+          <span v-for="item in completion.optionalPending" :key="item">
+            {{ item }}
+          </span>
+        </div>
+        <div class="code-project__actions">
+          <button
+            v-if="project.lifecycle !== 'closed'"
+            class="dark-button"
+            @click="finishNow('close')"
+          >
+            Encerrar
+          </button>
+          <button class="outline" @click="finishNow('evolve')">
+            Continuar evoluindo
+          </button>
+          <button class="outline" @click="finishNow('new-version')">
+            Iniciar nova versão
+          </button>
+        </div>
+      </section>
+
+      <section v-else class="code-project__now">
         <div class="code-project__section-title">
           <div>
-            <span class="eyebrow">O QUE FAZER AGORA</span>
-            <h2>{{ focusStep?.title || "Escolha seu próximo passo" }}</h2>
+            <span class="eyebrow">RETOME DE ONDE PAROU</span>
+            <p v-if="resume.lastWorkedStep" class="code-project__last-worked">
+              Último passo trabalhado: {{ resume.lastWorkedStep.title }}
+            </p>
+            <h2>{{ actionStep?.title || "Escolha seu próximo passo" }}</h2>
           </div>
           <span
-            v-if="focusStep"
+            v-if="actionStep"
             class="code-project__status"
-            :class="`is-${focusStep.status}`"
-            >{{ statusText(focusStep) }}</span
+            :class="`is-${actionStep.status}`"
+            >{{ statusText(actionStep) }}</span
           >
         </div>
-        <p v-if="focusStep">{{ focusStep.objective }}</p>
+        <p v-if="actionStep">{{ actionStep.objective }}</p>
         <p v-else>Escolha um passo no plano para continuar construindo.</p>
+        <div v-if="actionStep" class="code-project__resume-signals">
+          <span>{{ resume.pendingChecklist.length }} ações pendentes</span>
+          <span v-if="blockers.length">{{ blockers.length }} impedimentos</span>
+          <span v-if="decisions.length">{{ decisions.length }} decisões</span>
+          <span v-if="stats.overdue">{{ stats.overdue }} datas para rever</span>
+        </div>
         <button
-          v-if="!focusStep"
+          v-if="!actionStep"
           class="dark-button"
           @click="activeTab = 'plan'"
         >
           Abrir meu plano →
         </button>
-        <div v-if="focusStep" class="code-project__actions">
-          <button class="dark-button" @click="expandedId = focusStep.id">
-            Continuar este passo →
+        <div v-if="actionStep" class="code-project__actions">
+          <button class="dark-button" @click="expandedId = actionStep.id">
+            Continuar daqui →
+          </button>
+          <button class="outline" @click="completeNow">Concluir</button>
+          <button
+            v-if="actionStep.status === 'blocked'"
+            class="outline"
+            @click="unblockNow"
+          >
+            Desbloquear
+          </button>
+          <button v-else class="outline" @click="startQuickAction('block')">
+            Bloquear
+          </button>
+          <button class="outline" @click="startQuickAction('decision')">
+            Registrar decisão
+          </button>
+          <button class="outline" @click="startQuickAction('replan')">
+            Replanejar
           </button>
           <button
-            v-if="!activeSessionFor(focusStep)"
+            v-if="!activeSessionFor(actionStep)"
             class="outline"
-            @click="beginSession(focusStep)"
+            @click="beginSession(actionStep)"
           >
-            Reservar {{ project.sessionDuration }}
+            Iniciar foco · {{ project.sessionDuration }}
           </button>
-          <button v-else class="outline" @click="beginSession(focusStep)">
-            Terminar tempo de foco · {{ Math.floor(seconds / 60) }} min
+          <button v-else class="outline" @click="beginSession(actionStep)">
+            Encerrar foco · {{ Math.floor(seconds / 60) }} min
           </button>
+        </div>
+        <p
+          v-if="quickFeedback"
+          class="code-project__quick-feedback"
+          role="status"
+        >
+          {{ quickFeedback }}
+        </p>
+        <form
+          v-if="quickAction === 'block'"
+          class="code-project__quick-form"
+          @submit.prevent="blockNow"
+        >
+          <label
+            >O que está impedindo este passo?<input
+              v-model="quickReason"
+              required
+              maxlength="180"
+          /></label>
+          <button class="dark-button" type="submit">Salvar impedimento</button>
+        </form>
+        <form
+          v-if="quickAction === 'decision'"
+          class="code-project__quick-form"
+          @submit.prevent="decideNow"
+        >
+          <label
+            >Qual decisão foi tomada?<input
+              v-model="quickDecision"
+              required
+              maxlength="240"
+          /></label>
+          <button class="dark-button" type="submit">Registrar</button>
+        </form>
+        <div v-if="quickAction === 'replan'" class="code-project__quick-form">
+          <span>Quando quer retomar este passo?</span>
+          <div class="code-project__actions">
+            <button class="outline" @click="replanNow('esta-semana')">
+              Esta semana
+            </button>
+            <button class="outline" @click="replanNow('proxima-semana')">
+              Próxima semana
+            </button>
+            <label
+              >Data<input v-model="customDate[actionStep.id]" type="date"
+            /></label>
+            <button class="outline" @click="replanNow('data')">Aplicar</button>
+            <button class="text-button" @click="replanNow('remover')">
+              Sem data
+            </button>
+          </div>
         </div>
       </section>
 
-      <section class="code-project__next">
+      <section
+        v-if="!completion.ready && nextStep && nextStep.id !== actionStep?.id"
+        class="code-project__next"
+      >
         <div>
           <span class="eyebrow">DEPOIS DISSO</span>
-          <h3>{{ nextStep?.title || "Sem próximo passo disponível" }}</h3>
-          <p>
-            {{
-              nextStep?.objective ||
-              "Você pode adicionar um novo passo quando precisar."
-            }}
-          </p>
+          <h3>{{ nextStep.title }}</h3>
+          <p>{{ nextStep.objective }}</p>
         </div>
-        <button
-          v-if="nextStep"
-          class="outline"
-          @click="expandedId = nextStep.id"
-        >
+        <button class="outline" @click="expandedId = nextStep.id">
           Ver próximo passo
         </button>
       </section>
 
-      <section class="code-project__state">
+      <section v-if="!completion.ready" class="code-project__capture">
         <div>
-          <span class="eyebrow">RESULTADO QUE VOCÊ QUER ALCANÇAR</span>
-          <h3>{{ project.intendedOutcome || project.objective }}</h3>
-          <p>
-            {{ project.derivedStage }} ·
-            {{ stateLabels[focusStep?.status] || "Sem foco definido" }}
-          </p>
+          <span class="eyebrow">GUARDAR SEM PARAR</span>
+          <h3>Anote e volte ao trabalho.</h3>
         </div>
-        <div class="code-project__state-progress">
-          <strong>{{ stats.completed }}/{{ stats.total }}</strong
-          ><span>passos concluídos</span
-          ><progress
-            :value="stats.total ? stats.completed : 0"
-            :max="stats.total || 1"
-          ></progress>
+        <form @submit.prevent="captureNow">
+          <div class="code-project__capture-kinds">
+            <button
+              v-for="kind in [
+                { id: 'step', label: 'Passo' },
+                { id: 'bug', label: 'Bug' },
+                { id: 'idea', label: 'Ideia' },
+              ]"
+              :key="kind.id"
+              type="button"
+              :aria-pressed="quickCapture.kind === kind.id"
+              @click="quickCapture.kind = kind.id"
+            >
+              {{ kind.label }}
+            </button>
+          </div>
+          <input
+            v-model="quickCapture.text"
+            :aria-label="`Nova captura: ${quickCapture.kind}`"
+            placeholder="O que você quer guardar?"
+            maxlength="160"
+            required
+          />
+          <button class="dark-button" type="submit">Guardar</button>
+        </form>
+        <div v-if="recentCaptures.length" class="code-project__capture-list">
+          <span v-for="item in recentCaptures" :key="item.id">
+            <small>{{
+              item.kind === "bug"
+                ? "Bug"
+                : item.kind === "idea"
+                  ? "Ideia"
+                  : "Passo"
+            }}</small>
+            {{ item.text }}
+          </span>
         </div>
       </section>
-
-      <div class="code-project__attention">
-        <div>
-          <strong>{{
-            blockers.length + decisions.length
-              ? "Há algo para resolver"
-              : "Espaço para avançar"
-          }}</strong>
-          <p>
-            {{ blockers.length }} impedimentos · {{ decisions.length }} decisões
-            · {{ stats.overdue }} datas para rever
-          </p>
-        </div>
-        <button class="text-button" @click="activeTab = 'plan'">
-          Ver no plano →
-        </button>
-      </div>
     </div>
     <div
       v-show="activeTab === 'plan'"
@@ -1323,14 +1651,126 @@ function beginSession(step) {
         >
           <div class="code-project__section-title">
             <div>
-              <span class="eyebrow">ADICIONAR AO PLANO</span>
+              <span class="eyebrow">{{
+                panel === "context"
+                  ? "AJUSTAR SEM RECOMEÇAR"
+                  : "ADICIONAR AO PLANO"
+              }}</span>
               <h2 id="code-project-form-title">
-                {{ panel === "stage" ? "Novo passo" : "Nova funcionalidade" }}
+                {{
+                  panel === "context"
+                    ? "Contexto do projeto"
+                    : panel === "stage"
+                      ? "Novo passo"
+                      : "Nova funcionalidade"
+                }}
               </h2>
             </div>
           </div>
           <form
-            v-if="panel === 'stage'"
+            v-if="panel === 'context'"
+            class="code-project__form"
+            @submit.prevent="submitContext"
+          >
+            <label
+              >O que você quer realizar?<select v-model="contextForm.objective">
+                <option v-for="item in PROJECT_OBJECTIVES" :key="item">
+                  {{ item }}
+                </option>
+              </select></label
+            ><label
+              >Objetivo em suas palavras · opcional<textarea
+                v-model="contextForm.description"
+                rows="2"
+                placeholder="O que este projeto precisa entregar?"
+              ></textarea>
+            </label>
+            <fieldset class="code-project__quick-options">
+              <legend>Tipo de projeto</legend>
+              <button
+                v-for="type in PROJECT_TYPES"
+                :key="type"
+                type="button"
+                :aria-pressed="contextForm.projectTypes.includes(type)"
+                @click="toggleContextValue('projectTypes', type)"
+              >
+                {{ type }}
+              </button>
+            </fieldset>
+            <fieldset>
+              <legend>Tecnologias</legend>
+              <div class="code-project__context-stack">
+                <button
+                  v-for="technology in contextForm.stack"
+                  :key="technology"
+                  type="button"
+                  class="outline"
+                  :aria-label="`Remover ${technology}`"
+                  @click="toggleContextValue('stack', technology)"
+                >
+                  {{ technology }} ×
+                </button>
+              </div>
+              <div class="code-project__inline-form">
+                <input
+                  v-model="contextStackDraft"
+                  list="code-project-stack-options"
+                  placeholder="Adicionar tecnologia"
+                  @keydown.enter.prevent="addContextStack"
+                />
+                <datalist id="code-project-stack-options">
+                  <option
+                    v-for="item in STACK_CATALOG"
+                    :key="item"
+                    :value="item"
+                  />
+                </datalist>
+                <button class="outline" type="button" @click="addContextStack">
+                  Adicionar
+                </button>
+              </div>
+            </fieldset>
+            <label
+              >Quando esta versão estará pronta?<input
+                v-model="contextForm.intendedOutcome"
+                list="code-project-outcome-options"
+              />
+              <datalist id="code-project-outcome-options">
+                <option
+                  v-for="item in contextOutcomes"
+                  :key="item"
+                  :value="item"
+                />
+              </datalist>
+            </label>
+            <label
+              >Janela geral<select v-model="contextForm.targetWindow">
+                <option>Sem prazo</option>
+                <option>Esta semana</option>
+                <option>Próxima semana</option>
+                <option>7 dias</option>
+                <option>2 semanas</option>
+                <option>1 mês</option>
+                <option>3 meses</option>
+                <option>Data específica</option>
+              </select></label
+            ><label v-if="contextForm.targetWindow === 'Data específica'"
+              >Data<input v-model="contextForm.targetDate" type="date" required
+            /></label>
+            <p class="subtle">
+              Seus passos atuais serão preservados. Se o caminho precisar de
+              revisão, o Noma apenas avisará.
+            </p>
+            <footer>
+              <button class="outline" type="button" @click="panel = ''">
+                Cancelar</button
+              ><button class="dark-button" type="submit">
+                Salvar contexto
+              </button>
+            </footer>
+          </form>
+          <form
+            v-else-if="panel === 'stage'"
             class="code-project__form"
             @submit.prevent="submitStage"
           >
@@ -1648,8 +2088,135 @@ function beginSession(step) {
   background: var(--noma-brand);
   border-radius: 99px;
 }
-.code-project__plan-heading,
-.code-project__attention {
+.code-project__path-review,
+.code-project__finish,
+.code-project__capture {
+  border: 1px solid var(--noma-border);
+  border-radius: 18px;
+  background: var(--noma-surface);
+}
+.code-project__path-review {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-color: color-mix(in srgb, var(--noma-brand) 42%, var(--noma-border));
+  background: var(--noma-brand-soft);
+}
+.code-project__path-review div:first-child,
+.code-project__finish-list {
+  display: grid;
+  gap: 0.25rem;
+}
+.code-project__path-review span,
+.code-project__last-worked,
+.code-project__finish p {
+  color: var(--noma-ink-soft);
+}
+.code-project__last-worked {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+}
+.code-project__resume-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.8rem 0;
+}
+.code-project__resume-signals span {
+  padding: 0.35rem 0.65rem;
+  border-radius: 99px;
+  background: var(--noma-surface-soft);
+  color: var(--noma-ink-soft);
+  font-size: 0.76rem;
+}
+.code-project__quick-form {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 14px;
+  background: var(--noma-surface-soft);
+}
+.code-project__quick-form label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: min(100%, 14rem);
+}
+.code-project__quick-feedback {
+  margin: 0.7rem 0 0;
+  color: var(--noma-brand);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+.code-project__finish {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.2rem, 3vw, 2rem);
+}
+.code-project__finish h2,
+.code-project__finish p {
+  margin: 0;
+}
+.code-project__finish-list {
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: var(--noma-surface-soft);
+}
+.code-project__finish-list span {
+  font-size: 0.85rem;
+}
+.code-project__capture {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+}
+.code-project__capture h3 {
+  margin: 0.2rem 0 0;
+}
+.code-project__capture form {
+  display: grid;
+  grid-template-columns: auto minmax(12rem, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+.code-project__capture-kinds,
+.code-project__context-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.code-project__capture-kinds button {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--noma-border);
+  border-radius: 99px;
+  background: transparent;
+  color: var(--noma-ink-soft);
+  cursor: pointer;
+}
+.code-project__capture-kinds button[aria-pressed="true"] {
+  border-color: var(--noma-brand);
+  background: var(--noma-brand-soft);
+  color: var(--noma-ink);
+}
+.code-project__capture-list {
+  display: grid;
+  gap: 0.4rem;
+}
+.code-project__capture-list span {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  color: var(--noma-ink-soft);
+  font-size: 0.82rem;
+}
+.code-project__capture-list small {
+  min-width: 2.5rem;
+  color: var(--noma-brand);
+  font-weight: 700;
+}
+.code-project__plan-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1659,14 +2226,10 @@ function beginSession(step) {
   margin: 0.3rem 0;
   font-size: 1.35rem;
 }
-.code-project__plan-heading p,
-.code-project__attention p {
+.code-project__plan-heading p {
   color: var(--noma-ink-soft);
   margin: 0.4rem 0;
   font-size: 0.85rem;
-}
-.code-project__attention {
-  padding: 0.4rem 0.2rem;
 }
 .code-project__filters {
   display: flex;
@@ -1863,8 +2426,7 @@ function beginSession(step) {
     flex: 1;
     padding: 0.8rem 0.5rem;
   }
-  .code-project__plan-heading,
-  .code-project__attention {
+  .code-project__plan-heading {
     align-items: start;
     flex-direction: column;
   }
@@ -1927,7 +2489,6 @@ function beginSession(step) {
 }
 .code-project__title p,
 .code-project__next p,
-.code-project__state p,
 .code-project__workspace-heading p {
   margin: 0.4rem 0;
   color: var(--noma-ink-soft);
@@ -1954,7 +2515,6 @@ function beginSession(step) {
 }
 .code-project__now,
 .code-project__next,
-.code-project__state,
 .code-project__reports {
   padding: 1.1rem 1.2rem;
   border: 1px solid var(--noma-border);
@@ -1981,34 +2541,19 @@ function beginSession(step) {
   align-items: center;
   gap: 0.5rem;
 }
-.code-project__next,
-.code-project__state {
+.code-project__next {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
 }
-.code-project__next h3,
-.code-project__state h3 {
+.code-project__next h3 {
   margin: 0.25rem 0;
 }
-.code-project__state-progress {
-  display: grid;
-  gap: 0.2rem;
-  min-width: 10rem;
-}
-.code-project__state-progress strong {
-  font-size: 1.5rem;
-}
-.code-project__state-progress span,
 .code-project__step-copy small,
 .code-project__step-date {
   color: var(--noma-ink-soft);
   font-size: 0.78rem;
-}
-.code-project__state-progress progress {
-  width: 100%;
-  accent-color: var(--noma-brand);
 }
 .code-project__roadmap details {
   border: 1px solid var(--noma-border);
@@ -2348,7 +2893,7 @@ function beginSession(step) {
 @media (max-width: 760px) {
   .code-project__header,
   .code-project__next,
-  .code-project__state {
+  .code-project__path-review {
     display: grid;
     align-items: start;
   }
@@ -2358,7 +2903,8 @@ function beginSession(step) {
   .code-project__workspace-grid,
   .code-project__signals,
   .code-project__metrics,
-  .code-project__form {
+  .code-project__form,
+  .code-project__capture form {
     grid-template-columns: 1fr;
   }
   .code-project__step-trigger {

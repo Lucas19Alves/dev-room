@@ -527,6 +527,118 @@ const featureChecklistByArea = {
   Outro: ["Definir o comportamento principal", "Testar o resultado esperado"],
 };
 
+const objectiveChecklist = {
+  "Tirar ideia do papel": ["Confirmar o menor resultado que prova a ideia"],
+  "Concluir MVP": ["Conferir se este trabalho é essencial para o MVP"],
+  "Evoluir projeto": ["Comparar o comportamento antes e depois da mudança"],
+  "Criar funcionalidades": [
+    "Confirmar o critério de conclusão da funcionalidade",
+  ],
+  "Estabilizar/corrigir": [
+    "Registrar como reproduzir o problema antes da correção",
+  ],
+  "Preparar release": ["Conferir se a mudança pode entrar nesta versão"],
+  "Fazer deploy": ["Conferir o ambiente em que a mudança será publicada"],
+  "Retomar projeto": ["Registrar o que ainda funciona antes de continuar"],
+};
+
+const projectTypeChecklist = {
+  Site: {
+    implementation: "Conferir conteúdo, navegação e versão para celular",
+    validation: "Testar links, leitura e telas pequenas",
+  },
+  "Aplicação web": {
+    implementation: "Preparar estados de carregamento, vazio, erro e sucesso",
+    validation: "Testar o fluxo completo e seus estados alternativos",
+  },
+  "Aplicativo mobile": {
+    implementation: "Conferir toque, permissões e tamanhos de tela",
+    validation: "Testar em um dispositivo ou emulador representativo",
+  },
+  "API/serviço": {
+    implementation: "Definir entradas, respostas e erros do serviço",
+    validation: "Testar contrato, autenticação e respostas de erro",
+  },
+  Automação: {
+    implementation: "Definir entradas, resultado e como repetir a execução",
+    validation: "Testar falha, nova tentativa e execução repetida",
+  },
+  "Biblioteca/pacote": {
+    implementation: "Manter uma forma simples de instalar e usar",
+    validation: "Testar instalação e exemplo principal em ambiente limpo",
+  },
+  Jogo: {
+    implementation: "Conferir controles, estados e recuperação da partida",
+    validation: "Jogar o ciclo principal do início ao fim",
+  },
+  "Ferramenta interna": {
+    implementation: "Usar dados próximos da rotina real",
+    validation: "Testar o caminho operacional de ponta a ponta",
+  },
+};
+
+const stackChecklistRules = [
+  {
+    matches: ["Vue", "React", "Angular", "Svelte", "Nuxt", "Next.js"],
+    types: ["implementation", "validation"],
+    text: (name) => `Conferir componentes e estados da interface em ${name}`,
+  },
+  {
+    matches: ["Supabase", "Firebase"],
+    types: ["implementation", "validation", "integration"],
+    text: (name) => `Revisar acesso, persistência e erros em ${name}`,
+  },
+  {
+    matches: ["PostgreSQL", "MySQL", "MongoDB", "SQLite"],
+    types: ["implementation", "validation"],
+    text: (name) => `Validar leitura, gravação e migração dos dados em ${name}`,
+  },
+  {
+    matches: ["TypeScript"],
+    types: ["implementation", "validation"],
+    text: () => "Executar a verificação de tipos",
+  },
+  {
+    matches: ["Playwright", "Vitest", "Jest"],
+    types: ["validation", "integration", "release"],
+    text: (name) => `Executar os testes relevantes com ${name}`,
+  },
+  {
+    matches: ["Docker", "Vercel", "Netlify", "Cloudflare"],
+    types: ["release", "deployment"],
+    text: (name) => `Conferir configuração e publicação em ${name}`,
+  },
+  {
+    matches: ["GitHub Actions"],
+    types: ["integration", "release", "deployment"],
+    text: () => "Conferir a automação de testes e publicação",
+  },
+];
+
+export function buildProjectChecklist({
+  objective = "",
+  projectTypes = [],
+  stack = [],
+  stepType = "planning",
+} = {}) {
+  const contextual = [];
+  if (objectiveChecklist[objective])
+    contextual.push(...objectiveChecklist[objective]);
+  for (const type of projectTypes || []) {
+    const item = projectTypeChecklist[type]?.[stepType];
+    if (item) contextual.push(item);
+  }
+  for (const technology of stack || []) {
+    const rule = stackChecklistRules.find(
+      (item) =>
+        item.matches.includes(technology) && item.types.includes(stepType),
+    );
+    if (rule) contextual.push(rule.text(technology));
+  }
+  const generic = checklistByType[stepType] || checklistByType.planning;
+  return [...new Set([...contextual.slice(0, 4), ...generic])].slice(0, 6);
+}
+
 const checklistItems = (items = []) =>
   items.map((text) => ({ id: makeId(), text, done: false }));
 
@@ -668,9 +780,14 @@ const dateFromWindow = (window, specificDate, now = Date.now()) => {
 function targetDateFor(answers, now) {
   if (answers.targetWindow === "Data específica")
     return answers.targetDate || "";
-  const days = { "7 dias": 7, "2 semanas": 14, "1 mês": 30, "3 meses": 90 }[
-    answers.targetWindow
-  ];
+  const days = {
+    "Esta semana": 3,
+    "Próxima semana": 7,
+    "7 dias": 7,
+    "2 semanas": 14,
+    "1 mês": 30,
+    "3 meses": 90,
+  }[answers.targetWindow];
   return days ? dateForDays(days, now) : "";
 }
 
@@ -722,7 +839,12 @@ function moduleStep(
     sizeLabel,
     tools: [...new Set([...standardTools, ...(answers.stack || [])])],
     checklist: checklistItems(
-      checklistByType[type] || checklistByType.planning,
+      buildProjectChecklist({
+        objective: answers.projectObjective || answers.objective,
+        projectTypes: answers.projectType || answers.projectTypes || [],
+        stack: answers.stack || [],
+        stepType: type,
+      }),
     ),
     notes: "",
     links: [],
@@ -829,7 +951,7 @@ export function createProjectWorkspace(rawAnswers = {}, now = Date.now()) {
     });
   }
   const workspace = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     projectName: String(answers.projectName || "").trim() || "Projeto sem nome",
     objective,
     description: answers.projectGoal || "",
@@ -845,6 +967,12 @@ export function createProjectWorkspace(rawAnswers = {}, now = Date.now()) {
     sessionDuration: answers.sessionDuration || "25 minutos",
     repositoryUrl: answers.repositoryUrl || "",
     features: [],
+    captures: [],
+    decisions: [],
+    versions: [],
+    currentVersion: 1,
+    lifecycle: "active",
+    pathReview: null,
     steps,
   };
   workspace.derivedStage = deriveProjectStage(workspace);
@@ -868,21 +996,55 @@ export function ensureProjectWorkspace(flow) {
   flow.componentData ||= {};
   const current = flow.componentData.codeProject;
   if (current && Array.isArray(current.steps)) {
-    current.schemaVersion = 2;
+    const previousSchema = Number(current.schemaVersion) || 1;
+    current.schemaVersion = 3;
     current.declaredInitialStage ||=
       current.currentStage ||
       flow.onboarding?.answers?.currentStage ||
       "Não sei ainda";
+    current.projectTypes ||= [];
+    current.stack ||= [];
     current.features ||= [];
+    current.captures ||= [];
+    current.decisions ||= [];
+    current.versions ||= [];
+    current.currentVersion ||= 1;
+    current.lifecycle ||= "active";
+    current.pathReview ||= null;
     current.steps.forEach((step) => {
       step.dependencies ||= [];
+      if (previousSchema < 3 && step.source !== "manual" && !step.featureId) {
+        const existing = new Map(
+          (step.checklist || []).map((item) => [item.text, item]),
+        );
+        const generated = buildProjectChecklist({
+          objective: current.objective,
+          projectTypes: current.projectTypes,
+          stack: current.stack,
+          stepType: step.type,
+        }).map(
+          (text) => existing.get(text) || { id: makeId(), text, done: false },
+        );
+        const generatedTexts = new Set(generated.map((item) => item.text));
+        step.checklist = [
+          ...generated,
+          ...(step.checklist || []).filter(
+            (item) => !generatedTexts.has(item.text),
+          ),
+        ];
+      }
       if (
         step.source !== "manual" &&
         !step.featureId &&
         (!Array.isArray(step.checklist) || !step.checklist.length)
       )
         step.checklist = checklistItems(
-          checklistByType[step.type] || checklistByType.planning,
+          buildProjectChecklist({
+            objective: current.objective,
+            projectTypes: current.projectTypes,
+            stack: current.stack,
+            stepType: step.type,
+          }),
         );
       if (step.source !== "manual" && !(Number(step.size) > 0)) {
         step.sizeLabel = sizeForType(step.type);
@@ -1045,6 +1207,216 @@ function event(flow, step, type, extra = {}) {
   step.updatedAt = Date.now();
 }
 
+function projectEvent(flow, type, source, extra = {}) {
+  flow.events ||= [];
+  const item = {
+    id: makeId(),
+    type,
+    source,
+    flowId: flow.id,
+    at: Date.now(),
+    ...extra,
+  };
+  flow.events.push(item);
+  return item;
+}
+
+function requestPathReview(flow, reason) {
+  const project = ensureProjectWorkspace(flow);
+  project.pathReview = {
+    pending: true,
+    reason,
+    requestedAt: Date.now(),
+  };
+  projectEvent(flow, "project_path_review_requested", "project-context", {
+    reason,
+  });
+  return project.pathReview;
+}
+
+export function recordProjectStepActivity(
+  flow,
+  stepId,
+  type = "project_step_worked",
+) {
+  const project = ensureProjectWorkspace(flow);
+  const step = project.steps.find((item) => item.id === stepId);
+  if (!step) return null;
+  event(flow, step, type);
+  return step;
+}
+
+export function projectResumeContext(flow) {
+  const project = ensureProjectWorkspace(flow);
+  const stepsById = new Map(project.steps.map((step) => [step.id, step]));
+  const activity = [];
+  for (const item of flow.events || []) {
+    if (item.source !== "project-step" || !stepsById.has(item.sourceId))
+      continue;
+    activity.push({
+      step: stepsById.get(item.sourceId),
+      at: Number(item.at) || 0,
+    });
+  }
+  for (const session of flow.sessions || []) {
+    if (!stepsById.has(session.stageId)) continue;
+    activity.push({
+      step: stepsById.get(session.stageId),
+      at: Number(session.endedAt || session.startedAt) || 0,
+    });
+  }
+  activity.sort((a, b) => b.at - a.at);
+  const lastWorkedStep = activity[0]?.step || null;
+  const focus =
+    project.steps.find(
+      (step) =>
+        step.isFocus && !["completed", "dismissed"].includes(step.status),
+    ) ||
+    project.steps.find((step) => step.status === "active") ||
+    projectNextStep(project);
+  const resumeStep =
+    lastWorkedStep &&
+    !["completed", "dismissed"].includes(lastWorkedStep.status) &&
+    dependenciesCompleted(project, lastWorkedStep)
+      ? lastWorkedStep
+      : focus;
+  const pendingChecklist = (resumeStep?.checklist || []).filter(
+    (item) => !item.done,
+  );
+  return {
+    lastWorkedStep,
+    resumeStep,
+    pendingChecklist,
+    blockers: project.steps.filter((step) => step.status === "blocked"),
+    decisions: project.steps.filter((step) => step.status === "decision"),
+  };
+}
+
+export function addProjectCapture(flow, input) {
+  const project = ensureProjectWorkspace(flow);
+  const kind = ["step", "bug", "idea"].includes(input.kind)
+    ? input.kind
+    : "idea";
+  const text = String(input.text || "").trim();
+  if (!text) throw new Error("Escreva o que quer guardar.");
+  let step = null;
+  if (kind !== "idea") {
+    const focus = projectResumeContext(flow).resumeStep;
+    step = addProjectStage(flow, {
+      name: text,
+      type: kind === "bug" ? "stability" : "implementation",
+      objective:
+        kind === "bug"
+          ? "Entender, corrigir e confirmar que o problema não voltou."
+          : "Transformar este registro em uma entrega pequena e clara.",
+      size: "Pequena",
+      source: "quick-capture",
+      insertAfterStepId: focus?.id,
+    });
+  }
+  const capture = {
+    id: makeId(),
+    kind,
+    text,
+    stepId: step?.id || "",
+    contextStepId: projectResumeContext(flow).resumeStep?.id || "",
+    createdAt: Date.now(),
+  };
+  project.captures.push(capture);
+  projectEvent(flow, "project_capture_created", "project-capture", {
+    sourceId: capture.id,
+    kind,
+    stepId: capture.stepId,
+  });
+  if (kind === "bug")
+    requestPathReview(flow, "Um novo problema entrou no caminho atual.");
+  return capture;
+}
+
+export function recordProjectDecision(flow, input) {
+  const project = ensureProjectWorkspace(flow);
+  const text = String(input.text || "").trim();
+  if (!text) throw new Error("Escreva a decisão tomada.");
+  const decision = {
+    id: makeId(),
+    title: String(input.title || "Decisão registrada").trim(),
+    text,
+    stepId: input.stepId || "",
+    decidedAt: Date.now(),
+  };
+  project.decisions.push(decision);
+  projectEvent(flow, "project_decision_recorded", "project-decision", {
+    sourceId: decision.id,
+    stepId: decision.stepId,
+  });
+  return decision;
+}
+
+export function updateProjectContext(flow, input, now = Date.now()) {
+  const project = ensureProjectWorkspace(flow);
+  const nextTypes = [
+    ...new Set(input.projectTypes || project.projectTypes || []),
+  ];
+  const nextStack = [...new Set(input.stack || project.stack || [])];
+  const nextObjective = input.objective || project.objective;
+  const pathChanged =
+    nextObjective !== project.objective ||
+    JSON.stringify(nextTypes) !== JSON.stringify(project.projectTypes || []) ||
+    JSON.stringify(nextStack) !== JSON.stringify(project.stack || []);
+  project.objective = nextObjective;
+  project.description = String(
+    input.description ?? project.description ?? "",
+  ).trim();
+  project.projectTypes = nextTypes;
+  project.stack = nextStack;
+  project.intendedOutcome = String(
+    input.intendedOutcome ?? project.intendedOutcome ?? "",
+  ).trim();
+  const targetChanged =
+    input.targetWindow &&
+    (input.targetWindow !== project.targetWindow ||
+      (input.targetWindow === "Data específica" &&
+        input.targetDate !== project.targetAt));
+  if (targetChanged) {
+    project.targetWindow = input.targetWindow;
+    project.targetAt = targetDateFor(
+      {
+        targetWindow: input.targetWindow,
+        targetDate: input.targetDate || "",
+      },
+      now,
+    );
+  }
+  flow.objective = project.description || project.objective;
+  flow.properties ||= {};
+  flow.properties.projectObjective = project.objective;
+  flow.properties.projectGoal = project.description;
+  flow.properties.projectType = [...project.projectTypes];
+  flow.properties.stack = [...project.stack];
+  flow.properties.targetDate = project.targetAt;
+  projectEvent(flow, "project_context_updated", "project-context", {
+    pathChanged,
+  });
+  if (pathChanged)
+    requestPathReview(
+      flow,
+      "Objetivo, tipo ou tecnologias do projeto mudaram.",
+    );
+  return { project, pathChanged };
+}
+
+export function acknowledgeProjectPathReview(flow, reviewed = true) {
+  const project = ensureProjectWorkspace(flow);
+  if (!project.pathReview) return null;
+  project.pathReview.pending = false;
+  project.pathReview.reviewedAt = Date.now();
+  project.pathReview.reviewed = reviewed;
+  projectEvent(flow, "project_path_review_acknowledged", "project-context", {
+    reviewed,
+  });
+  return project.pathReview;
+}
+
 export function addProjectStage(flow, input) {
   const project = ensureProjectWorkspace(flow);
   const title = String(input.name || "").trim();
@@ -1071,9 +1443,13 @@ export function addProjectStage(flow, input) {
     ...moduleStep(
       [title, input.type || "implementation", input.objective || ""],
       project.steps.length,
-      { stack: project.stack },
+      {
+        objective: project.objective,
+        projectTypes: project.projectTypes,
+        stack: project.stack,
+      },
       dueAt,
-      "manual",
+      input.source || "manual",
     ),
     status: input.status || "planned",
     dateWindow,
@@ -1092,7 +1468,12 @@ export function addProjectStage(flow, input) {
       ]),
     ],
   };
-  project.steps.push(step);
+  const insertAfterIndex = input.insertAfterStepId
+    ? project.steps.findIndex((item) => item.id === input.insertAfterStepId)
+    : -1;
+  if (insertAfterIndex >= 0)
+    project.steps.splice(insertAfterIndex + 1, 0, step);
+  else project.steps.push(step);
   project.steps.forEach((item, index) => {
     item.order = index;
   });
@@ -1170,6 +1551,14 @@ export function addProjectFeature(flow, input) {
     })),
     ...checklistItems(
       featureChecklistByArea[feature.area] || featureChecklistByArea.Outro,
+    ),
+    ...checklistItems(
+      buildProjectChecklist({
+        objective: project.objective,
+        projectTypes: project.projectTypes,
+        stack: feature.tools,
+        stepType: "implementation",
+      }).slice(0, 2),
     ),
   ];
   return feature;
@@ -1384,6 +1773,90 @@ export function projectInsights(flow, now = Date.now()) {
     remainingSessions,
     estimateAt,
   };
+}
+
+export function projectCompletionSummary(flow) {
+  const project = ensureProjectWorkspace(flow);
+  const completedSteps = project.steps.filter(
+    (step) => step.status === "completed",
+  );
+  const optionalPending = [
+    ...project.steps
+      .filter((step) => step.status === "dismissed")
+      .map((step) => step.title),
+    ...project.captures
+      .filter((capture) => capture.kind === "idea" && !capture.resolvedAt)
+      .map((capture) => capture.text),
+  ];
+  const sessions = flow.sessions || [];
+  return {
+    ready:
+      project.steps.length > 0 &&
+      project.steps.every((step) =>
+        ["completed", "dismissed"].includes(step.status),
+      ),
+    completedSteps,
+    deliveries: project.features.filter(
+      (feature) => feature.status === "completed",
+    ),
+    decisions: [...project.decisions],
+    sessions: sessions.length,
+    minutes: Math.round(
+      sessions.reduce(
+        (total, session) => total + (Number(session.seconds) || 0),
+        0,
+      ) / 60,
+    ),
+    optionalPending,
+  };
+}
+
+export function finishProject(flow, action) {
+  const project = ensureProjectWorkspace(flow);
+  const summary = projectCompletionSummary(flow);
+  if (!summary.ready)
+    throw new Error(
+      "Conclua ou dispense os passos principais antes de encerrar.",
+    );
+  const snapshot = {
+    id: makeId(),
+    number: project.currentVersion || 1,
+    completedAt: Date.now(),
+    completedStepIds: summary.completedSteps.map((step) => step.id),
+    deliveryIds: summary.deliveries.map((feature) => feature.id),
+    decisionIds: summary.decisions.map((decision) => decision.id),
+    sessions: summary.sessions,
+    minutes: summary.minutes,
+  };
+  if (!project.versions.some((version) => version.number === snapshot.number))
+    project.versions.push(snapshot);
+  if (action === "close") {
+    project.lifecycle = "closed";
+    project.completedAt = snapshot.completedAt;
+  } else if (["evolve", "new-version"].includes(action)) {
+    project.lifecycle = "active";
+    project.completedAt = null;
+    if (action === "new-version") project.currentVersion += 1;
+    const step = addProjectStage(flow, {
+      name:
+        action === "new-version"
+          ? `Definir o objetivo da versão ${project.currentVersion}`
+          : "Escolher a próxima evolução",
+      type: "planning",
+      objective:
+        action === "new-version"
+          ? "Escolha um resultado claro para esta nova versão."
+          : "Escolha uma melhoria pequena que valha continuar agora.",
+      size: "Pequena",
+      source: action,
+    });
+    setProjectStepState(flow, step.id, "active");
+  } else throw new Error("Escolha como deseja continuar.");
+  projectEvent(flow, "project_completion_action", "project-completion", {
+    action,
+    version: snapshot.number,
+  });
+  return project;
 }
 
 export function projectCalendarEntries(flow) {

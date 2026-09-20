@@ -28,16 +28,25 @@ import {
 } from "../src/flow/runtime.js";
 import { buildFlowExperience } from "../src/flow/experience.js";
 import {
+  acknowledgeProjectPathReview,
+  addProjectCapture,
   addProjectFeature,
   addProjectStage,
+  buildProjectChecklist,
   ensureProjectWorkspace,
+  finishProject,
   projectCalendarEntries,
+  projectCompletionSummary,
   projectInsights,
   projectNextStep,
   projectOutcomeOptions,
+  projectResumeContext,
+  recordProjectDecision,
+  recordProjectStepActivity,
   rescheduleProjectTarget,
   rescheduleProjectStep,
   setProjectStepState,
+  updateProjectContext,
 } from "../src/flow/projectFlow.js";
 import { calendarEntries } from "../src/flow/overview.js";
 import { buildFlowReport } from "../src/flow/reports.js";
@@ -402,7 +411,7 @@ test("feature planning creates four checkpoints and projection waits for real hi
   const parent = ensureProjectWorkspace(flow).steps.find(
     (step) => step.featureId === feature.id,
   );
-  assert.equal(parent.checklist.length, 6);
+  assert.ok(parent.checklist.length >= 8);
   assert.ok(
     parent.checklist.some(
       (item) => item.text === "Testar entrada e saída da conta",
@@ -446,6 +455,101 @@ test("feature planning creates four checkpoints and projection waits for real hi
   assert.ok(insight.estimateAt - now > 86400000);
   setProjectStepState(flow, parent.id, "completed");
   assert.equal(feature.status, "completed");
+});
+
+test("code project resumes real work and keeps replanning under user control", () => {
+  const flow = makeFlow(
+    templates.find((item) => item.id === "code"),
+    "Retomada",
+    {
+      ...answers.code,
+      projectObjective: "Criar funcionalidades",
+      projectType: ["Aplicação web"],
+      stack: ["Vue", "Supabase", "Playwright"],
+      currentStage: "Implementação",
+    },
+  );
+  const project = ensureProjectWorkspace(flow);
+  const implementation = project.steps.find(
+    (step) => step.type === "implementation",
+  );
+  assert.ok(
+    implementation.checklist.some((item) => item.text.includes("interface")),
+  );
+  assert.ok(
+    implementation.checklist.some((item) => item.text.includes("Supabase")),
+  );
+  assert.ok(
+    buildProjectChecklist({
+      objective: "Fazer deploy",
+      projectTypes: ["Aplicação web"],
+      stack: ["Vercel"],
+      stepType: "deployment",
+    }).some((item) => item.includes("Vercel")),
+  );
+
+  const later = addProjectStage(flow, {
+    name: "Retomar autenticação",
+    type: "implementation",
+    size: "Pequena",
+  });
+  recordProjectStepActivity(flow, later.id);
+  assert.equal(projectResumeContext(flow).lastWorkedStep.id, later.id);
+  assert.equal(projectResumeContext(flow).resumeStep.id, later.id);
+
+  const previousIds = project.steps.map((step) => step.id);
+  updateProjectContext(flow, {
+    objective: "Evoluir projeto",
+    description: "Melhorar a entrada no produto",
+    projectTypes: ["Aplicação web", "API/serviço"],
+    stack: ["Vue", "Supabase"],
+    intendedOutcome: "Fluxo de entrada validado",
+    targetWindow: "2 semanas",
+  });
+  assert.deepEqual(
+    project.steps
+      .filter((step) => previousIds.includes(step.id))
+      .map((step) => step.id),
+    previousIds,
+  );
+  assert.equal(project.pathReview.pending, true);
+  acknowledgeProjectPathReview(flow, true);
+  assert.equal(project.pathReview.pending, false);
+
+  const stepsBeforeIdea = project.steps.length;
+  addProjectCapture(flow, { kind: "idea", text: "Adicionar entrada social" });
+  assert.equal(project.steps.length, stepsBeforeIdea);
+  const bug = addProjectCapture(flow, {
+    kind: "bug",
+    text: "Corrigir expiração da sessão",
+  });
+  assert.ok(project.steps.some((step) => step.id === bug.stepId));
+  assert.equal(project.pathReview.pending, true);
+
+  recordProjectDecision(flow, {
+    title: "Retomar autenticação",
+    text: "Manter login por email nesta versão",
+    stepId: later.id,
+  });
+  assert.equal(project.decisions.length, 1);
+  for (const step of [...project.steps])
+    setProjectStepState(flow, step.id, "completed");
+  const summary = projectCompletionSummary(flow);
+  assert.equal(summary.ready, true);
+  assert.ok(summary.optionalPending.includes("Adicionar entrada social"));
+  finishProject(flow, "close");
+  assert.equal(project.lifecycle, "closed");
+  assert.equal(project.versions.length, 1);
+  finishProject(flow, "new-version");
+  assert.equal(project.lifecycle, "active");
+  assert.equal(project.currentVersion, 2);
+  assert.ok(
+    project.steps.some(
+      (step) =>
+        step.status === "active" &&
+        step.title === "Definir o objetivo da versão 2",
+    ),
+  );
 });
 
 test("code project is the source of truth for insights and the global calendar", () => {

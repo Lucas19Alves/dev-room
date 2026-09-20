@@ -1,4 +1,4 @@
-import { markRaw } from "vue";
+import { defineAsyncComponent, markRaw } from "vue";
 import GenericExperience from "../components/experience/GenericExperience.vue";
 import JobExperience from "../components/experience/JobExperience.vue";
 import StudyExperience from "../components/experience/StudyExperience.vue";
@@ -8,7 +8,10 @@ import WeekExperience from "../components/experience/WeekExperience.vue";
 import SkillExperience from "../components/experience/SkillExperience.vue";
 import ContentExperience from "../components/experience/ContentExperience.vue";
 import DynamicExperience from "../components/experience/DynamicExperience.vue";
-import CodeProjectExperience from "../components/experience/CodeProjectExperience.vue";
+
+const CodeProjectExperience = defineAsyncComponent(() =>
+  import("../components/experience/CodeProjectExperience.vue"),
+);
 
 const raw = (component) => markRaw(component);
 
