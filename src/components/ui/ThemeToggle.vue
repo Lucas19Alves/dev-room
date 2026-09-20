@@ -160,12 +160,12 @@ const { preference, resolvedTheme, isDark, setTheme, toggleTheme } = useTheme();
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  border: 1px solid var(--noma-border);
-  background: var(--noma-surface);
-  color: var(--noma-ink-soft);
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  border: 1px solid var(--noma-brand);
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
   cursor: pointer;
   padding: 0;
   transition:
@@ -176,9 +176,15 @@ const { preference, resolvedTheme, isDark, setTheme, toggleTheme } = useTheme();
 }
 
 .theme-toggle-btn:hover {
-  background: var(--noma-surface-soft);
-  color: var(--noma-ink);
-  border-color: var(--noma-border-strong);
+  background: var(--noma-surface-elevated);
+  color: var(--noma-brand);
+  border-color: var(--noma-brand);
+  box-shadow: 0 3px 10px rgb(41 74 56 / 12%);
+}
+
+.theme-toggle-btn:focus-visible {
+  outline: 3px solid var(--noma-focus);
+  outline-offset: 3px;
 }
 
 .theme-toggle-btn:active {

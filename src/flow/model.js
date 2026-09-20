@@ -141,6 +141,7 @@ export function createFlowInstance(
           : "custom",
       id: definition.id || null,
       version: definition.version || 1,
+      tier: definition.tier === "pro" ? "pro" : "free",
     },
     identity: {
       name,
@@ -149,6 +150,7 @@ export function createFlowInstance(
       icon: definition.icon || "✳",
     },
     objective: definition.objective || definition.description || name,
+    result: { status: "in_progress", summary: "", completedAt: null },
     description:
       definition.description || "Um espaço preparado para este objetivo.",
     definitionSchemaVersion: definition.definitionSchemaVersion || 1,
@@ -218,6 +220,7 @@ function migrateLegacyFlow(flow) {
     const migrated = clone(flow);
     migrateComponentData(migrated);
     migrated.definitionRef ||= { source: "custom", id: null, version: 1 };
+    migrated.definitionRef.tier ||= "free";
     migrated.identity ||= {
       name: "Flow recuperado",
       category: "Personalizado",
@@ -233,6 +236,11 @@ function migrateLegacyFlow(flow) {
     };
     migrated.onboarding.answers ||= {};
     migrated.properties ||= { focusMinutes: 25 };
+    migrated.result ||= {
+      status: "in_progress",
+      summary: "",
+      completedAt: null,
+    };
     migrated.definitionSchemaVersion ||= 1;
     migrated.protocol ??= null;
     migrated.experience ??= null;
@@ -343,6 +351,7 @@ export function toPublicDefinition(flow) {
     schemaVersion: FLOW_SCHEMA_VERSION,
     kind: "flow_definition",
     version: flow.definitionRef?.version || 1,
+    tier: flow.definitionRef?.tier === "pro" ? "pro" : "free",
     name: flow.identity.name,
     category: flow.identity.category,
     color: flow.identity.color,

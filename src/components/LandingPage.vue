@@ -1,16 +1,45 @@
 <script setup>
-import { ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { templates } from "../flow/catalog";
 import BrandLogo from "./ui/BrandLogo.vue";
-import ThemeToggle from "./ui/ThemeToggle.vue";
+import PricingPlans from "./PricingPlans.vue";
 defineProps({ signedIn: Boolean });
 const emit = defineEmits(["enter", "login"]);
 const selected = ref("enem");
+const selectedTemplate = computed(() =>
+  templates.find((template) => template.id === selected.value),
+);
+const landingRoot = ref(null);
+let revealObserver;
 const examples = [
   { id: "enem", label: "Estudar para o ENEM", icon: "✳" },
   { id: "code", label: "Construir um projeto", icon: "⌘" },
   { id: "week", label: "Organizar a semana", icon: "◈" },
+  { id: "teacher", label: "Ensinar uma turma", icon: "⌁" },
 ];
+onMounted(() => {
+  if (
+    !landingRoot.value ||
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  )
+    return;
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.classList.add("is-visible");
+        revealObserver.unobserve(entry.target);
+      }
+    },
+    { threshold: 0.14, rootMargin: "0px 0px -32px 0px" },
+  );
+  landingRoot.value
+    .querySelectorAll(
+      ".landing-section, .landing-continuity, .landing-final, .landing-values",
+    )
+    .forEach((section) => revealObserver.observe(section));
+});
+onUnmounted(() => revealObserver?.disconnect());
 const faqs = [
   {
     q: "O que é um Flow?",
@@ -31,17 +60,22 @@ const faqs = [
 ];
 </script>
 <template>
-  <div class="marketing">
+  <div ref="landingRoot" class="marketing">
     <header class="landing-nav">
       <a class="brand" href="/" aria-label="Noma — início"><BrandLogo /></a>
       <nav aria-label="Conheça o Noma">
         <a href="#como-funciona">Como funciona</a
-        ><a href="#possibilidades">Possibilidades</a
+        ><a href="#possibilidades">Possibilidades</a><a href="#planos">Planos</a
         ><a href="#perguntas">Perguntas</a>
       </nav>
       <div class="button-group">
-        <ThemeToggle />
-        <button class="text-button" @click="emit('login')">
+        <a class="landing-plan-button" href="#planos">Planos</a>
+        <button class="text-button landing-login-button" @click="emit('login')">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l4-4-4-4m4 4H3"
+            />
+          </svg>
           {{ signedIn ? "Meu espaço" : "Entrar" }}</button
         ><button class="dark-button" @click="emit('enter')">
           {{ signedIn ? "Abrir Noma" : "Criar minha conta" }} ↗
@@ -56,7 +90,7 @@ const faqs = [
         </h1>
         <p>
           Diga o que quer realizar e receba um espaço preparado.<br />Contexto,
-          ferramentas, sessões e progresso reunidos em um Flow.
+          ferramentas e próximos passos reunidos em um Flow feito para você.
         </p>
         <div class="landing-ctas">
           <button class="dark-button" @click="emit('enter')">
@@ -78,56 +112,35 @@ const faqs = [
         <div class="preview-canvas">
           <div class="preview-title">
             <div>
-              <small>MEU FLOW / ESTUDOS</small>
+              <small>HOJE · ESTUDOS PARA O ENEM</small>
               <h2>Minha aprovação no ENEM</h2>
             </div>
             <span class="preview-avatar">L</span>
           </div>
           <div class="preview-status">
-            <span>● &nbsp; Um passo de cada vez.</span
-            ><span>Em foco &nbsp; ◷</span>
+            <span>O próximo passo já está à vista.</span
+            ><span>3 prioridades</span>
           </div>
-          <div class="preview-widgets">
-            <div class="preview-widget preview-pomodoro">
-              <header>◷ &nbsp; Pomodoro <span>···</span></header>
-              <div class="preview-ring">
-                <strong>24:59</strong><small>Tempo para focar</small>
-              </div>
-              <span class="preview-pause">Ⅱ &nbsp; Em andamento</span>
+          <div class="preview-experience">
+            <div class="preview-now">
+              <span>AGORA</span
+              ><strong>Revisar funções antes de seguir para questões</strong
+              ><button type="button" tabindex="-1">Começar por aqui ↗</button>
             </div>
-            <div class="preview-widget">
-              <header>☑ &nbsp; Checklist <span>···</span></header>
-              <small class="preview-meta">1 de 3 passos concluídos</small>
-              <p class="preview-task complete">
-                <i>✓</i> Revisar o conteúdo de hoje
-              </p>
-              <p class="preview-task"><i></i> Resolver 10 questões</p>
-              <p class="preview-task"><i></i> Esboçar minha redação</p>
-              <span class="preview-add">＋ &nbsp; Um novo passo…</span>
+            <div class="preview-flowline">
+              <i></i
+              ><span
+                ><strong>Plano da semana</strong
+                ><small>Matemática · 2 de 4 momentos</small></span
+              ><b>50%</b>
             </div>
-            <div class="preview-widget preview-note">
-              <header>▤ &nbsp; Notas <span>···</span></header>
+            <div class="preview-insight">
+              <span>✳</span>
               <p>
-                Não preciso fazer tudo hoje.<br />Só preciso dar o próximo
-                passo.
+                Na última prática, funções pediram mais atenção.<small
+                  >O Noma trouxe esse tópico de volta.</small
+                >
               </p>
-              <small>Deixe suas ideias por aqui.</small>
-            </div>
-            <div class="preview-widget preview-music">
-              <header>♫ &nbsp; Música <span>···</span></header>
-              <div>
-                <span class="record-art">♫</span>
-                <p>
-                  Um pouco de calma<small>Sua trilha para se concentrar</small>
-                </p>
-              </div>
-              <div class="preview-wave">
-                <i
-                  v-for="i in 24"
-                  :key="i"
-                  :style="{ height: 8 + ((i * 7) % 20) + 'px' }"
-                ></i>
-              </div>
             </div>
           </div>
         </div>
@@ -161,8 +174,7 @@ const faqs = [
           <div class="step-illustration">▦</div>
           <h3>Um espaço com a sua cara.</h3>
           <p>
-            Combine componentes, ajuste o tempo de foco e deixe só o que ajuda
-            você.
+            Comece com um modelo ou crie um caminho seu, sem precisar programar.
           </p>
         </article>
         <article>
@@ -197,23 +209,43 @@ const faqs = [
             ><span>↗</span>
           </button>
         </div>
-        <article
-          v-for="template in templates.filter((t) => t.id === selected)"
-          :key="template.id"
-          class="intent-card"
-          :class="template.color"
-        >
-          <span class="eyebrow">{{ template.category }}</span
-          ><span class="intent-symbol">{{ template.icon }}</span>
-          <h3>{{ template.name }}</h3>
-          <p>{{ template.description }}</p>
-          <span class="intent-count"
-            >{{ template.components.length }} componentes para começar.
-            Infinitas formas de ser seu.</span
-          ><button class="dark-button" @click="emit('enter', template.id)">
-            Começar com este Flow ↗
-          </button>
-        </article>
+        <Transition name="intent-switch" mode="out-in">
+          <article
+            v-if="selectedTemplate"
+            :key="selectedTemplate.id"
+            class="intent-card"
+            :class="selectedTemplate.color"
+          >
+            <span class="eyebrow">{{ selectedTemplate.category }}</span
+            ><span class="intent-symbol">{{ selectedTemplate.icon }}</span>
+            <h3>{{ selectedTemplate.name }}</h3>
+            <p>{{ selectedTemplate.description }}</p>
+            <span class="intent-count"
+              >{{ selectedTemplate.components.length }} componentes para
+              começar. Infinitas formas de ser seu.</span
+            ><button
+              class="dark-button"
+              @click="emit('enter', selectedTemplate.id)"
+            >
+              Começar com este Flow ↗
+            </button>
+          </article>
+          <article v-else key="teacher" class="intent-card mint intent-custom">
+            <span class="eyebrow">UM FLOW SEU</span
+            ><span class="intent-symbol">⌁</span>
+            <h3>Uma experiência criada por você.</h3>
+            <p>
+              Monte módulos, atividades, materiais e prazos sem programar.
+              Compartilhe a estrutura para cada aluno seguir seu próprio
+              caminho.
+            </p>
+            <span class="intent-count"
+              >Professor, turma ou um objetivo que ainda não tem modelo.</span
+            ><button class="dark-button" @click="emit('enter', 'blank')">
+              Conhecer o criador de Flows ↗
+            </button>
+          </article>
+        </Transition>
       </div>
     </section>
     <section class="landing-continuity">
@@ -221,8 +253,8 @@ const faqs = [
         <span class="eyebrow">SEU PROGRESSO TEM HISTÓRIA</span>
         <h2>Pequenos passos.<br /><em>Uma jornada só sua.</em></h2>
         <p>
-          Conclua uma sessão, acompanhe seu tempo no Flow Map e leve um cartão
-          do seu progresso com você. Sem competição. Sem pressa.
+          Veja as decisões, os estudos e os passos que realmente aconteceram.
+          Seu avanço não cabe apenas em horas de foco.
         </p>
         <button class="outline" @click="emit('enter')">
           Começar minha jornada ↗
@@ -230,7 +262,7 @@ const faqs = [
       </div>
       <div class="journey-illustration">
         <div class="journey-label">
-          <strong>Dedicação que ganha forma</strong><span>✳</span>
+          <strong>Um registro do que mudou</strong><span>✳</span>
         </div>
         <div class="sample-map" aria-hidden="true">
           <i
@@ -240,8 +272,26 @@ const faqs = [
           ></i>
         </div>
         <span class="preview-caption">Exemplo ilustrativo do Flow Map</span>
-        <p>Um próximo passo, todos os dias.</p>
+        <p>Esta semana: uma prática concluída, um tópico revisado.</p>
       </div>
+    </section>
+    <section id="planos" class="landing-section landing-plans-section">
+      <div class="landing-section-heading" style="padding-bottom: 2em;">
+        <span class="eyebrow"
+          >UM COMEÇO LEVE. MAIS ESPAÇO QUANDO PRECISAR.</span
+        >
+        <h2>Planos que acompanham<br /><em>o seu caminho.</em></h2>
+        <p>
+          Comece gratuitamente e conheça os recursos. Se quiser avançar, entre
+          na sua conta para escolher o Pro.
+        </p>
+      </div>
+      <PricingPlans
+        mode="public"
+        :signed-in="signedIn"
+        @login="emit('login')"
+        @enter="emit('enter')"
+      />
     </section>
     <section id="perguntas" class="landing-section faq-section">
       <div class="landing-section-heading">

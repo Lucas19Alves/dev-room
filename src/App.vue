@@ -14,6 +14,7 @@ import ProductState from "./components/ui/ProductState.vue";
 import NButton from "./components/ui/NButton.vue";
 import { initialize, store } from "./flow/store";
 import { useTheme } from "./composables/useTheme";
+import LegalPage from "./components/LegalPage.vue";
 
 const Workspace = defineAsyncComponent(() => import("./Workspace.vue"));
 const path = ref(location.pathname);
@@ -37,6 +38,30 @@ const authMode = computed(() =>
         : "login",
 );
 const privateRoute = computed(() => path.value === "/app");
+function updateMetadata(route = path.value) {
+  const isPublicLanding = route === "/";
+  const isPrivacy = route === "/privacy";
+  document.title = isPublicLanding
+    ? "Noma — Organize o caminho para o que você quer realizar"
+    : isPrivacy
+      ? "Privacidade — Noma"
+      : route === "/terms"
+        ? "Termos de Uso — Noma"
+        : route === "/app"
+          ? "Seu espaço — Noma"
+          : "Acesse sua conta — Noma";
+  let robots = document.querySelector('meta[name="robots"]');
+  if (!robots) {
+    robots = document.createElement("meta");
+    robots.name = "robots";
+    document.head.append(robots);
+  }
+  robots.content =
+    isPublicLanding || isPrivacy || route === "/terms"
+      ? "index,follow"
+      : "noindex,nofollow";
+}
+watch(path, updateMetadata, { immediate: true });
 
 function navigate(to, replace = false) {
   history[replace ? "replaceState" : "pushState"]({}, "", to);
@@ -87,6 +112,10 @@ onUnmounted(() => window.removeEventListener("popstate", onPop));
       :signed-in="!!store.user"
       @enter="enter"
       @login="navigate(store.user ? '/app' : '/login')"
+    />
+    <LegalPage
+      v-else-if="path === '/privacy' || path === '/terms'"
+      :page="path === '/terms' ? 'terms' : 'privacy'"
     />
     <div
       v-else-if="booting || (privateRoute && !store.ready)"

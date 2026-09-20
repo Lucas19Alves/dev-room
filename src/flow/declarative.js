@@ -72,7 +72,9 @@ function normalizeField(field = {}) {
     ...(field.required ? { required: true } : {}),
     ...(field.default !== undefined ? { default: clone(field.default) } : {}),
     ...(field.options ? { options: clone(field.options) } : {}),
-    ...(field.optionsFromProperty ? { optionsFromProperty: field.optionsFromProperty } : {}),
+    ...(field.optionsFromProperty
+      ? { optionsFromProperty: field.optionsFromProperty }
+      : {}),
     ...(field.placeholder ? { placeholder: field.placeholder } : {}),
   };
 }
@@ -152,10 +154,16 @@ export function experienceFromDefinition(definition = {}) {
 }
 
 export function validateDeclarativeDefinition(definition, options = {}) {
-  return validateDefinitionData(definition, {
-    fields: FIELD_TYPES, operators: RULE_OPERATORS,
-    commands: COMMAND_TYPES, sections: SECTION_TYPES,
-  }, options);
+  return validateDefinitionData(
+    definition,
+    {
+      fields: FIELD_TYPES,
+      operators: RULE_OPERATORS,
+      commands: COMMAND_TYPES,
+      sections: SECTION_TYPES,
+    },
+    options,
+  );
 }
 
 const common = {
@@ -252,7 +260,7 @@ export const officialDeclarativeTemplates = Object.freeze({
         {
           type: "hero",
           eyebrow: "SUA BUSCA, COM CONTEXTO",
-          title: { property: "targetRole", fallback: "Seu próximo capítulo" },
+          title: { property: "targetRole", fallback: "Novo emprego" },
           subtitle: "Uma visão viva das oportunidades e próximos movimentos.",
         },
         { type: "next-actions", title: "Agora", source: "actions", limit: 5 },
@@ -278,38 +286,115 @@ export const officialDeclarativeTemplates = Object.freeze({
           singular: "atividade de estudo",
           primaryField: "topic",
           fields: [
-            { id: "subject", label: "Matéria", type: "select", options: ["Linguagens", "Matemática", "Ciências Humanas", "Ciências da Natureza", "Redação"] },
-            { id: "topic", label: "Tópico ou atividade", type: "text", required: true },
-            { id: "kind", label: "Tipo", type: "select", options: ["Tópico", "Questões", "Revisão", "Redação", "Simulado"] },
+            {
+              id: "subject",
+              label: "Matéria",
+              type: "select",
+              options: [
+                "Linguagens",
+                "Matemática",
+                "Ciências Humanas",
+                "Ciências da Natureza",
+                "Redação",
+              ],
+            },
+            {
+              id: "topic",
+              label: "Tópico ou atividade",
+              type: "text",
+              required: true,
+            },
+            {
+              id: "kind",
+              label: "Tipo",
+              type: "select",
+              options: ["Tópico", "Questões", "Revisão", "Redação", "Simulado"],
+            },
             { id: "questions", label: "Questões realizadas", type: "number" },
             { id: "correct", label: "Acertos", type: "number" },
             { id: "studyDate", label: "Data", type: "date" },
             { id: "notes", label: "Erros e aprendizados", type: "textarea" },
           ],
-          states: ["Planejado", "Em estudo", "Praticado", "Revisado", "Concluído"].map((label, order) => ({ id: label, label, order })),
+          states: [
+            "Planejado",
+            "Em estudo",
+            "Praticado",
+            "Revisado",
+            "Concluído",
+          ].map((label, order) => ({ id: label, label, order })),
         },
       },
       rules: [
         {
           id: "review-difficult-topic",
           when: { entity: "study_record", field: "notes", operator: "exists" },
-          then: [{ type: "schedule_action", actionId: "review_topic", field: "studyDate", days: 2 }],
+          then: [
+            {
+              type: "schedule_action",
+              actionId: "review_topic",
+              field: "studyDate",
+              days: 2,
+            },
+          ],
         },
       ],
       actions: [
-        { id: "study_topic", entity: "study_record", statuses: ["Planejado", "Em estudo"], title: "Estudar {topic}", description: "Continue pelo tópico que merece clareza.", operations },
-        { id: "practice_questions", entity: "study_record", values: { kind: ["Questões", "Simulado"] }, statuses: ["Planejado", "Em estudo", "Praticado"], title: "Fazer questões de {subject}", description: "Registre questões e acertos para acompanhar sua evolução.", operations },
-        { id: "write_essay", entity: "study_record", values: { kind: ["Redação"] }, statuses: ["Planejado", "Em estudo"], title: "Escrever redação", description: "Produza uma redação e registre o aprendizado.", operations },
-        { id: "review_topic", entity: "study_record", values: { kind: ["Revisão"] }, statuses: ["Planejado", "Em estudo", "Praticado"], title: "Revisar {topic}", description: "Retorne ao erro enquanto ele ainda está fresco.", operations },
+        {
+          id: "study_topic",
+          entity: "study_record",
+          statuses: ["Planejado", "Em estudo"],
+          title: "Estudar {topic}",
+          description: "Continue pelo tópico que merece clareza.",
+          operations,
+        },
+        {
+          id: "practice_questions",
+          entity: "study_record",
+          values: { kind: ["Questões", "Simulado"] },
+          statuses: ["Planejado", "Em estudo", "Praticado"],
+          title: "Fazer questões de {subject}",
+          description:
+            "Registre questões e acertos para acompanhar sua evolução.",
+          operations,
+        },
+        {
+          id: "write_essay",
+          entity: "study_record",
+          values: { kind: ["Redação"] },
+          statuses: ["Planejado", "Em estudo"],
+          title: "Escrever redação",
+          description: "Produza uma redação e registre o aprendizado.",
+          operations,
+        },
+        {
+          id: "review_topic",
+          entity: "study_record",
+          values: { kind: ["Revisão"] },
+          statuses: ["Planejado", "Em estudo", "Praticado"],
+          title: "Revisar {topic}",
+          description: "Retorne ao erro enquanto ele ainda está fresco.",
+          operations,
+        },
       ],
     },
     experience: {
       schemaVersion: DECLARATIVE_SCHEMA_VERSION,
       version: 1,
       layout: [
-        { type: "hero", eyebrow: "PREPARAÇÃO PARA O ENEM", title: "O que merece estudo agora", subtitle: "Estude, pratique e revise sem perder o fio." },
+        {
+          type: "hero",
+          eyebrow: "PREPARAÇÃO PARA O ENEM",
+          title: "O que merece estudo agora",
+          subtitle: "Estude, pratique e revise sem perder o fio.",
+        },
         { type: "next-actions", title: "Hoje", source: "actions", limit: 5 },
-        { type: "collection", title: "Plano de estudo", entity: "study_record", create: true, createLabel: "Adicionar estudo" },
+        {
+          type: "collection",
+          title: "Plano de estudo",
+          entity: "study_record",
+          create: true,
+          createLabel: "Adicionar estudo",
+        },
         { type: "metrics", title: "Evolução", source: "metrics", limit: 5 },
         { type: "timeline", title: "Histórico recente", source: "history" },
       ],

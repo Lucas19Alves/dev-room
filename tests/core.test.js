@@ -6,6 +6,7 @@ import "fake-indexeddb/auto";
 import {
   makeFlow,
   templates,
+  discoverableTemplates,
   publicTemplate,
   safeUrl,
   definitionUpdate,
@@ -26,6 +27,7 @@ import {
   skipReview,
 } from "../src/flow/runtime.js";
 import { buildFlowExperience } from "../src/flow/experience.js";
+import { checkoutIntegrationIdentifier } from "../supabase/functions/_shared/billing.js";
 
 const answers = {
   job: {
@@ -90,12 +92,36 @@ const answers = {
   },
 };
 
+test("Stripe Checkout integration identifiers use an eight-letter Noma suffix", () => {
+  assert.match(
+    checkoutIntegrationIdentifier(new Uint8Array(8)),
+    /^noma_checkout_[a-z]{8}$/,
+  );
+});
+
 test("every official Flow creates a specialized, versioned instance", () => {
-  assert.equal(templates.length, 9);
+  assert.equal(discoverableTemplates.length, 12);
+  assert.equal(
+    discoverableTemplates.filter((template) => template.tier === "pro").length,
+    6,
+  );
+  assert.equal(
+    discoverableTemplates.filter((template) => template.tier === "free").length,
+    6,
+  );
   for (const template of templates) {
     const flow = makeFlow(template, template.name, answers[template.id]);
     assert.equal(flow.definitionRef.id, template.id);
     assert.equal(flow.definitionRef.version, 2);
+    assert.equal(flow.definitionRef.tier, template.tier);
+    assert.deepEqual(flow.result, {
+      status: "in_progress",
+      summary: "",
+      completedAt: null,
+    });
+    assert.ok(
+      template.onboarding.steps.some((step) => step.id === "flow-plan"),
+    );
     assert.deepEqual(flow.onboarding.answers, {
       ...flow.onboarding.answers,
     });
@@ -601,6 +627,52 @@ test("Postgres migration enforces ownership, public templates and atomic conflic
     await assert.rejects(
       db.query(`select public.save_flow_account('{}'::jsonb,0)`),
       /permission denied/,
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test("Pro Flow creation is checked in Postgres and existing Flows remain editable", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create role anon;
+      create role authenticated;
+      create schema noma_private;
+      create table public.flow_accounts(user_id uuid primary key, payload jsonb not null);
+      create function noma_private.my_entitlements() returns jsonb
+        language sql stable as $$
+          select jsonb_build_object('plan', current_setting('noma.test_plan', true))
+        $$;
+    `);
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202609200001_gate_pro_flow_creation.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    await db.exec("set noma.test_plan='free'");
+    await assert.rejects(
+      db.exec(
+        `insert into public.flow_accounts values ('11111111-1111-4111-8111-111111111111', '{"flows":[{"id":"paid","definitionRef":{"id":"contest","tier":"free"}}]}')`,
+      ),
+      /pro_flow_required/,
+    );
+    await db.exec("set noma.test_plan='pro'");
+    await db.exec(
+      `insert into public.flow_accounts values ('11111111-1111-4111-8111-111111111111', '{"flows":[{"id":"old","definitionRef":{"id":"project","tier":"free"}}]}')`,
+    );
+    await db.exec("set noma.test_plan='free'");
+    await db.exec(
+      `update public.flow_accounts set payload='{"flows":[{"id":"old","definitionRef":{"id":"project","tier":"free"}},{"id":"new-free","definitionRef":{"id":"blank","tier":"free"}}]}'`,
+    );
+    await db.exec("set noma.test_plan='pro'");
+    await db.exec(
+      `update public.flow_accounts set payload='{"flows":[{"id":"old","definitionRef":{"id":"project","tier":"free"}},{"id":"new-free","definitionRef":{"id":"blank","tier":"free"}},{"id":"paid","definitionRef":{"id":"contest","tier":"pro"}}]}'`,
     );
   } finally {
     await db.close();

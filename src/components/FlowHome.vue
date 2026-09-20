@@ -34,6 +34,11 @@ const opportunityForm = ref({
   nextActionAt: "",
 });
 const stages = computed(() => experience.value?.progress?.stages || []);
+const opportunityStages = computed(
+  () =>
+    props.flow.components?.find((component) => component.type === "tracker")
+      ?.config?.stages || [],
+);
 
 function metricText(metric) {
   if (metric.target !== null && metric.target !== undefined)
@@ -346,11 +351,11 @@ function submitOpportunity() {
               "
             >
               <option
-                v-for="stage in flow.stages"
-                :key="stage.id"
-                :value="stage.title"
+                v-for="stage in opportunityStages"
+                :key="stage"
+                :value="stage"
               >
-                {{ stage.title }}
+                {{ stage }}
               </option>
             </select>
           </div>

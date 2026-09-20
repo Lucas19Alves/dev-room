@@ -19,6 +19,7 @@ export const experienceRegistry = Object.freeze({
   declarative: raw(DynamicExperience),
   job: raw(JobExperience),
   enem: raw(StudyExperience),
+  contest: raw(StudyExperience),
   code: raw(ProjectExperience),
   college: raw(CollegeExperience),
   week: raw(WeekExperience),
@@ -26,9 +27,16 @@ export const experienceRegistry = Object.freeze({
   content: raw(ContentExperience),
   project: raw(ProjectExperience),
   blank: raw(GenericExperience),
+  party: raw(GenericExperience),
+  language: raw(GenericExperience),
+  office: raw(GenericExperience),
 });
 
 export function getExperienceComponent(flow) {
+  if (flow?.definitionRef?.source === "official") {
+    const official = experienceRegistry[flow.definitionRef.id];
+    if (official) return official;
+  }
   if (flow?.experience?.layout && flow?.protocol?.entities)
     return experienceRegistry.declarative;
   return (

@@ -11,12 +11,8 @@
     {
       "src": "/icons/n-logo.png",
       "sizes": "2000x2000",
-      "type": "image/png"
-    },
-    {
-      "src": "/icons/n-logo.png",
-      "sizes": "2000x2000",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

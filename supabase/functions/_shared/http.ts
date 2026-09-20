@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
+import Stripe from "npm:stripe@22.6.0";
 import { allowedOrigin } from "./billing.js";
 
 export function config(name: string) {
@@ -30,14 +31,13 @@ export async function authenticate(request: Request) {
   if (error || !data.user || !data.user.email_confirmed_at) throw new Error("authentication_required");
   return { client, user: data.user, token };
 }
-export async function stripe(path: string, method = "GET", body?: URLSearchParams, idempotencyKey?: string) {
-  const headers: Record<string,string> = { Authorization: `Bearer ${config("STRIPE_SECRET_KEY")}`, "Stripe-Version": "2025-02-24.acacia" };
-  if (body) headers["Content-Type"] = "application/x-www-form-urlencoded";
-  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
-  const response = await fetch(`https://api.stripe.com/v1/${path}`, { method, headers, body, signal: AbortSignal.timeout(15000) });
-  const result = await response.json();
-  if (!response.ok) throw new Error("payment_service_unavailable");
-  return result;
+export function stripeClient() {
+  return new Stripe(config("STRIPE_SECRET_KEY"), {
+    apiVersion: "2026-08-26.dahlia" as Stripe.LatestApiVersion,
+    httpClient: Stripe.createFetchHttpClient(),
+    maxNetworkRetries: 2,
+    timeout: 15_000,
+  });
 }
 export function safeFailure(error: unknown, headers: Record<string,string> = {}) {
   const code = error instanceof Error ? error.message : "service_unavailable";

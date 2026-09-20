@@ -18,7 +18,13 @@ async function createBlank(page, name, objective = "Organizar este objetivo") {
 
 async function openOfficial(page, name) {
   const card = page.locator(".template-card").filter({ hasText: name });
-  await card.getByRole("button", { name: /Usar Flow|Criar Flow/ }).click();
+  await card
+    .getByRole("button", { name: /Usar Flow|Criar Flow|Conhecer Pro/ })
+    .click();
+}
+
+async function useProPlan(page) {
+  await page.addInitScript(() => localStorage.setItem("noma-e2e-plan", "pro"));
 }
 
 async function fillVisibleField(page, label, value) {
@@ -60,9 +66,11 @@ test("career Flow turns opportunity changes into executable actions and persists
 }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await useProPlan(page);
   await page.goto("/app");
-  await openOfficial(page, "Seu próximo capítulo");
+  await openOfficial(page, "Novo emprego");
   await page.getByLabel("Nome do Flow", { exact: true }).fill("Minha busca");
+  await page.getByRole("button", { name: "Continuar →" }).click();
   await page.getByRole("button", { name: "Continuar →" }).click();
 
   await page.getByLabel("Cargo ou área desejada").fill("Analista de suporte");
@@ -77,7 +85,6 @@ test("career Flow turns opportunity changes into executable actions and persists
   await page.getByRole("button", { name: "Continuar →" }).click();
   await page.getByRole("button", { name: "Continuar →" }).click();
   await page.getByRole("button", { name: "Entrar no meu Flow" }).click();
-
   await expect(
     page.getByRole("heading", { name: "Analista de suporte" }),
   ).toBeVisible();
@@ -174,6 +181,7 @@ test("landing and specialized onboarding remain usable on mobile", async ({
   await page.goto("/app");
   await openOfficial(page, "Uma semana mais leve");
   await page.getByRole("button", { name: "Continuar →" }).click();
+  await page.getByRole("button", { name: "Continuar →" }).click();
   await page.getByLabel("Início da semana").fill("2026-09-14");
   await page.getByRole("button", { name: "Continuar →" }).click();
   await page.getByLabel("Até três prioridades").fill("Estudar\nDescansar");
@@ -181,7 +189,9 @@ test("landing and specialized onboarding remain usable on mobile", async ({
   await page.getByRole("button", { name: "Continuar →" }).click();
   await page.getByRole("button", { name: "Entrar no meu Flow" }).click();
   await expect(
-    page.getByRole("heading", { name: "O que importa neste momento" }),
+    page.getByRole("heading", {
+      name: "O que importa neste momento",
+    }),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -194,20 +204,220 @@ test("landing and specialized onboarding remain usable on mobile", async ({
   });
 });
 
-test("official Flows expose their own experience journeys", async ({
+test("landing hero Flow preview adapts its surfaces and text to both themes", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() => localStorage.setItem("noma-theme", "light"));
+  await page.reload();
+  const insight = page.locator(".preview-insight");
+  const nowTitle = page.locator(".preview-now > strong");
+
+  await expect(insight).toHaveCSS("background-color", "rgb(241, 245, 238)");
+  await expect(nowTitle).toHaveCSS("color", "rgb(41, 66, 57)");
+  await expect(page.locator(".landing-nav .theme-toggle-btn")).toHaveCount(0);
+  await page.evaluate(() => localStorage.setItem("noma-theme", "dark"));
+  await page.reload();
+  const darkInsight = page.locator(".preview-insight");
+  const darkNowTitle = page.locator(".preview-now > strong");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(darkInsight).toHaveCSS("background-color", "rgb(27, 46, 40)");
+  await expect(darkNowTitle).toHaveCSS("color", "rgb(238, 245, 241)");
+  await expect(page.locator(".preview-now > button")).toHaveCSS(
+    "background-color",
+    "rgb(82, 183, 136)",
+  );
+
+  await page.evaluate(() => localStorage.setItem("noma-theme", "light"));
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator(".preview-insight")).toHaveCSS(
+    "background-color",
+    "rgb(241, 245, 238)",
+  );
+});
+
+test("mobile navigation and settings keep key controls organized", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/app");
+
+  const menuButton = page.getByRole("button", {
+    name: "Abrir menu de navegação",
+  });
+  const sidebar = page.locator("#main-navigation");
+  await expect(menuButton).toBeVisible();
+  await expect(sidebar).toBeHidden();
+  await expect(page.locator(".plan-topbar-button")).toHaveCSS(
+    "min-height",
+    "38px",
+  );
+  await menuButton.click();
+  await expect(sidebar).toBeVisible();
+  await expect(menuButton).toHaveAttribute("aria-expanded", "true");
+  await expect(sidebar.getByRole("button", { name: "Hoje" })).toHaveCSS(
+    "font-size",
+    "12px",
+  );
+  await page.keyboard.press("Escape");
+  await expect(sidebar).toBeHidden();
+  await menuButton.click();
+
+  const settingsButton = sidebar.locator(".mobile-account-link");
+  await expect(settingsButton).toBeVisible();
+  await expect(settingsButton.locator("svg")).toBeVisible();
+  await settingsButton.click();
+  await expect(sidebar).toBeHidden();
+
+  await expect(
+    page.getByRole("heading", { name: "Configurações" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Conta e plano" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Plano não verificado", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Aparência" })).toBeVisible();
+  await expect(
+    page.getByRole("radiogroup", { name: "Selecionar tema do sistema" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Dados e sincronização" }),
+  ).toBeVisible();
+  await expect(page.getByText(/Continue com Noma Pro/)).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+});
+
+test("My Flows status, archive link and plan limit stay on separate lines", async ({
   page,
 }) => {
   await page.goto("/app");
+  await page.getByRole("button", { name: "Meus Flows" }).click();
+
+  const controls = page.locator(".flow-list-controls");
+  await expect(controls.locator(".flow-list-status")).toHaveText(
+    "Flows ativos",
+  );
+  await expect(controls.locator(".flow-list-archive-link")).toHaveText(
+    "Ver arquivados",
+  );
+  await expect(controls.locator(".flow-list-plan")).toContainText(
+    "espaços ativos no plano Free",
+  );
+
+  for (const viewport of [1440, 390]) {
+    await page.setViewportSize({ width: viewport, height: 900 });
+    const rows = await controls
+      .locator(":scope > *")
+      .evaluateAll((items) =>
+        items.map((item) => Math.round(item.getBoundingClientRect().top)),
+      );
+    expect(new Set(rows).size).toBe(3);
+  }
+});
+
+test("landing presents plan details and asks visitors to sign in first", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.locator(".landing-nav .theme-toggle-btn")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Entrar" })).toBeVisible();
+  const planLink = page.locator(".landing-plan-button");
+  await expect(planLink).toBeVisible();
+  await planLink.click();
+  await expect(page).toHaveURL(/#planos$/);
+  await expect(
+    page.getByRole("heading", { name: "Planos que acompanham o seu caminho." }),
+  ).toBeVisible();
+  await expect(page.locator(".plan-card-free")).toContainText("3 Flows ativos");
+  const proCard = page.locator(".plan-card-pro");
+  await expect(proCard.getByRole("button", { name: /Anual/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(proCard).toHaveClass(/plan-card-pro-annual/);
+  await expect(proCard).toContainText("MELHOR CUSTO · ECONOMIZE R$ 38");
+  await expect(proCard.locator(".plan-price strong")).toHaveText("R$ 190");
+  await expect(proCard).toContainText("Flows exclusivos");
+  await expect(proCard).toContainText("Relatórios personalizados de progresso");
+  await expect(proCard).not.toContainText("Em breve");
+  await expect(proCard).not.toContainText(
+    "A escolha do plano acontece depois.",
+  );
+  await proCard.getByRole("button", { name: "Mensal" }).click();
+  await expect(proCard).toHaveClass(/plan-card-pro-monthly/);
+  await expect(proCard).toContainText("FLEXIBILIDADE · PAGAMENTO MENSAL");
+  await expect(proCard.locator(".plan-price strong")).toHaveText("R$ 19");
+  await proCard.getByRole("button", { name: /Anual/ }).click();
+  await expect(proCard.locator(".plan-price strong")).toHaveText("R$ 190");
+  await expect(proCard).toContainText("Economize R$ 38 no anual.");
+  await expect(proCard.getByRole("button", { name: /Assinar/ })).toHaveCount(0);
+  await expect(
+    proCard.getByRole("button", { name: /Entrar para/ }),
+  ).toBeVisible();
+  const landingOverflow = await page.evaluate(() =>
+    [...document.querySelectorAll("body *")]
+      .map((element) => ({
+        selector: `${element.tagName.toLowerCase()}.${element.className?.baseVal || element.className || ""}`,
+        right: Math.round(element.getBoundingClientRect().right),
+        width: Math.round(element.getBoundingClientRect().width),
+      }))
+      .filter((element) => element.right > window.innerWidth + 1)
+      .slice(0, 8),
+  );
+  expect(landingOverflow, JSON.stringify(landingOverflow)).toEqual([]);
+});
+
+test("authentication screen keeps theme selection in settings only", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await expect(page.locator(".theme-toggle-btn")).toHaveCount(0);
+  await expect(page.locator(".theme-segmented")).toHaveCount(0);
+});
+
+test("workspace plan button opens billing choices without leaving the app", async ({
+  page,
+}) => {
+  await page.goto("/app");
+  await expect(page.locator(".topbar .theme-toggle-btn")).toHaveCount(0);
+  await page.getByRole("button", { name: "Conhecer os planos" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Escolha seu plano" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Assinar Noma Pro" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /Anual/ })).toBeVisible();
+  await page.getByRole("button", { name: "Mensal" }).click();
+  await expect(page.locator(".plan-card-pro .plan-price strong")).toHaveText(
+    "R$ 19",
+  );
+});
+
+test("official Flows expose their own experience journeys", async ({
+  page,
+}) => {
+  await useProPlan(page);
+  await page.goto("/app");
   const journeys = [
     {
-      name: "Meu próximo passo: ENEM",
+      name: "Estude para o concurso",
       heading: "O que merece estudo agora",
       answers: {
         fields: {
-          "Data ou meta da prova": "2026-11-08",
+          "Concurso ou processo seletivo": "Analista administrativo",
+          "Data da prova": "2026-11-08",
+          "Matérias prioritárias": "Português\nDireito administrativo",
           "Horas disponíveis por semana": "8",
         },
-        multi: ["Matemática"],
       },
     },
     {
@@ -271,8 +481,35 @@ test("official Flows expose their own experience journeys", async ({
     },
     {
       name: "Do seu jeito",
-      heading: "O que importa neste momento",
+      heading: "Organizar estudos",
       answers: { fields: { "O que você quer realizar?": "Organizar estudos" } },
+    },
+    {
+      name: "Planejando uma festa",
+      heading: "O que importa neste momento",
+      answers: { fields: { "Nome ou ocasião": "Festa de aniversário" } },
+    },
+    {
+      name: "Aprendendo um novo idioma",
+      heading: "O que importa neste momento",
+      answers: {
+        fields: {
+          Idioma: "Italiano",
+          "Nível atual": "Começando",
+          "Práticas por semana": "3",
+        },
+      },
+    },
+    {
+      name: "Domine as ferramentas de escritório",
+      heading: "O que importa neste momento",
+      answers: {
+        fields: {
+          "Resultado desejado": "Criar relatórios de trabalho",
+          "Práticas por semana": "2",
+        },
+        multi: ["Planilhas"],
+      },
     },
   ];
 
@@ -283,6 +520,24 @@ test("official Flows expose their own experience journeys", async ({
     ).toBeVisible();
     await page.getByLabel("Descobrir Flows", { exact: true }).click();
   }
+});
+
+test("Pro templates are visible to Free users but require the plan before onboarding", async ({
+  page,
+}) => {
+  await page.goto("/app");
+  const proCard = page
+    .locator(".template-card")
+    .filter({ hasText: "Novo emprego" });
+  await expect(proCard.locator(".template-tier")).toHaveText("NOMA PRO");
+  await proCard.getByRole("button", { name: /Conhecer Pro/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Escolha seu plano" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Novo emprego faz parte dos Flows Noma Pro/),
+  ).toBeVisible();
+  await expect(page.getByLabel("Nome do Flow", { exact: true })).toHaveCount(0);
 });
 
 test("legacy data migrates once without deleting the source", async ({
@@ -322,16 +577,18 @@ test("legacy data migrates once without deleting the source", async ({
 test("focus cycle survives navigation and reload; pausing stops elapsed time", async ({
   page,
 }) => {
+  await useProPlan(page);
   await page.goto("/app");
-  await openOfficial(page, "Meu próximo passo: ENEM");
+  await openOfficial(page, "Estude para o concurso");
   await page.getByRole("button", { name: "Continuar →" }).click();
-  await page.getByLabel("Data ou meta da prova").fill("2026-11-08");
   await page.getByRole("button", { name: "Continuar →" }).click();
   await page
-    .getByRole("button", { name: "Matemática", exact: true })
-    .first()
-    .click();
+    .getByLabel("Concurso ou processo seletivo")
+    .fill("Analista administrativo");
   await page.getByRole("button", { name: "Continuar →" }).click();
+  await page
+    .getByLabel("Matérias prioritárias")
+    .fill("Português\nDireito administrativo");
   await page.getByRole("button", { name: "Continuar →" }).click();
   await page.getByRole("button", { name: "Continuar →" }).click();
   await page.getByRole("button", { name: "Entrar no meu Flow" }).click();
@@ -431,7 +688,9 @@ test("a second tab cannot silently overwrite local work", async ({
 }) => {
   await page.goto("/app");
   await expect(
-    page.getByRole("heading", { name: "O que você quer fazer hoje?" }),
+    page.getByRole("heading", {
+      name: "O que você quer colocar em movimento?",
+    }),
   ).toBeVisible();
   const second = await context.newPage();
   await second.goto("/app");
@@ -439,6 +698,8 @@ test("a second tab cannot silently overwrite local work", async ({
   await page.close();
   await second.getByRole("button", { name: "Tentar novamente" }).click();
   await expect(
-    second.getByRole("heading", { name: "O que você quer fazer hoje?" }),
+    second.getByRole("heading", {
+      name: "O que você quer colocar em movimento?",
+    }),
   ).toBeVisible();
 });

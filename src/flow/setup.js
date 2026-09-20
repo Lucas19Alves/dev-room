@@ -115,6 +115,28 @@ function prepareEnem(flow, a) {
   ];
 }
 
+function prepareContest(flow, a) {
+  const subjects = a.prioritySubjects?.length
+    ? a.prioritySubjects
+    : ["Conhecimentos básicos"];
+  flow.componentData.tracker.items = subjects.map((subject) =>
+    record("Planejado", {
+      subject,
+      topic: "Diagnóstico inicial",
+      kind: "Conteúdo",
+      questions: 0,
+      correct: 0,
+      studyDate: "",
+      notes: "",
+    }),
+  );
+  flow.componentData.tasks.items = [
+    task("Conferir as matérias e etapas do edital", "Edital"),
+    task(`Fazer um diagnóstico de ${subjects[0]}`, "Estudo"),
+    task("Resolver questões e registrar os acertos", "Prática"),
+  ];
+}
+
 function prepareCode(flow, a, definition) {
   const features = normalizeList(a.essentialFeatures);
   flow.properties.essentialFeatureCount = features.length;
@@ -288,10 +310,84 @@ function prepareProject(flow, a) {
   ];
 }
 
+function prepareParty(flow, a) {
+  flow.componentData.tracker.items = [
+    ...(a.venue
+      ? [
+          record("Confirmado", {
+            title: a.venue,
+            kind: "Local",
+            dueAt: a.eventDate || "",
+            cost: "",
+            contact: "",
+            link: "",
+            notes: "",
+          }),
+        ]
+      : []),
+    ...normalizeList(a.mustHave).map((title) =>
+      record("Ideia", {
+        title,
+        kind: "Decisão",
+        dueAt: a.eventDate || "",
+        cost: "",
+        contact: "",
+        link: "",
+        notes: "",
+      }),
+    ),
+  ];
+  flow.componentData.tasks.items = [
+    task("Definir o que precisa estar confirmado primeiro", "Planejamento"),
+    task("Conferir convidados, local e data", "Preparação"),
+    ...(a.budget
+      ? [task("Montar uma primeira divisão do orçamento", "Orçamento")]
+      : []),
+  ];
+}
+
+function prepareLanguage(flow, a) {
+  flow.componentData.tracker.items = normalizeList(a.resources).map((title) =>
+    record("Para explorar", {
+      title,
+      kind: "Leitura",
+      dueAt: "",
+      resource: "",
+      notes: "",
+    }),
+  );
+  flow.componentData.tasks.items = [
+    task(`Fazer uma prática curta de ${a.languageName || "idioma"}`, "Prática"),
+    task("Registrar uma expressão que queira lembrar", "Vocabulário"),
+    task("Escolher uma situação real para praticar", "Aplicação"),
+  ];
+}
+
+function prepareOffice(flow, a) {
+  flow.componentData.tracker.items = normalizeList(a.officeTools).map((tool) =>
+    record("Na trilha", {
+      title: `Primeira prática: ${tool}`,
+      kind: tool,
+      dueAt: "",
+      link: "",
+      notes: "",
+    }),
+  );
+  flow.componentData.tasks.items = [
+    task("Escolher uma entrega real para praticar", "Aplicação"),
+    task("Identificar o primeiro recurso necessário", "Aprendizado"),
+    ...(a.practiceProject
+      ? [task(`Começar: ${a.practiceProject}`, "Projeto de prática")]
+      : []),
+  ];
+}
+
 export function applyDefinitionSetup(flow, definition, suppliedAnswers = {}) {
   const answers = onboardingDefaults(definition, suppliedAnswers);
   flow.onboarding.answers = clone(answers);
   flow.properties = { ...flow.properties, ...clone(answers) };
+  if (answers.intendedOutcome?.trim())
+    flow.objective = answers.intendedOutcome.trim();
   flow.properties.focusMinutes = Math.max(
     1,
     Math.min(180, Number(answers.focusMinutes || definition.focus) || 25),
@@ -325,6 +421,7 @@ export function applyDefinitionSetup(flow, definition, suppliedAnswers = {}) {
   const handlers = {
     job: prepareJob,
     enem: prepareEnem,
+    contest: prepareContest,
     code: prepareCode,
     college: prepareCollege,
     week: prepareWeek,
@@ -332,6 +429,9 @@ export function applyDefinitionSetup(flow, definition, suppliedAnswers = {}) {
     skill: prepareSkill,
     content: prepareContent,
     project: prepareProject,
+    party: prepareParty,
+    language: prepareLanguage,
+    office: prepareOffice,
   };
   handlers[definition.id]?.(flow, answers, definition);
   refreshFlowDerivedState(flow);

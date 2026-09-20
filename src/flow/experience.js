@@ -151,7 +151,7 @@ function buildActions(flow, now, id) {
     let shouldAct = false;
     let title = values.nextAction || "";
     let description = "";
-    if (id === "enem") {
+    if (id === "enem" || id === "contest") {
       const kind = values.kind || "Tópico";
       type =
         kind === "Revisão"
@@ -265,7 +265,7 @@ function buildActions(flow, now, id) {
         ? "practice_skill"
         : id === "content"
           ? "continue_content"
-          : id === "enem"
+          : id === "enem" || id === "contest"
             ? "study_topic"
             : "continue_task";
     actions.push(
@@ -330,7 +330,8 @@ function resourcesFor(flow) {
 
 function declarativeRecords(flow, entityId) {
   const records = declarativeEntityItems(flow, entityId);
-  if (records.length) return records.map((item) => ({ item, source: "entity" }));
+  if (records.length)
+    return records.map((item) => ({ item, source: "entity" }));
   const tracker = trackerItems(flow);
   return tracker.map(({ item }) => ({ item, source: "tracker" }));
 }
@@ -348,12 +349,14 @@ function declarativeActions(flow, now) {
         : "";
       const due = dateValue(dueAt);
       const actionId = `${entry.source}:${actionDefinition.entity}:${item.id}:${actionDefinition.id}`;
-      const operations = (actionDefinition.operations || [
-        "open",
-        "complete",
-        "postpone",
-        "dismiss",
-      ]).map((type) =>
+      const operations = (
+        actionDefinition.operations || [
+          "open",
+          "complete",
+          "postpone",
+          "dismiss",
+        ]
+      ).map((type) =>
         operation(
           actionId,
           type,
@@ -394,7 +397,8 @@ function declarativeActions(flow, now) {
         sourceId: entry.item.id,
         type: "continue_task",
         title: entry.item.text || "Continuar tarefa",
-        description: entry.item.description || "Um próximo passo disponível neste Flow.",
+        description:
+          entry.item.description || "Um próximo passo disponível neste Flow.",
         dueAt: entry.item.dueDate,
         priority: entry.item.priority || "normal",
       }),
@@ -437,10 +441,22 @@ function declarativeSection(flow, definition, actions, metrics, history) {
     section.entity
       ? declarativeRecords(flow, section.entity).map(({ item, source }) => ({
           id: item.id,
-          title: item.values?.title || item.values?.topic || item.values?.company || item.text || "Sem título",
-          subtitle: [item.values?.subject, item.values?.kind, item.status].filter(Boolean).join(" · "),
+          title:
+            item.values?.title ||
+            item.values?.topic ||
+            item.values?.company ||
+            item.text ||
+            "Sem título",
+          subtitle: [item.values?.subject, item.values?.kind, item.status]
+            .filter(Boolean)
+            .join(" · "),
           status: item.status,
-          dueAt: item.values?.dueAt || item.values?.when || item.values?.publishAt || item.values?.nextActionAt || "",
+          dueAt:
+            item.values?.dueAt ||
+            item.values?.when ||
+            item.values?.publishAt ||
+            item.values?.nextActionAt ||
+            "",
           source,
           sourceId: item.id,
           entityType: section.entity,
@@ -470,11 +486,18 @@ function buildDeclarativeFlowExperience(flow, now) {
   const metrics = calculateMetrics(flow, now);
   const actions = declarativeActions(flow, now);
   const history = declarativeHistory(flow);
-  const layout = declarativeSection(flow, flow.experience, actions, metrics, history);
+  const layout = declarativeSection(
+    flow,
+    flow.experience,
+    actions,
+    metrics,
+    history,
+  );
   const hero = layout.find((section) => section.type === "hero") || {};
   const resolve = (value, fallback = "") => {
     if (!value || typeof value !== "object") return value || fallback;
-    if (value.property) return flow.properties?.[value.property] || value.fallback || fallback;
+    if (value.property)
+      return flow.properties?.[value.property] || value.fallback || fallback;
     return value.text || fallback;
   };
   const heroContext = {
@@ -483,21 +506,25 @@ function buildDeclarativeFlowExperience(flow, now) {
     subtitle: resolve(hero.subtitle, flow.description),
     facts: [],
   };
-  const primarySection =
-    layout.find((section) => section.source === "actions" || section.type === "next-actions") || {
-      title: "Agora",
-      items: actions,
-    };
-  const progressSection =
-    layout.find((section) => section.source === "metrics" || section.type === "progress") || {
-      title: "Progresso",
-      items: Object.values(metrics),
-    };
+  const primarySection = layout.find(
+    (section) =>
+      section.source === "actions" || section.type === "next-actions",
+  ) || {
+    title: "Agora",
+    items: actions,
+  };
+  const progressSection = layout.find(
+    (section) => section.source === "metrics" || section.type === "progress",
+  ) || {
+    title: "Progresso",
+    items: Object.values(metrics),
+  };
   const secondary = layout
     .filter(
       (section) =>
-        !["hero", "next-actions", "progress", "metrics", "timeline"].includes(section.type) &&
-        section.type !== "history",
+        !["hero", "next-actions", "progress", "metrics", "timeline"].includes(
+          section.type,
+        ) && section.type !== "history",
     )
     .map((section) => ({
       label: String(section.title || section.type || "SECAO").toUpperCase(),
@@ -528,7 +555,12 @@ function buildDeclarativeFlowExperience(flow, now) {
       },
       layout,
     },
-    progress: { metrics: Object.values(metrics), goals: clone(flow.goals || []), stages: clone(flow.stages || []), value: flow.progress?.value ?? null },
+    progress: {
+      metrics: Object.values(metrics),
+      goals: clone(flow.goals || []),
+      stages: clone(flow.stages || []),
+      value: flow.progress?.value ?? null,
+    },
     week: { metrics: Object.values(metrics).slice(0, 5) },
   };
 }
@@ -600,7 +632,7 @@ function domainSections(
     ...extra,
   });
 
-  if (id === "enem") {
+  if (id === "enem" || id === "contest") {
     const practice = tracker.filter((item) =>
       ["Questões", "Simulado", "Redação"].includes(item.item.values?.kind),
     );
@@ -614,7 +646,10 @@ function domainSections(
     );
     return {
       hero: {
-        eyebrow: "PREPARAÇÃO PARA O ENEM",
+        eyebrow:
+          id === "contest"
+            ? "PREPARAÇÃO PARA CONCURSO"
+            : "PREPARAÇÃO PARA O ENEM",
         title: "O que merece estudo agora",
       },
       primary: section("HOJE", "O que merece estudo agora", actions),
@@ -810,7 +845,11 @@ function domainSections(
 
 export function buildFlowExperience(flow, now = Date.now()) {
   if (!flow) return null;
-  if (flow.definitionRef?.source !== "official" && flow.protocol?.entities && flow.experience?.layout)
+  if (
+    flow.definitionRef?.source !== "official" &&
+    flow.protocol?.entities &&
+    flow.experience?.layout
+  )
     return buildDeclarativeFlowExperience(flow, now);
   const id = flow.definitionRef?.id;
   const metrics = calculateMetrics(flow, now);
@@ -826,7 +865,7 @@ export function buildFlowExperience(flow, now = Date.now()) {
     flow.stages?.find((stage) => stage.status === "current")?.title || "";
   const job = id === "job";
   const title = job
-    ? properties.targetRole || "Seu próximo capítulo"
+    ? properties.targetRole || "Novo emprego"
     : properties.skillName ||
       properties.projectName ||
       properties.channel ||

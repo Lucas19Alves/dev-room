@@ -1,4 +1,4 @@
-import { authenticate, cors, json, safeFailure, stripe } from "../_shared/http.ts";
+import { authenticate, cors, json, safeFailure, stripeClient } from "../_shared/http.ts";
 
 Deno.serve(async (request) => {
   let headers: Record<string,string> = {};
@@ -7,14 +7,15 @@ Deno.serve(async (request) => {
     if (request.method === "OPTIONS") return new Response(null, {status:204,headers});
     if (request.method !== "POST") return json({ error: "method_not_allowed" },405,headers);
     const { client, user, token } = await authenticate(request);
+    const stripe = stripeClient();
     const input = await request.json();
     if (input.confirmation !== "EXCLUIR MINHA CONTA") throw new Error("invalid_confirmation");
     const { data: billing, error } = await client.from("billing_customers").select("stripe_customer_id").eq("user_id",user.id).maybeSingle();
     if(error) throw new Error("service_unavailable");
     if(billing) {
-      const subscriptions = await stripe(`subscriptions?customer=${encodeURIComponent(billing.stripe_customer_id)}&status=all&limit=100`);
+      const subscriptions = await stripe.subscriptions.list({ customer: billing.stripe_customer_id, status: "all", limit: 100 });
       for(const subscription of subscriptions.data) {
-        if(!["canceled","incomplete_expired"].includes(subscription.status)) await stripe(`subscriptions/${encodeURIComponent(subscription.id)}`,"DELETE");
+        if(!["canceled","incomplete_expired"].includes(subscription.status)) await stripe.subscriptions.cancel(subscription.id);
       }
     }
     // Revoke refresh sessions before deleting. Residual access JWTs are also

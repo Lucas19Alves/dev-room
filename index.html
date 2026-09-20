@@ -7,8 +7,12 @@
     <title>Noma — Um Flow para o que você quer realizar</title>
     <meta
       name="description"
-      content="Informe o que quer realizar e receba um Flow com contexto, ferramentas, sessões e histórico de progresso."
+      content="Diga o que você quer realizar. O Noma organiza o caminho, preserva o contexto e mostra o próximo passo. Experimente sem custo."
     />
+    <link rel="canonical" href="https://usenoma.vercel.app/" />
+    <meta name="robots" content="index,follow" />
+    <meta property="og:url" content="https://usenoma.vercel.app/" />
+    <meta property="og:site_name" content="Noma" />
     <meta property="og:title" content="Noma — Encontre seu Flow" />
     <meta
       property="og:description"
@@ -16,6 +20,16 @@
     />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/icons/noma-logo.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Noma — Um objetivo. Um próximo passo."
+    />
+    <meta
+      name="twitter:description"
+      content="Diga o que você quer realizar. O Noma organiza o caminho e mostra o próximo passo."
+    />
+    <meta name="twitter:image" content="/icons/noma-logo.png" />
     <meta name="theme-color" content="#294a38" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/n-logo.png" />
@@ -23,18 +37,25 @@
       (function () {
         try {
           var saved = localStorage.getItem("noma-theme");
-          var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var prefersDark = window.matchMedia(
+            "(prefers-color-scheme: dark)",
+          ).matches;
           var theme =
             saved === "dark" || saved === "light"
               ? saved
               : saved === "system" || !saved
-                ? (prefersDark ? "dark" : "light")
+                ? prefersDark
+                  ? "dark"
+                  : "light"
                 : "light";
           document.documentElement.dataset.theme = theme;
           document.documentElement.style.colorScheme = theme;
           var metaTheme = document.querySelector('meta[name="theme-color"]');
           if (metaTheme) {
-            metaTheme.setAttribute("content", theme === "dark" ? "#0c1412" : "#294a38");
+            metaTheme.setAttribute(
+              "content",
+              theme === "dark" ? "#0c1412" : "#294a38",
+            );
           }
         } catch (e) {}
       })();

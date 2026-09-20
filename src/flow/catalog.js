@@ -28,6 +28,9 @@ export const components = [
 ].map(([id, name, icon, description]) => ({ id, name, icon, description }));
 
 export const templates = officialDefinitions;
+export const discoverableTemplates = templates.filter(
+  (template) => template.legacyOnly !== true,
+);
 export const clone = (value) => JSON.parse(JSON.stringify(value));
 export const makeFlow = createFlowInstance;
 export const publicTemplate = toPublicDefinition;
@@ -35,7 +38,10 @@ export { emptyAccount };
 
 export function latestDefinition(flow) {
   if (flow?.definitionRef?.source !== "official") return null;
-  return templates.find((item) => item.id === flow.definitionRef.id) || null;
+  return (
+    officialDefinitions.find((item) => item.id === flow.definitionRef.id) ||
+    null
+  );
 }
 
 export function definitionUpdate(flow) {

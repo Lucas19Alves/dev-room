@@ -1,17 +1,45 @@
 <script setup>
+import { nextTick, ref } from "vue";
 import { usePlatform } from "./flow/usePlatform";
 import BrandLogo from "./components/ui/BrandLogo.vue";
 import ProductState from "./components/ui/ProductState.vue";
 import NModal from "./components/ui/NModal.vue";
 import FlowOnboarding from "./components/FlowOnboarding.vue";
 import FlowReview from "./components/FlowReview.vue";
-import ThemeToggle from "./components/ui/ThemeToggle.vue";
+import OverviewPage from "./components/OverviewPage.vue";
+import FlowBuilder from "./components/FlowBuilder.vue";
+import AccountPanel from "./components/AccountPanel.vue";
+import PlanPanel from "./components/PlanPanel.vue";
+import SettingsIcon from "./components/ui/SettingsIcon.vue";
+const mobileMenuOpen = ref(false);
+const mobileMenuButton = ref(null);
+const sidebarCloseButton = ref(null);
+function openMobileMenu() {
+  mobileMenuOpen.value = true;
+  nextTick(() => sidebarCloseButton.value?.focus());
+}
+function closeMobileMenu() {
+  mobileMenuOpen.value = false;
+  if (!modal.value) nextTick(() => mobileMenuButton.value?.focus());
+}
+function openSettings() {
+  modal.value = "account";
+  mobileMenuOpen.value = false;
+  nextTick(() => document.querySelector(".n-modal")?.focus());
+}
+function setMobileMenuButton(element) {
+  mobileMenuButton.value = element;
+}
+function setSidebarCloseButton(element) {
+  sidebarCloseButton.value = element;
+}
 const {
   components,
   componentIds,
   componentTypes,
   activeComponents,
   templates,
+  discoverableTemplates,
   store,
   supabase,
   syncNow,
@@ -32,12 +60,25 @@ const {
   displayName,
   email,
   message,
+  paywallFlow,
   busy,
   adding,
   newTask,
   linkTitle,
   linkUrl,
   community,
+  communityLoading,
+  communityError,
+  savedFlows,
+  showArchived,
+  archiveFlow,
+  now,
+  can,
+  billingState,
+  previewTemplate,
+  viewTemplate,
+  experienceView,
+  executeOverviewAction,
   summary,
   active,
   activeDefinitionUpdate,
@@ -93,17 +134,66 @@ const {
 } = usePlatform();
 </script>
 <template>
-  <div class="platform">
-    <aside class="sidebar" :inert="modal ? true : undefined">
+  <div class="platform" @keydown.esc="closeMobileMenu">
+    <button
+      v-if="mobileMenuOpen"
+      class="mobile-drawer-scrim"
+      aria-label="Fechar navegação"
+      @click="closeMobileMenu"
+    ></button>
+    <aside
+      id="main-navigation"
+      class="sidebar"
+      :class="{ 'mobile-drawer-open': mobileMenuOpen }"
+      :inert="modal ? true : undefined"
+      @keydown.esc.stop="closeMobileMenu"
+    >
+      <div class="sidebar-mobile-head">
+        <a
+          class="brand"
+          href="#"
+          aria-label="Noma — descobrir Flows"
+          @click.prevent="
+            closeMobileMenu();
+            navigate('explore');
+          "
+          ><BrandLogo
+        /></a>
+        <button
+          class="sidebar-close-button"
+          aria-label="Fechar navegação"
+          :ref="setSidebarCloseButton"
+          @click="closeMobileMenu"
+        >
+          ×
+        </button>
+      </div>
       <a
-        class="brand"
+        class="brand sidebar-desktop-brand"
         href="#"
         aria-label="Noma — descobrir Flows"
-        @click.prevent="navigate('explore')"
+        @click.prevent="
+          closeMobileMenu();
+          navigate('explore');
+        "
         ><BrandLogo
       /></a>
       <div class="workspace-label">ESPAÇO PESSOAL <span>⌄</span></div>
-      <nav aria-label="Navegação principal">
+      <nav aria-label="Navegação principal" @click="closeMobileMenu">
+        <button
+          aria-label="Hoje"
+          :class="{ selected: page === 'today' }"
+          @click="navigate('today')"
+        >
+          <span>◷</span> Hoje
+        </button>
+        <button
+          aria-label="Calendário"
+          :class="{ selected: page === 'calendar' }"
+          @click="navigate('calendar')"
+        >
+          <span>▦</span> Calendário
+        </button>
         <button
           aria-label="Descobrir Flows"
           :class="{ selected: page === 'explore' }"
@@ -133,13 +223,25 @@ const {
         >
           <span>◎</span> Comunidade
         </button>
+        <button
+          class="mobile-account-link"
+          :class="{ selected: modal === 'account' }"
+          aria-label="Configurações"
+          @click="openSettings"
+        >
+          <SettingsIcon />
+          Configurações
+        </button>
       </nav>
       <div v-if="store.account.flows.length" class="recent">
         <p>SEUS ESPAÇOS</p>
         <button
           v-for="flow in store.account.flows.slice(0, 5)"
           :key="flow.id"
-          @click="openFlow(flow)"
+          @click="
+            openFlow(flow);
+            closeMobileMenu();
+          "
         >
           <i :class="flow.identity.color"></i>{{ flow.identity.name }}
         </button>
@@ -150,7 +252,7 @@ const {
           ><strong>Grandes coisas começam<br />com um pequeno Flow.</strong>
           <p>Encontre espaço para o que importa.</p>
         </div>
-        <button class="profile" @click="modal = 'account'">
+        <button class="profile" @click="openSettings">
           <span class="avatar">{{
             (store.account.name || "V").slice(0, 1).toUpperCase()
           }}</span
@@ -161,17 +263,33 @@ const {
             ><small>{{
               store.user ? "Conta conectada" : "Modo local · neste dispositivo"
             }}</small></span
-          ><span>⚙</span>
+          ><span class="profile-settings-icon" aria-hidden="true">
+            <SettingsIcon />
+          </span>
         </button>
       </div>
     </aside>
-    <main :inert="modal ? true : undefined">
+    <main :inert="modal || mobileMenuOpen ? true : undefined">
       <header class="topbar">
-        <div>
+        <div class="topbar-context">
+          <button
+            class="mobile-menu-trigger"
+            aria-label="Abrir menu de navegação"
+            aria-controls="main-navigation"
+            :aria-expanded="mobileMenuOpen"
+            :ref="setMobileMenuButton"
+            @click="openMobileMenu"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
           <span class="breadcrumb">Seu espaço</span><span class="slash">/</span
           >{{
             {
               explore: "Descobrir Flows",
+              today: "Hoje",
+              calendar: "Calendário",
               flows: "Meus Flows",
               workspace: active?.identity.name,
               history: "Minha jornada",
@@ -181,13 +299,45 @@ const {
         </div>
         <div class="top-actions">
           <span class="sync"><i></i>{{ store.status }}</span>
-          <ThemeToggle />
+          <button
+            class="plan-topbar-button"
+            :class="{
+              'plan-topbar-button-active':
+                billingState.available && can('unlimitedFlows'),
+            }"
+            :aria-label="
+              billingState.available && can('unlimitedFlows')
+                ? 'Noma Pro ativo'
+                : 'Conhecer os planos'
+            "
+            @click="modal = 'plans'"
+          >
+            <span class="plan-topbar-mark" aria-hidden="true">
+              <svg viewBox="0 0 20 20">
+                <path
+                  d="M10 1.8 12.4 7.6 18.7 8.2 14 12.3 15.4 18.4 10 15.2 4.6 18.4 6 12.3 1.3 8.2 7.6 7.6 10 1.8Z"
+                />
+              </svg>
+            </span>
+            <span class="plan-topbar-copy">
+              <strong>{{
+                billingState.available && can("unlimitedFlows")
+                  ? "Pro ativo"
+                  : "Planos"
+              }}</strong>
+              <small>{{
+                billingState.available && can("unlimitedFlows")
+                  ? "Sua assinatura"
+                  : "Conheça Free e Pro"
+              }}</small>
+            </span>
+          </button>
           <button
             class="icon-button"
-            aria-label="Abrir conta"
-            @click="modal = 'account'"
+            aria-label="Configurações"
+            @click="openSettings"
           >
-            {{ store.user ? "◎" : "↗" }}
+            <SettingsIcon />
           </button>
         </div>
       </header>
@@ -217,17 +367,29 @@ const {
       >
       <div v-else class="content">
         <template v-if="page === 'explore' || page === 'community'">
-          <div class="eyebrow">MENOS DISTRAÇÕES. MAIS POSSIBILIDADES.</div>
+          <div class="eyebrow">
+            {{
+              page === "community"
+                ? "PONTOS DE PARTIDA COMPARTILHADOS"
+                : "UM OBJETIVO, UM PRÓXIMO PASSO"
+            }}
+          </div>
           <div class="page-heading">
             <div>
               <h1>
                 {{
                   page === "community"
                     ? "Bons Flows merecem ser compartilhados."
-                    : "O que você quer fazer hoje?"
+                    : "O que você quer colocar em movimento?"
                 }}
               </h1>
-              <p>Escolha um objetivo. Encontre seu Flow. Faça acontecer.</p>
+              <p>
+                {{
+                  page === "community"
+                    ? "Conheça um Flow e leve apenas a estrutura para o seu espaço."
+                    : "Comece pelo resultado que importa. O caminho pode se adaptar com você."
+                }}
+              </p>
             </div>
             <button class="outline" @click="choose(templates[5])">
               ＋ Criar do zero
@@ -242,10 +404,9 @@ const {
                 Um espaço que se adapta<br />ao <em>seu próximo passo.</em>
               </h2>
               <p>
-                Estudar, criar, organizar ou recomeçar. Reúna as ferramentas<br
-                  class="desktop-only"
-                />
-                certas em um Flow feito para o que você quer realizar.
+                Estudar, criar, organizar ou recomeçar. Encontre seu próximo
+                passo<br class="desktop-only" />
+                em um Flow feito para o que você quer realizar.
               </p>
               <button class="dark-button" @click="choose(templates[0])">
                 Encontrar meu primeiro Flow <span>↗</span></button
@@ -282,12 +443,12 @@ const {
                 {{
                   page === "community"
                     ? "Configurações compartilhadas. O conteúdo do seu espaço continua só seu."
-                    : "Pontos de partida pensados para você. Todos podem ser personalizados."
+                    : "Experiências para começar por um objetivo. Crie uma sua quando quiser."
                 }}
               </p>
             </div>
             <span v-if="page === 'explore'" class="count"
-              >{{ templates.length }} possibilidades para começar</span
+              >{{ discoverableTemplates.length }} pontos de partida</span
             >
           </div>
           <div class="filter-row">
@@ -317,6 +478,8 @@ const {
             >
               <div class="card-visual" :class="template.color">
                 <span class="card-category">{{ template.category }}</span
+                ><span v-if="template.tier === 'pro'" class="template-tier"
+                  >NOMA PRO</span
                 ><span class="large-symbol">{{ template.icon }}</span>
                 <div class="visual-lines"><i></i><i></i><i></i></div>
                 <span class="card-star">✧</span>
@@ -326,17 +489,22 @@ const {
                 <h3>{{ template.name }}</h3>
                 <p>{{ template.description }}</p>
                 <div class="card-context">
-                  <span
-                    >Um ponto de partida preparado para
-                    {{ template.objective || template.description }}</span
-                  >
+                  <span>{{ template.objective || template.description }}</span>
                 </div>
                 <div class="card-footer">
                   <span>{{
                     template.owner ? "Comunidade Noma" : "Por Noma"
                   }}</span
+                  ><button @click="viewTemplate(template)">Conhecer ↗</button
                   ><button @click="choose(template)">
-                    {{ template.id === "blank" ? "Criar Flow" : "Usar Flow" }} ↗
+                    {{
+                      template.tier === "pro" && !can("unlimitedFlows")
+                        ? "Conhecer Pro"
+                        : template.id === "blank"
+                          ? "Criar Flow"
+                          : "Usar Flow"
+                    }}
+                    ↗
                   </button>
                 </div>
                 <button
@@ -349,26 +517,53 @@ const {
               </div>
             </article>
           </div>
+          <ProductState
+            v-if="page === 'community' && communityLoading"
+            kind="loading"
+            title="Buscando Flows compartilhados…"
+            compact
+          />
+          <ProductState
+            v-else-if="page === 'community' && communityError"
+            kind="offline"
+            title="Seus próprios Flows continuam disponíveis."
+            :description="communityError"
+            compact
+            ><button class="outline" @click="perform(loadCommunity)">
+              Tentar novamente
+            </button></ProductState
+          >
           <div v-if="!filtered.length" class="empty">
             <h3>
               {{
-                !supabase && page === "community"
-                  ? "A comunidade estará aqui em breve."
+                page === "community"
+                  ? "Ainda não há modelos públicos."
                   : "Nenhum Flow encontrado."
               }}
             </h3>
             <p>
               {{
-                !supabase && page === "community"
-                  ? "Conecte o Supabase para publicar e descobrir modelos de outros usuários."
+                page === "community"
+                  ? "Quando alguém publicar um ponto de partida, você poderá encontrá-lo aqui."
                   : "Tente outra busca ou crie um Flow do seu jeito."
               }}
             </p>
           </div>
-          <div class="bottom-note">
-            <span>◈</span> As ferramentas se adaptam ao seu objetivo. E não o
-            contrário.
+          <div v-if="page === 'explore'" class="bottom-note">
+            <span>◈</span> Escolha um ponto de partida ou crie um caminho seu.
           </div>
+        </template>
+        <template v-else-if="page === 'today' || page === 'calendar'">
+          <OverviewPage
+            :view="page"
+            :flows="store.account.flows"
+            :now="now"
+            :full-history="can('fullHistory')"
+            @open="openFlow"
+            @action="executeOverviewAction"
+            @discover="navigate('explore')"
+            @plans="modal = 'account'"
+          />
         </template>
         <template v-else-if="page === 'flows'">
           <div class="eyebrow">SEU PRÓXIMO PASSO ESTÁ AQUI</div>
@@ -386,6 +581,20 @@ const {
             <button class="dark-button" @click="navigate('explore')">
               ＋ Novo Flow
             </button>
+          </div>
+          <div class="flow-list-controls">
+            <span class="flow-list-status">{{
+              showArchived ? "Flows arquivados" : "Flows ativos"
+            }}</span>
+            <button
+              class="text-button flow-list-archive-link"
+              @click="showArchived = !showArchived"
+            >
+              {{ showArchived ? "Ver ativos" : "Ver arquivados" }}
+            </button>
+            <small v-if="!can('unlimitedFlows')" class="flow-list-plan"
+              >{{ savedFlows.length }} de 3 espaços ativos no plano Free</small
+            >
           </div>
           <div class="stats">
             <div>
@@ -425,7 +634,7 @@ const {
           </section>
           <div class="template-grid">
             <article
-              v-for="flow in store.account.flows"
+              v-for="flow in savedFlows"
               :key="flow.id"
               class="saved-flow"
             >
@@ -436,6 +645,11 @@ const {
               <h2>{{ flow.identity.name }}</h2>
               <p>{{ flow.objective || "Um objetivo em movimento." }}</p>
               <p>{{ remainingTasks(flow) }} próximos passos em aberto</p>
+              <span
+                v-if="flow.archivedAt || flow.status === 'archived'"
+                class="archived-badge"
+                >Arquivado · dados preservados</span
+              >
               <small
                 >Última alteração:
                 {{
@@ -444,14 +658,33 @@ const {
               ><button class="outline" @click="openFlow(flow)">
                 Entrar no Flow ↗
               </button>
+              <button class="text-button" @click="archiveFlow(flow)">
+                {{
+                  flow.archivedAt || flow.status === "archived"
+                    ? "Reativar Flow"
+                    : "Arquivar Flow"
+                }}
+              </button>
             </article>
           </div>
-          <div v-if="!store.account.flows.length" class="empty">
+          <div v-if="!savedFlows.length" class="empty">
             <span>✳</span>
-            <h2>Todo objetivo merece um espaço.</h2>
-            <p>Escolha um modelo ou comece com uma tela em branco.</p>
+            <h2>
+              {{
+                showArchived
+                  ? "Nenhum Flow arquivado."
+                  : "Todo objetivo merece um espaço."
+              }}
+            </h2>
+            <p>
+              {{
+                showArchived
+                  ? "Seus Flows arquivados aparecerão aqui."
+                  : "Escolha uma experiência pronta ou crie um Flow do seu jeito."
+              }}
+            </p>
             <button class="dark-button" @click="navigate('explore')">
-              Descobrir meu primeiro Flow ↗
+              Descobrir um Flow ↗
             </button>
           </div>
         </template>
@@ -701,10 +934,21 @@ const {
       {{ message
       }}<button aria-label="Fechar aviso" @click="message = ''">×</button>
     </div>
-    <NModal v-if="modal" @close="modal = null">
+    <NModal
+      v-if="modal"
+      @close="
+        modal = null;
+        paywallFlow = '';
+      "
+    >
       <template v-if="modal === 'create'">
+        <FlowBuilder
+          v-if="draft?.id === 'blank'"
+          @complete="createFlow"
+          @cancel="modal = null"
+        />
         <FlowOnboarding
-          v-if="draft"
+          v-else-if="draft"
           :definition="draft"
           :components="components"
           :default-display-name="store.account.name"
@@ -722,52 +966,56 @@ const {
         />
       </template>
       <template v-else-if="modal === 'account'"
-        ><div class="eyebrow">SEU ESPAÇO, COM VOCÊ</div>
-        <h2 id="modal-title">
-          {{ store.user ? "Sua conta" : "Continue de qualquer lugar." }}
-        </h2>
-        <p>
-          Conecte sua conta para sincronizar seus Flows e compartilhar modelos
-          com a comunidade.
-        </p>
-        <div v-if="!supabase" class="setup-info">
-          <strong>Supabase ainda não configurado</strong>
-          <p>
-            O modo local está disponível. Para ativar contas e a comunidade,
-            configure o projeto conforme o README.
-          </p>
+        ><AccountPanel
+          :account="store.account"
+          :user="store.user"
+          :status="store.status"
+          @export="exportBackup"
+          @sync="syncNow"
+          @logout="perform(signOut)"
+          @import="perform(importGuest)"
+          @flows="
+            modal = null;
+            navigate('flows');
+          "
+      /></template>
+      <template v-else-if="modal === 'plans'">
+        <PlanPanel :user="store.user" :required-flow="paywallFlow" />
+      </template>
+      <template v-else-if="modal === 'preview' && previewTemplate">
+        <div class="eyebrow">
+          {{
+            previewTemplate.owner ? "DA COMUNIDADE" : previewTemplate.category
+          }}
         </div>
-        <template v-else-if="store.user"
-          ><p>{{ store.user.email }}</p>
-          <button
-            class="outline"
-            :disabled="busy"
-            @click="perform(importGuest)"
-          >
-            Importar meus Flows deste dispositivo</button
-          ><button class="outline" @click="syncNow">Sincronizar agora</button
-          ><button class="outline" @click="perform(signOut)">
-            Sair da conta
-          </button></template
+        <h2 id="modal-title">{{ previewTemplate.name }}</h2>
+        <p>{{ previewTemplate.objective || previewTemplate.description }}</p>
+        <p>{{ previewTemplate.description }}</p>
+        <div
+          v-if="previewTemplate.experience?.layout?.length"
+          class="preview-structure"
         >
-        <form v-else @submit.prevent="perform(sendLink)">
-          <label
-            >Seu e-mail<input
-              v-model="email"
-              type="email"
-              autocomplete="email"
-              required
-              placeholder="voce@exemplo.com" /></label
-          ><button class="dark-button" :disabled="busy">
-            {{ busy ? "Enviando…" : "Receber link de acesso →" }}
-          </button>
-          <p class="hint">Sem senha. Enviaremos um link para o seu e-mail.</p>
-        </form>
-        <hr />
-        <button class="text-button" @click="exportBackup">
-          ↓ Exportar uma cópia dos meus dados
-        </button></template
-      >
+          <strong>Este Flow prepara</strong>
+          <ul>
+            <li
+              v-for="section in previewTemplate.experience.layout.filter(
+                (section) => section.type !== 'hero',
+              )"
+              :key="section.id || section.title"
+            >
+              {{ section.title }}
+            </li>
+          </ul>
+        </div>
+        <button class="dark-button" @click="choose(previewTemplate)">
+          {{
+            previewTemplate.id === "blank"
+              ? "Criar do meu jeito"
+              : "Começar com este Flow"
+          }}
+          ↗
+        </button>
+      </template>
       <template v-else-if="modal === 'publish'"
         ><div class="eyebrow">COMPARTILHE UM PONTO DE PARTIDA</div>
         <h2 id="modal-title">Transformar em modelo público?</h2>

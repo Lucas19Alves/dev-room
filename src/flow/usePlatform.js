@@ -10,6 +10,7 @@ import {
 import {
   components,
   templates,
+  discoverableTemplates,
   makeFlow,
   publicTemplate,
   safeUrl,
@@ -18,7 +19,7 @@ import {
 } from "./catalog";
 import {
   store,
-  initialize,
+  initialize as initializeStore,
   changed,
   syncNow,
   exportBackup,
@@ -38,7 +39,13 @@ import { elapsedSeconds, formatClock } from "./time.js";
 import { buildFlowExperience, findExperienceSource } from "./experience.js";
 import { getExperienceComponent } from "./experienceRegistry.js";
 import { executeDeclarativeCommand } from "./declarativeRuntime.js";
-import { billingState, can, mayActivateFlow } from "./billing.js";
+import {
+  billingState,
+  can,
+  mayActivateFlow,
+  refreshEntitlements,
+  resetBilling,
+} from "./billing.js";
 import { isFlowArchived, activeFlows } from "./entitlements.js";
 import { validateDeclarativeDefinition } from "./declarative.js";
 import { recordProductEvent } from "./analytics.js";
@@ -49,6 +56,23 @@ import {
   skipReview,
 } from "./runtime.js";
 export function usePlatform() {
+  const platformInitialized = ref(false);
+  watch(
+    () => store.user?.id,
+    (userId) => {
+      if (!platformInitialized.value) return;
+      if (userId) {
+        resetBilling();
+        void refreshEntitlements();
+      } else resetBilling();
+    },
+  );
+  async function initialize() {
+    await initializeStore();
+    if (store.user) await refreshEntitlements();
+    else resetBilling();
+    platformInitialized.value = true;
+  }
   const tools = {
     music: defineAsyncComponent(() => import("../components/MusicPlayer.vue")),
     kanban: defineAsyncComponent(() => import("../components/Kanban.vue")),
@@ -92,6 +116,7 @@ export function usePlatform() {
     displayName = ref(""),
     email = ref(""),
     message = ref(""),
+    paywallFlow = ref(""),
     busy = ref(false),
     adding = ref(false),
     newTask = ref(""),
@@ -105,12 +130,20 @@ export function usePlatform() {
     showArchived = ref(false),
     experienceView = ref(null),
     summary = ref(null);
-  const savedFlows = computed(() => store.account.flows.filter((flow) => showArchived.value ? isFlowArchived(flow) : !isFlowArchived(flow)));
+  const savedFlows = computed(() =>
+    store.account.flows.filter((flow) =>
+      showArchived.value ? isFlowArchived(flow) : !isFlowArchived(flow),
+    ),
+  );
+  const mayCreateAnotherFlow = () =>
+    can("unlimitedFlows") || mayActivateFlow(store.account.flows);
   const active = computed(() =>
     store.account.flows.find((f) => f.id === activeId.value),
   );
   const activeDefinitionUpdate = computed(() => definitionUpdate(active.value));
-  const experience = computed(() => buildFlowExperience(active.value, now.value));
+  const experience = computed(() =>
+    buildFlowExperience(active.value, now.value),
+  );
   const experienceComponent = computed(() =>
     getExperienceComponent(active.value),
   );
@@ -150,17 +183,23 @@ export function usePlatform() {
     "Carreira",
     "Criativo",
     "Pessoal",
+    "Aprendizado",
     "Personalizado",
   ];
-  const filtered = computed(() =>
-    (page.value === "community" ? community.value : templates).filter(
+  const filtered = computed(() => {
+    const results = (
+      page.value === "community" ? community.value : discoverableTemplates
+    ).filter(
       (t) =>
         (filter.value === "Todos" || t.category === filter.value) &&
         `${t.name} ${t.description}`
           .toLowerCase()
           .includes(search.value.toLowerCase()),
-    ),
-  );
+    );
+    return page.value === "community"
+      ? results
+      : results.sort((a, b) => (a.tier === "pro") - (b.tier === "pro"));
+  });
   const sessions = computed(() =>
     store.account.flows
       .flatMap((f) =>
@@ -226,13 +265,29 @@ export function usePlatform() {
     try {
       await fn();
     } catch (error) {
-      notify(error.message?.match(/^[A-ZÀ-Ú][^\n]*[.!]$/) && !/error|supabase|fetch|sql|jwt|permission/i.test(error.message) ? error.message : "Não foi possível concluir. Suas alterações salvas continuam aqui. Tente novamente.");
+      notify(
+        error.message?.match(/^[A-ZÀ-Ú][^\n]*[.!]$/) &&
+          !/error|supabase|fetch|sql|jwt|permission/i.test(error.message)
+          ? error.message
+          : "Não foi possível concluir. Suas alterações salvas continuam aqui. Tente novamente.",
+      );
     } finally {
       busy.value = false;
     }
   }
   function choose(template) {
-    if (!mayActivateFlow(store.account.flows)) { modal.value = "account"; return notify("Seu plano permite 3 Flows ativos. Arquive um Flow para liberar espaço ou conheça o Pro."); }
+    if (template.tier === "pro" && !can("unlimitedFlows")) {
+      paywallFlow.value = template.name;
+      modal.value = "plans";
+      return;
+    }
+    paywallFlow.value = "";
+    if (!mayCreateAnotherFlow()) {
+      modal.value = "account";
+      return notify(
+        "Seu plano permite 3 Flows ativos. Arquive um Flow para liberar espaço ou conheça o Pro.",
+      );
+    }
     draft.value = clone(template);
     draft.value.components = draft.value.components.filter((item) =>
       components.some(
@@ -252,7 +307,15 @@ export function usePlatform() {
       : draft.value.components.splice(index, 1);
   }
   async function createFlow(payload = null) {
-    if (!mayActivateFlow(store.account.flows)) { modal.value = "account"; return; }
+    if (draft.value?.tier === "pro" && !can("unlimitedFlows")) {
+      paywallFlow.value = draft.value.name;
+      modal.value = "plans";
+      return;
+    }
+    if (!mayCreateAnotherFlow()) {
+      modal.value = "account";
+      return;
+    }
     const selectedComponents = payload?.components || draft.value.components;
     const name = payload?.name || flowName.value;
     const person = payload?.displayName || displayName.value;
@@ -269,8 +332,11 @@ export function usePlatform() {
     store.account.name = person?.trim() || store.account.name;
     store.account.onboarded = true;
     changed();
-    recordProductEvent(draft.value?.owner ? "template_installed" : "flow_created");
+    recordProductEvent(
+      draft.value?.owner ? "template_installed" : "flow_created",
+    );
     modal.value = null;
+    paywallFlow.value = "";
     await openFlow(flow);
   }
   async function openFlow(flow) {
@@ -323,18 +389,28 @@ export function usePlatform() {
     if (!source) return notify("A origem desta ação não está mais disponível.");
     const item = source.item;
     if (operation.type === "open") {
-      if (experienceView.value?.openSource) return experienceView.value.openSource(action);
+      if (experienceView.value?.openSource)
+        return experienceView.value.openSource(action);
       adding.value = true;
       return;
     }
     if (source.type === "entity") {
       try {
-        if (operation.type === "complete" && action.completionFields?.length && experienceView.value?.handleAction) return experienceView.value.handleAction(action, operation);
+        if (
+          operation.type === "complete" &&
+          action.completionFields?.length &&
+          experienceView.value?.handleAction
+        )
+          return experienceView.value.handleAction(action, operation);
         executeDeclarativeCommand(active.value, {
-          type: `${operation.type}_action`, entity: source.entityType,
-          entityId: item.id, actionId: action.actionId || action.type, days: 2,
+          type: `${operation.type}_action`,
+          entity: source.entityType,
+          entityId: item.id,
+          actionId: action.actionId || action.type,
+          days: 2,
         });
-        if (operation.type === "complete") recordProductEvent("action_completed");
+        if (operation.type === "complete")
+          recordProductEvent("action_completed");
         update();
         notify(
           operation.type === "complete"
@@ -349,7 +425,10 @@ export function usePlatform() {
       return;
     }
     if (source.type === "tasks") {
-      if (operation.type === "complete") { item.done = true; item.completedAt = Date.now(); }
+      if (operation.type === "complete") {
+        item.done = true;
+        item.completedAt = Date.now();
+      }
       if (operation.type === "dismiss") item.dismissedAt = Date.now();
       if (operation.type === "postpone") {
         const base = new Date(item.dueDate || Date.now());
@@ -399,7 +478,8 @@ export function usePlatform() {
       executeDeclarativeCommand(active.value, command);
       update();
       notify("O contexto foi atualizado.");
-      if (command.type === "complete_action") recordProductEvent("action_completed");
+      if (command.type === "complete_action")
+        recordProductEvent("action_completed");
     } catch (error) {
       notify(error.message);
     }
@@ -659,27 +739,39 @@ export function usePlatform() {
   async function loadCommunity() {
     community.value = [];
     communityError.value = "";
-    if (!supabase) { communityError.value = "Não foi possível carregar os Flows compartilhados. Tente novamente mais tarde."; return; }
+    if (!supabase) {
+      communityError.value =
+        "Não foi possível carregar os Flows compartilhados. Tente novamente mais tarde.";
+      return;
+    }
     communityLoading.value = true;
     try {
-    const { data, error } = await supabase
-      .from("flow_templates")
-      .select("id,user_id,blueprint")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (error) throw error;
-    community.value = data
-      .filter(
-        (row) =>
-          row.blueprint &&
-          typeof row.blueprint.name === "string" &&
-          Array.isArray(row.blueprint.components) && validateDeclarativeDefinition(row.blueprint).valid,
-      )
-      .map((row) => ({ ...row.blueprint, id: row.id, owner: row.user_id }));
-    } catch { communityError.value = "Não foi possível carregar os Flows compartilhados. Confira sua conexão e tente novamente."; }
-    finally { communityLoading.value = false; }
+      const { data, error } = await supabase
+        .from("flow_templates")
+        .select("id,user_id,blueprint")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      community.value = data
+        .filter(
+          (row) =>
+            row.blueprint &&
+            typeof row.blueprint.name === "string" &&
+            Array.isArray(row.blueprint.components) &&
+            validateDeclarativeDefinition(row.blueprint).valid,
+        )
+        .map((row) => ({ ...row.blueprint, id: row.id, owner: row.user_id }));
+    } catch {
+      communityError.value =
+        "Não foi possível carregar os Flows compartilhados. Confira sua conexão e tente novamente.";
+    } finally {
+      communityLoading.value = false;
+    }
   }
-  function viewTemplate(template) { previewTemplate.value = template; modal.value = "preview"; }
+  function viewTemplate(template) {
+    previewTemplate.value = template;
+    modal.value = "preview";
+  }
   async function executeOverviewAction(action, operation) {
     const flow = store.account.flows.find((flow) => flow.id === action.flowId);
     if (!flow) return;
@@ -689,13 +781,26 @@ export function usePlatform() {
   }
   function archiveFlow(flow) {
     if (!flow) return;
-    if (session.value?.flowId === flow.id) return notify("Finalize o momento de foco antes de arquivar este Flow.");
+    if (session.value?.flowId === flow.id)
+      return notify("Finalize o momento de foco antes de arquivar este Flow.");
     if (isFlowArchived(flow)) {
-      if (!mayActivateFlow(store.account.flows, flow.id)) { modal.value = "account"; return notify("Arquive outro Flow para liberar espaço."); }
-      flow.archivedAt = null; flow.status = "active";
-    } else { flow.archivedAt = Date.now(); flow.status = "archived"; }
-    flow.updatedAt = Date.now(); changed();
-    notify(isFlowArchived(flow) ? "Flow arquivado. Seu conteúdo e histórico continuam guardados." : "Flow reativado.");
+      if (!mayActivateFlow(store.account.flows, flow.id)) {
+        modal.value = "account";
+        return notify("Arquive outro Flow para liberar espaço.");
+      }
+      flow.archivedAt = null;
+      flow.status = "active";
+    } else {
+      flow.archivedAt = Date.now();
+      flow.status = "archived";
+    }
+    flow.updatedAt = Date.now();
+    changed();
+    notify(
+      isFlowArchived(flow)
+        ? "Flow arquivado. Seu conteúdo e histórico continuam guardados."
+        : "Flow reativado.",
+    );
     if (active.value?.id === flow.id) navigate("flows");
   }
   async function navigate(destination) {
@@ -887,10 +992,21 @@ export function usePlatform() {
     },
   );
   return {
-    now, billingState, can, savedFlows, showArchived, archiveFlow,
-    communityLoading, communityError, loadCommunity, previewTemplate, viewTemplate,
-    executeOverviewAction, experienceView,
+    now,
+    billingState,
+    can,
+    savedFlows,
+    showArchived,
+    archiveFlow,
+    communityLoading,
+    communityError,
+    loadCommunity,
+    previewTemplate,
+    viewTemplate,
+    executeOverviewAction,
+    experienceView,
     components,
+    discoverableTemplates,
     componentIds,
     componentTypes,
     activeComponents,
@@ -915,6 +1031,7 @@ export function usePlatform() {
     displayName,
     email,
     message,
+    paywallFlow,
     busy,
     adding,
     newTask,

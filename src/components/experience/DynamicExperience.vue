@@ -41,7 +41,10 @@ function setField(field, value) {
 }
 function resolve(value, fallback = "") {
   if (!value || typeof value !== "object") return value || fallback;
-  if (value.property) return props.flow.properties?.[value.property] || value.fallback || fallback;
+  if (value.property)
+    return (
+      props.flow.properties?.[value.property] || value.fallback || fallback
+    );
   return value.text || fallback;
 }
 function openCreate(section) {
@@ -54,7 +57,8 @@ function openCreate(section) {
 function openEdit(section, item) {
   formEntity.value = section.entity;
   editingId.value = item.sourceId;
-  formStatus.value = item.status || entityDefinition(section.entity).states?.[0]?.label || "";
+  formStatus.value =
+    item.status || entityDefinition(section.entity).states?.[0]?.label || "";
   formValues.value = { ...(item.values || {}) };
   formOpen.value = true;
 }
@@ -62,7 +66,9 @@ function submitEntity() {
   emit("command", {
     type: editingId.value ? "update_entity" : "create_entity",
     entity: formEntity.value,
-    ...(editingId.value ? { entityId: editingId.value } : { status: formStatus.value }),
+    ...(editingId.value
+      ? { entityId: editingId.value }
+      : { status: formStatus.value }),
     values: { ...formValues.value },
   });
   if (editingId.value && formStatus.value) {
@@ -86,7 +92,9 @@ function transition(section, item, event) {
 }
 function actionFor(item) {
   return props.experience.actions.find(
-    (action) => action.sourceId === item.sourceId && action.entityType === item.entityType,
+    (action) =>
+      action.sourceId === item.sourceId &&
+      action.entityType === item.entityType,
   );
 }
 function openAction(item) {
@@ -118,11 +126,23 @@ function openAction(item) {
       v-show="section.type !== 'hero'"
       :key="section.id || `${section.type}-${section.title}`"
       class="specialized-experience__section"
-      :class="{ 'specialized-experience__section--accent': section.type === 'next-actions' }"
+      :class="{
+        'specialized-experience__section--accent':
+          section.type === 'next-actions',
+      }"
     >
       <div class="specialized-experience__heading">
-        <div><span class="eyebrow">{{ section.title }}</span><h3>{{ section.subtitle || section.title }}</h3></div>
-        <button v-if="section.create" class="dark-button" @click="openCreate(section)">{{ section.createLabel || "Adicionar item" }}</button>
+        <div>
+          <span class="eyebrow">{{ section.title }}</span>
+          <h3>{{ section.subtitle || section.title }}</h3>
+        </div>
+        <button
+          v-if="section.create"
+          class="dark-button"
+          @click="openCreate(section)"
+        >
+          {{ section.createLabel || "Adicionar item" }}
+        </button>
       </div>
 
       <ExperienceActionList
@@ -132,40 +152,153 @@ function openAction(item) {
         @action="(action, operation) => emit('action', action, operation)"
       />
 
-      <form v-else-if="section.entity && formOpen && formEntity === section.entity" class="declarative-entity-form" @submit.prevent="submitEntity">
-        <label v-for="field in entityDefinition(section.entity).fields" :key="field.key" class="tool-field">
+      <form
+        v-else-if="section.entity && formOpen && formEntity === section.entity"
+        class="declarative-entity-form"
+        @submit.prevent="submitEntity"
+      >
+        <label
+          v-for="field in entityDefinition(section.entity).fields"
+          :key="field.key"
+          class="tool-field"
+        >
           {{ field.label }}<span v-if="!field.required"> · opcional</span>
-          <textarea v-if="['textarea', 'multi-select'].includes(field.type)" :value="fieldValue(field)" :required="field.required" :placeholder="field.placeholder" rows="2" @input="setField(field, $event.target.value)"></textarea>
-          <select v-else-if="field.type === 'select'" :value="fieldValue(field)" :required="field.required" @change="setField(field, $event.target.value)">
-            <option value="">Escolher depois</option><option v-for="option in field.options" :key="option">{{ option }}</option>
+          <textarea
+            v-if="['textarea', 'multi-select'].includes(field.type)"
+            :value="fieldValue(field)"
+            :required="field.required"
+            :placeholder="field.placeholder"
+            rows="2"
+            @input="setField(field, $event.target.value)"
+          ></textarea>
+          <select
+            v-else-if="field.type === 'select'"
+            :value="fieldValue(field)"
+            :required="field.required"
+            @change="setField(field, $event.target.value)"
+          >
+            <option value="">Escolher depois</option>
+            <option v-for="option in field.options" :key="option">
+              {{ option }}
+            </option>
           </select>
-          <input v-else :value="fieldValue(field)" :type="field.type" :required="field.required" :placeholder="field.placeholder" @input="setField(field, $event.target.value)" />
+          <input
+            v-else
+            :value="fieldValue(field)"
+            :type="field.type"
+            :required="field.required"
+            :placeholder="field.placeholder"
+            @input="setField(field, $event.target.value)"
+          />
         </label>
-        <label v-if="entityDefinition(section.entity).states?.length" class="tool-field">Etapa
-          <select v-model="formStatus"><option v-for="state in entityDefinition(section.entity).states" :key="state.id" :value="state.label">{{ state.label }}</option></select>
+        <label
+          v-if="entityDefinition(section.entity).states?.length"
+          class="tool-field"
+          >Etapa
+          <select v-model="formStatus">
+            <option
+              v-for="state in entityDefinition(section.entity).states"
+              :key="state.id"
+              :value="state.label"
+            >
+              {{ state.label }}
+            </option>
+          </select>
         </label>
-        <div class="declarative-entity-form__actions"><button type="button" class="outline" @click="formOpen = false">Cancelar</button><button class="dark-button">{{ editingId ? (section.entity === 'opportunity' ? 'Salvar oportunidade' : 'Salvar item') : (section.entity === 'opportunity' ? 'Adicionar oportunidade' : 'Adicionar item') }}</button></div>
+        <div class="declarative-entity-form__actions">
+          <button type="button" class="outline" @click="formOpen = false">
+            Cancelar</button
+          ><button class="dark-button">
+            {{
+              editingId
+                ? section.entity === "opportunity"
+                  ? "Salvar oportunidade"
+                  : "Salvar item"
+                : section.entity === "opportunity"
+                  ? "Adicionar oportunidade"
+                  : "Adicionar item"
+            }}
+          </button>
+        </div>
       </form>
 
       <div v-else-if="section.entity" class="declarative-collection">
-        <article v-for="item in section.items || []" :key="item.id" class="declarative-collection__item">
-          <div><strong>{{ item.title }}</strong><small>{{ item.subtitle || item.status }}</small><span v-if="item.dueAt">{{ item.dueAt }}</span></div>
+        <article
+          v-for="item in section.items || []"
+          :key="item.id"
+          class="declarative-collection__item"
+        >
+          <div>
+            <strong>{{ item.title }}</strong
+            ><small>{{ item.subtitle || item.status }}</small
+            ><span v-if="item.dueAt">{{ item.dueAt }}</span>
+          </div>
           <div class="declarative-collection__controls">
-            <select v-if="section.stateLabels?.length" :value="item.status" :aria-label="`Atualizar etapa de ${item.title}`" @change="transition(section, item, $event)"><option v-for="state in section.stateLabels" :key="state">{{ state }}</option></select>
-            <button v-if="actionFor(item)" class="outline" @click="openAction(item)">Abrir</button>
-            <button class="text-button" @click="openEdit(section, item)">{{ item.values?.nextAction || item.values?.nextActionAt ? (section.entity === 'opportunity' ? 'Editar próximo passo' : 'Editar item') : (section.entity === 'opportunity' ? 'Planejar follow-up' : 'Editar item') }}</button>
+            <select
+              v-if="section.stateLabels?.length"
+              :value="item.status"
+              :aria-label="`Atualizar etapa de ${item.title}`"
+              @change="transition(section, item, $event)"
+            >
+              <option v-for="state in section.stateLabels" :key="state">
+                {{ state }}
+              </option>
+            </select>
+            <button
+              v-if="actionFor(item)"
+              class="outline"
+              @click="openAction(item)"
+            >
+              Abrir
+            </button>
+            <button class="text-button" @click="openEdit(section, item)">
+              {{
+                item.values?.nextAction || item.values?.nextActionAt
+                  ? section.entity === "opportunity"
+                    ? "Editar próximo passo"
+                    : "Editar item"
+                  : section.entity === "opportunity"
+                    ? "Planejar follow-up"
+                    : "Editar item"
+              }}
+            </button>
           </div>
         </article>
         <ExperienceItems v-if="!(section.items || []).length" :items="[]" />
       </div>
 
-      <div v-else-if="section.type === 'metrics' || section.type === 'progress'" class="experience-metric-strip"><article v-for="metric in section.items || []" :key="metric.id" class="experience-metric"><small>{{ metric.label }}</small><strong>{{ metric.value }} <em>{{ metric.unit }}</em></strong></article></div>
-      <ExperienceItems v-else-if="section.type === 'timeline'" :items="section.items || []" />
-      <ExperienceItems v-else-if="section.type !== 'text'" :items="section.items || []" :cards="section.type === 'checklist' || section.type === 'stages'" />
+      <div
+        v-else-if="section.type === 'metrics' || section.type === 'progress'"
+        class="experience-metric-strip"
+      >
+        <article
+          v-for="metric in section.items || []"
+          :key="metric.id"
+          class="experience-metric"
+        >
+          <small>{{ metric.label }}</small
+          ><strong
+            >{{ metric.value }} <em>{{ metric.unit }}</em></strong
+          >
+        </article>
+      </div>
+      <ExperienceItems
+        v-else-if="section.type === 'timeline'"
+        :items="section.items || []"
+      />
+      <ExperienceItems
+        v-else-if="section.type !== 'text'"
+        :items="section.items || []"
+        :cards="section.type === 'checklist' || section.type === 'stages'"
+      />
       <p v-else class="declarative-text">{{ section.text }}</p>
     </section>
 
-    <div v-if="update" class="specialized-empty" role="status">Há uma versão mais nova deste ponto de partida (v{{ update.availableVersion }}).</div>
+    <div v-if="update" class="specialized-empty" role="status">
+      Há uma versão mais nova deste ponto de partida (v{{
+        update.availableVersion
+      }}).
+    </div>
   </main>
 </template>
 

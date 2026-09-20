@@ -1,8 +1,4 @@
-import {
-  COMMAND_TYPES,
-  FIELD_TYPES,
-  RULE_OPERATORS,
-} from "./declarative.js";
+import { COMMAND_TYPES, FIELD_TYPES, RULE_OPERATORS } from "./declarative.js";
 
 const DAY = 86400000;
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -70,7 +66,10 @@ function normalizedValues(entity, values = {}, partial = false) {
       const selected = Array.isArray(result[field.key])
         ? result[field.key]
         : [result[field.key]];
-      if (field.options?.length && selected.some((item) => !field.options.includes(item)))
+      if (
+        field.options?.length &&
+        selected.some((item) => !field.options.includes(item))
+      )
         throw new Error(`Há uma opção inválida em ${field.label}.`);
     }
   }
@@ -83,7 +82,8 @@ function findItem(flow, entity, id) {
 
 function readValue(item, field) {
   if (field === "status") return item?.status;
-  if (field === "completed") return Boolean(item?.completed || item?.values?.completed);
+  if (field === "completed")
+    return Boolean(item?.completed || item?.values?.completed);
   return item?.values?.[field];
 }
 
@@ -96,11 +96,14 @@ function toTime(value) {
 }
 
 function compare(operator, actual, expected, now = Date.now()) {
-  if (operator === "exists") return actual !== undefined && actual !== null && actual !== "";
+  if (operator === "exists")
+    return actual !== undefined && actual !== null && actual !== "";
   if (operator === "contains")
     return Array.isArray(actual)
       ? actual.includes(expected)
-      : String(actual || "").toLowerCase().includes(String(expected || "").toLowerCase());
+      : String(actual || "")
+          .toLowerCase()
+          .includes(String(expected || "").toLowerCase());
   if (operator === "greater_than") return Number(actual) > Number(expected);
   if (operator === "less_than") return Number(actual) < Number(expected);
   if (operator === "days_before" || operator === "days_after") {
@@ -111,13 +114,25 @@ function compare(operator, actual, expected, now = Date.now()) {
     return operator === "days_before" ? difference >= 0 : difference <= 0;
   }
   if (operator === "not_equals") return actual !== expected;
-  return Array.isArray(expected) ? expected.includes(actual) : actual === expected;
+  return Array.isArray(expected)
+    ? expected.includes(actual)
+    : actual === expected;
 }
 
-export function matchesDeclarativeCondition(condition, context = {}, now = Date.now()) {
+export function matchesDeclarativeCondition(
+  condition,
+  context = {},
+  now = Date.now(),
+) {
   if (!condition) return true;
-  if (condition.all) return condition.all.every((item) => matchesDeclarativeCondition(item, context, now));
-  if (condition.any) return condition.any.some((item) => matchesDeclarativeCondition(item, context, now));
+  if (condition.all)
+    return condition.all.every((item) =>
+      matchesDeclarativeCondition(item, context, now),
+    );
+  if (condition.any)
+    return condition.any.some((item) =>
+      matchesDeclarativeCondition(item, context, now),
+    );
   if (condition.event && condition.event !== context.event?.type) return false;
   if (condition.entity && condition.entity !== context.entity) return false;
   if (condition.field) {
@@ -125,7 +140,8 @@ export function matchesDeclarativeCondition(condition, context = {}, now = Date.
     const operator = condition.operator || "equals";
     return compare(operator, actual, condition.value ?? condition.values, now);
   }
-  if (condition.statuses) return condition.statuses.includes(context.item?.status);
+  if (condition.statuses)
+    return condition.statuses.includes(context.item?.status);
   return true;
 }
 
@@ -135,7 +151,7 @@ function appendEvent(flow, type, context = {}, now = Date.now()) {
     id: uid(),
     flowId: flow.id,
     type,
-    ...((context.entity || context.entityType)
+    ...(context.entity || context.entityType
       ? { entityType: context.entity || context.entityType }
       : {}),
     ...(context.entityId ? { entityId: context.entityId } : {}),
@@ -151,7 +167,9 @@ function applyRuleEffects(flow, event, now) {
     const context = {
       event,
       entity: event.entityType,
-      item: event.entityType ? findItem(flow, event.entityType, event.entityId) : null,
+      item: event.entityType
+        ? findItem(flow, event.entityType, event.entityId)
+        : null,
     };
     if (!matchesDeclarativeCondition(rule.when, context, now)) continue;
     for (const effect of rule.then || []) {
@@ -161,7 +179,9 @@ function applyRuleEffects(flow, event, now) {
       item.values ||= {};
       if (effect.field) {
         const base = toTime(item.values[effect.field]) || now;
-        item.values[effect.field] = new Date(base + Number(effect.days || 0) * DAY)
+        item.values[effect.field] = new Date(
+          base + Number(effect.days || 0) * DAY,
+        )
           .toISOString()
           .slice(0, 10);
       }
@@ -194,7 +214,8 @@ function commandEvent(type, entity, item, metadata = {}) {
 export function executeDeclarativeCommand(flow, command, now = Date.now()) {
   if (!flow || !command || !COMMAND_TYPES.includes(command.type))
     throw new Error("Comando declarativo não permitido.");
-  if (!flow.protocol) throw new Error("Este Flow não possui um protocolo declarativo.");
+  if (!flow.protocol)
+    throw new Error("Este Flow não possui um protocolo declarativo.");
   let event;
   let result = null;
   const entity = entityDefinition(flow, command.entity);
@@ -218,7 +239,10 @@ export function executeDeclarativeCommand(flow, command, now = Date.now()) {
       if (!entity) throw new Error("Coleção desconhecida.");
       result = findItem(flow, command.entity, command.entityId);
       if (!result) throw new Error("Item não encontrado.");
-      Object.assign(result.values, normalizedValues(entity, command.values, true));
+      Object.assign(
+        result.values,
+        normalizedValues(entity, command.values, true),
+      );
       result.updatedAt = now;
       event = commandEvent("entity.updated", command.entity, result);
       break;
@@ -228,13 +252,17 @@ export function executeDeclarativeCommand(flow, command, now = Date.now()) {
       result = findItem(flow, command.entity, command.entityId);
       if (!result) throw new Error("Item não encontrado.");
       const state = entity.states?.find(
-        (candidate) => candidate.id === command.to || candidate.label === command.to,
+        (candidate) =>
+          candidate.id === command.to || candidate.label === command.to,
       );
       if (!state) throw new Error("Etapa não permitida.");
       const from = result.status;
       result.status = state.label;
       result.updatedAt = now;
-      event = commandEvent("entity.transitioned", command.entity, result, { from, to: state.label });
+      event = commandEvent("entity.transitioned", command.entity, result, {
+        from,
+        to: state.label,
+      });
       break;
     }
     case "complete_entity": {
@@ -242,14 +270,22 @@ export function executeDeclarativeCommand(flow, command, now = Date.now()) {
       result = findItem(flow, command.entity, command.entityId);
       if (!result) throw new Error("Item não encontrado.");
       result.completed = true;
-      const completed = entity.states?.find((state) => /conclu|aprend|public|closed/i.test(state.label));
+      const completed = entity.states?.find((state) =>
+        /conclu|aprend|public|closed/i.test(state.label),
+      );
       if (completed) result.status = completed.label;
       result.updatedAt = now;
       event = commandEvent("entity.completed", command.entity, result);
       break;
     }
     case "create_task": {
-      result = { id: command.id || uid(), text: String(command.text || "Próximo passo"), done: false, group: command.group || "Próximos passos", createdAt: now };
+      result = {
+        id: command.id || uid(),
+        text: String(command.text || "Próximo passo"),
+        done: false,
+        group: command.group || "Próximos passos",
+        createdAt: now,
+      };
       taskData(flow).items.push(result);
       event = commandEvent("task.created", null, result);
       break;
@@ -267,10 +303,16 @@ export function executeDeclarativeCommand(flow, command, now = Date.now()) {
       if (!result) throw new Error("Item não encontrado.");
       result.values ||= {};
       const base = toTime(result.values[command.field]) || now;
-      result.values[command.field] = new Date(base + Number(command.days || 2) * DAY).toISOString().slice(0, 10);
+      result.values[command.field] = new Date(
+        base + Number(command.days || 2) * DAY,
+      )
+        .toISOString()
+        .slice(0, 10);
       Object.assign(result.values, clone(command.set || {}));
       result.updatedAt = now;
-      event = commandEvent("action.scheduled", command.entity, result, { field: command.field });
+      event = commandEvent("action.scheduled", command.entity, result, {
+        field: command.field,
+      });
       break;
     }
     case "record_checkin":
@@ -282,7 +324,13 @@ export function executeDeclarativeCommand(flow, command, now = Date.now()) {
     case "add_note": {
       flow.componentData.notes ||= { items: [] };
       flow.componentData.notes.items ||= [];
-      result = { id: uid(), title: command.title || "Nova nota", content: command.content || "", createdAt: now, updatedAt: now };
+      result = {
+        id: uid(),
+        title: command.title || "Nova nota",
+        content: command.content || "",
+        createdAt: now,
+        updatedAt: now,
+      };
       flow.componentData.notes.items.push(result);
       event = commandEvent("note.added", null, result);
       break;
@@ -290,7 +338,12 @@ export function executeDeclarativeCommand(flow, command, now = Date.now()) {
     case "add_resource": {
       flow.componentData.links ||= { items: [] };
       flow.componentData.links.items ||= [];
-      result = { id: uid(), title: command.title || command.url, url: command.url, addedAt: now };
+      result = {
+        id: uid(),
+        title: command.title || command.url,
+        url: command.url,
+        addedAt: now,
+      };
       flow.componentData.links.items.push(result);
       event = commandEvent("resource.added", null, result);
       break;
@@ -306,17 +359,22 @@ export function executeDeclarativeCommand(flow, command, now = Date.now()) {
 }
 
 export function actionMatchesItem(action, item) {
-  if (action.statuses?.length && !action.statuses.includes(item.status)) return false;
+  if (action.statuses?.length && !action.statuses.includes(item.status))
+    return false;
   for (const [field, values] of Object.entries(action.values || {})) {
     const actual = readValue(item, field);
-    if (!Array.isArray(values) ? actual !== values : !values.includes(actual)) return false;
+    if (!Array.isArray(values) ? actual !== values : !values.includes(actual))
+      return false;
   }
   return true;
 }
 
 export function actionTemplate(template, item) {
   const values = item.values || {};
-  return String(template || "Próximo passo").replace(/\{([a-zA-Z0-9_]+)\}/g, (_, key) => values[key] ?? item[key] ?? "");
+  return String(template || "Próximo passo").replace(
+    /\{([a-zA-Z0-9_]+)\}/g,
+    (_, key) => values[key] ?? item[key] ?? "",
+  );
 }
 
 export function entityFieldType(entity, key) {

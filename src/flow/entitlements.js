@@ -32,12 +32,20 @@ export function activeFlows(flows = []) {
 }
 
 export function mayActivate(flows, entitlements = FREE_ENTITLEMENTS, flowId) {
-  if (flowId && activeFlows(flows).some((flow) => flow.id === flowId)) return true;
-  return entitlements.unlimitedFlows || activeFlows(flows).length < entitlements.activeFlowLimit;
+  if (flowId && activeFlows(flows).some((flow) => flow.id === flowId))
+    return true;
+  return (
+    entitlements.unlimitedFlows ||
+    activeFlows(flows).length < entitlements.activeFlowLimit
+  );
 }
 
 export function downgradeState(flows, entitlements = FREE_ENTITLEMENTS) {
   const count = activeFlows(flows).length;
   const limit = entitlements.activeFlowLimit;
-  return { activeCount: count, limit, needsSelection: limit !== null && count > limit };
+  return {
+    activeCount: count,
+    limit,
+    needsSelection: limit !== null && count > limit,
+  };
 }

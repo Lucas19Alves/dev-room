@@ -1,31 +1,74 @@
 <script setup>
-import { ref, computed } from "vue";
+import { computed, ref } from "vue";
 import {
   billingState,
   can,
   activeFlowLimit,
-  startCheckout,
-  openBillingPortal,
-  refreshEntitlements,
   deleteAccount,
 } from "../flow/billing.js";
 import { activeFlows } from "../flow/entitlements.js";
 import ThemeToggle from "./ui/ThemeToggle.vue";
+
 const props = defineProps({ account: Object, user: Object, status: String });
 const emit = defineEmits(["export", "sync", "logout", "import", "flows"]);
-const busy = ref(false),
-  error = ref(""),
-  deleting = ref(false),
-  confirmation = ref(""),
-  interval = ref("year");
+const busy = ref(false);
+const error = ref("");
+const deleting = ref(false);
+const confirmation = ref("");
+const avatarFailed = ref(false);
 const activeCount = computed(() => activeFlows(props.account.flows).length);
+const accountName = computed(
+  () =>
+    props.user?.user_metadata?.full_name ||
+    props.user?.user_metadata?.name ||
+    props.account.name ||
+    props.user?.email?.split("@")[0] ||
+    "Meu espaço",
+);
+const avatarUrl = computed(() => {
+  if (avatarFailed.value) return "";
+  const metadata = props.user?.user_metadata || {};
+  const identity = props.user?.identities?.find(
+    (entry) => entry.identity_data,
+  )?.identity_data;
+  const candidate =
+    metadata.avatar_url ||
+    metadata.picture ||
+    identity?.avatar_url ||
+    identity?.picture;
+  if (!candidate) return "";
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
+});
+const accountInitial = computed(() =>
+  accountName.value.trim().charAt(0).toLocaleUpperCase("pt-BR"),
+);
+const planName = computed(() => {
+  if (!props.user) return "Neste dispositivo";
+  if (!billingState.available) return "Plano não verificado";
+  return can("unlimitedFlows") ? "Noma Pro" : "Noma Free";
+});
+const planDescription = computed(() => {
+  if (!props.user) return "Seus dados ficam salvos neste navegador.";
+  if (!billingState.available)
+    return "Conecte-se para confirmar os dados do seu plano.";
+  return activeFlowLimit() === null
+    ? `${activeCount.value} Flows ativos · sem limite`
+    : `${activeCount.value} de ${activeFlowLimit()} Flows ativos`;
+});
+
 async function run(action) {
   busy.value = true;
   error.value = "";
   try {
     await action();
-  } catch (e) {
-    error.value = e.message || "Não foi possível concluir. Tente novamente.";
+  } catch (cause) {
+    error.value =
+      cause.message || "Não foi possível concluir. Tente novamente.";
   } finally {
     busy.value = false;
   }
@@ -35,262 +78,407 @@ async function removeAccount() {
   await run(deleteAccount);
 }
 </script>
+
 <template>
   <section class="account-panel">
-    <p class="eyebrow">Seu espaço, com você</p>
-    <h2 id="modal-title">Sua conta</h2>
-    <p>{{ user?.email || account.name }}</p>
-    <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
-    <section class="account-plan">
-      <div>
-        <h3>Noma {{ can("unlimitedFlows") ? "Pro" : "Free" }}</h3>
-        <p>
-          {{ activeCount }} Flows ativos{{
-            activeFlowLimit() === null
-              ? " · sem limite"
-              : ` de ${activeFlowLimit()}`
-          }}
-        </p>
+    <header class="settings-heading">
+      <p class="eyebrow">PREFERÊNCIAS DO SEU ESPAÇO</p>
+      <h2 id="modal-title">Configurações</h2>
+      <p>Conta, aparência e dados do Noma em um só lugar.</p>
+    </header>
+
+    <section
+      class="settings-section settings-account"
+      aria-labelledby="account-title"
+    >
+      <div class="settings-section-heading">
+        <div>
+          <h3 id="account-title">Conta e plano</h3>
+          <p>Seus dados de acesso e o plano atual.</p>
+        </div>
       </div>
-      <span class="plan-badge">{{
-        can("unlimitedFlows")
-          ? "Mais espaço para continuar"
-          : "O essencial, de verdade"
-      }}</span>
-    </section>
-    <div
-      v-if="activeFlowLimit() !== null && activeCount > activeFlowLimit()"
-      class="account-notice"
-    >
-      <strong>Escolha os Flows que você quer manter ativos.</strong>
-      <p>
-        Seu plano permite {{ activeFlowLimit() }} Flows ativos. Arquive os
-        demais para liberar espaço. Seus dados e seu histórico continuam
-        guardados.
-      </p>
-      <button class="outline" @click="emit('flows')">
-        Organizar meus Flows
-      </button>
-    </div>
-    <template v-if="!can('unlimitedFlows')"
-      ><h3>Continue com Noma Pro</h3>
-      <p>
-        Flows ativos ilimitados, histórico completo e exportações para analisar
-        seu caminho. O Free já inclui criação de Flows, ações contextuais e
-        sincronização.
-      </p>
-      <fieldset class="plan-interval">
-        <legend>Escolha como pagar</legend>
-        <label
-          ><input
-            v-model="interval"
-            type="radio"
-            value="month"
-            name="billing-interval"
-          /><span>Mensal<strong>R$ 19 / mês</strong></span></label
-        ><label
-          ><input
-            v-model="interval"
-            type="radio"
-            value="year"
-            name="billing-interval"
-          /><span
-            >Anual<strong>R$ 190 / ano</strong
-            ><small>Dois meses grátis · equivale a R$ 15,83/mês</small></span
-          ></label
+      <div class="account-identity">
+        <img
+          v-if="avatarUrl"
+          class="account-avatar"
+          :src="avatarUrl"
+          alt=""
+          referrerpolicy="no-referrer"
+          @error="avatarFailed = true"
+        />
+        <span
+          v-else
+          class="account-avatar account-avatar-fallback"
+          aria-hidden="true"
         >
-      </fieldset>
-      <button
-        class="dark-button"
-        :disabled="busy"
-        @click="run(() => startCheckout(interval))"
+          {{ accountInitial }}
+        </span>
+        <div class="account-identity-copy">
+          <strong>{{ accountName }}</strong>
+          <span>{{ user?.email || "Conta local neste dispositivo" }}</span>
+        </div>
+        <span class="plan-badge" :class="{ 'plan-badge-local': !user }">{{
+          planName
+        }}</span>
+      </div>
+      <div class="account-plan-detail">
+        <span
+          class="plan-status-dot"
+          :class="{ 'plan-status-local': !user }"
+        ></span>
+        <span>{{ planDescription }}</span>
+      </div>
+      <div
+        v-if="
+          billingState.available &&
+          activeFlowLimit() !== null &&
+          activeCount > activeFlowLimit()
+        "
+        class="account-notice"
       >
-        {{
-          busy ? "Abrindo pagamento…" : "Continuar para o pagamento seguro ↗"
-        }}
-      </button>
-      <p class="hint">
-        Renovação automática. Você pode cancelar a renovação pela sua conta.
-      </p></template
-    >
-    <template v-else
-      ><p v-if="billingState.subscription?.cancelAtPeriodEnd">
-        Sua assinatura termina em
-        {{
-          new Date(
-            billingState.subscription.currentPeriodEnd,
-          ).toLocaleDateString("pt-BR")
-        }}. Seus Flows permanecerão guardados.
-      </p>
-      <button class="outline" :disabled="busy" @click="run(openBillingPortal)">
-        Gerenciar assinatura
-      </button></template
-    >
-    <button
-      class="text-button"
-      :disabled="billingState.loading"
-      @click="run(refreshEntitlements)"
-    >
-      Atualizar meu plano
-    </button>
-    <hr />
-    <section class="account-theme">
-      <div>
-        <h3>Aparência</h3>
-        <p>Escolha o tema de exibição do Noma para este dispositivo.</p>
+        <div>
+          <strong>Você tem mais Flows ativos que o limite do plano.</strong>
+          <p>
+            Arquive os que não está usando. Seus dados e histórico continuam
+            guardados.
+          </p>
+        </div>
+        <button class="outline" @click="emit('flows')">Organizar Flows</button>
+      </div>
+    </section>
+
+    <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
+
+    <section class="settings-section" aria-labelledby="appearance-title">
+      <div class="settings-section-heading">
+        <div>
+          <h3 id="appearance-title">Aparência</h3>
+          <p>Por padrão, acompanha as configurações do seu dispositivo.</p>
+        </div>
       </div>
       <ThemeToggle variant="segmented" />
     </section>
-    <hr />
-    <h3>Seus dados</h3>
-    <p role="status">{{ status }}</p>
-    <div class="account-actions">
-      <button class="outline" @click="emit('sync')">Sincronizar agora</button
-      ><button class="outline" @click="emit('export')">
-        Exportar meus dados</button
-      ><button class="text-button" @click="emit('import')">
-        Importar meus Flows deste dispositivo
-      </button>
-    </div>
-    <p>
-      <a href="/privacy" target="_blank" rel="noopener">Privacidade</a> ·
-      <a href="/terms" target="_blank" rel="noopener">Termos de Uso</a> ·
-      <a href="mailto:appnamanga@gmail.com">Fale com a gente</a>
-    </p>
-    <button class="outline" :disabled="busy" @click="emit('logout')">
-      Sair da conta
-    </button>
+
+    <section class="settings-section" aria-labelledby="data-title">
+      <div class="settings-section-heading">
+        <div>
+          <h3 id="data-title">Dados e sincronização</h3>
+          <p>Seus Flows permanecem seus. Exporte uma cópia quando quiser.</p>
+        </div>
+        <span class="data-status" role="status">{{ status }}</span>
+      </div>
+      <div class="settings-data-actions">
+        <button class="outline" :disabled="busy || !user" @click="emit('sync')">
+          Sincronizar agora
+        </button>
+        <button class="outline" :disabled="busy" @click="emit('export')">
+          Exportar meus dados
+        </button>
+        <button
+          v-if="user"
+          class="text-button"
+          :disabled="busy"
+          @click="emit('import')"
+        >
+          Importar dados deste dispositivo
+        </button>
+      </div>
+      <p class="settings-privacy-links">
+        <a href="/privacy" target="_blank" rel="noopener">Privacidade</a>
+        <span aria-hidden="true">·</span>
+        <a href="/terms" target="_blank" rel="noopener">Termos de uso</a>
+        <span aria-hidden="true">·</span>
+        <a href="mailto:appnamanga@gmail.com">Suporte</a>
+      </p>
+    </section>
+
+    <section
+      class="settings-section settings-session"
+      aria-labelledby="session-title"
+    >
+      <div class="settings-section-heading">
+        <div>
+          <h3 id="session-title">Sessão</h3>
+          <p>
+            {{
+              user
+                ? "Encerre sua sessão neste dispositivo."
+                : "Conecte uma conta para sincronizar seus dados."
+            }}
+          </p>
+        </div>
+        <button
+          v-if="user"
+          class="outline"
+          :disabled="busy"
+          @click="emit('logout')"
+        >
+          Sair da conta
+        </button>
+      </div>
+    </section>
+
     <details
-      class="account-danger"
+      v-if="user"
+      class="settings-danger"
       :open="deleting"
       @toggle="deleting = $event.target.open"
     >
-      <summary>Excluir minha conta</summary>
-      <p>
-        A exclusão remove seus Flows, dados de conta e templates publicados. A
-        assinatura será cancelada. Dados fiscais que precisem ser retidos por
-        lei permanecem com o processador de pagamentos. Exporte uma cópia antes
-        de continuar.
-      </p>
-      <p>
-        Outros dispositivos podem manter cópias offline: remova também os dados
-        do navegador nesses dispositivos.
-      </p>
-      <label class="tool-field"
-        >Digite EXCLUIR para confirmar<input
-          v-model="confirmation"
-          autocomplete="off" /></label
-      ><button
-        class="danger"
-        :disabled="confirmation !== 'EXCLUIR' || busy"
-        @click="removeAccount"
-      >
-        Excluir conta e dados
-      </button>
+      <summary>Excluir conta e dados</summary>
+      <div class="settings-danger-content">
+        <p>
+          A exclusão remove sua conta, Flows e modelos publicados. Assinaturas
+          ativas serão canceladas. Informações que precisem ser retidas por lei
+          podem permanecer com o processador de pagamentos.
+        </p>
+        <p>
+          Outros dispositivos podem manter cópias offline. Exporte seus dados
+          antes de continuar e remova também as cópias locais desses
+          dispositivos.
+        </p>
+        <label class="tool-field">
+          Digite EXCLUIR para confirmar
+          <input v-model="confirmation" autocomplete="off" />
+        </label>
+        <button
+          class="danger"
+          :disabled="confirmation !== 'EXCLUIR' || busy"
+          @click="removeAccount"
+        >
+          {{ busy ? "Excluindo…" : "Excluir conta permanentemente" }}
+        </button>
+      </div>
     </details>
   </section>
 </template>
+
 <style scoped>
 .account-panel {
   display: grid;
-  gap: 12px;
+  gap: 0;
+  color: var(--noma-ink);
+}
+.settings-heading {
+  padding: 0 38px 24px 0;
+}
+.settings-heading .eyebrow {
+  margin: 0 0 8px;
+  color: var(--noma-brand);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+}
+.settings-heading h2 {
+  margin: 0 0 6px;
+  font-size: 27px;
+  letter-spacing: -0.035em;
 }
 .account-panel p {
   margin: 0;
   color: var(--noma-ink-soft);
-  font-size: 14px;
-  line-height: 1.6;
-}
-.account-panel h3 {
-  font-size: 19px;
-}
-.account-plan {
-  display: flex;
-  gap: 18px;
-  align-items: center;
-  padding: 20px 0;
-  border-block: 1px solid var(--noma-border);
-}
-.plan-badge {
-  color: var(--noma-brand);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
-.plan-interval {
-  border: 0;
-  padding: 0;
+.settings-heading > p:last-child {
+  font-size: 14px;
+}
+.settings-section {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 16px;
+  padding: 22px 0;
+  border-top: 1px solid var(--noma-border);
 }
-.plan-interval legend {
-  font-size: 14px;
-  margin: 8px 0;
+.settings-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
-.plan-interval label {
-  flex-direction: row;
-  align-items: start;
-  border: 1px solid var(--noma-border);
-  padding: 14px;
-  border-radius: 12px;
-  margin: 0;
-  font-size: 14px;
+.settings-section-heading h3 {
+  margin: 0 0 5px;
+  font-size: 15px;
+  font-weight: 650;
 }
-.plan-interval input {
-  width: 18px;
-  min-height: 18px;
-  flex-shrink: 0;
-}
-.plan-interval span,
-.plan-interval strong {
-  display: block;
-}
-.plan-interval strong {
-  margin: 7px 0;
-  font-size: 16px;
-}
-.plan-interval small {
+.settings-section-heading p {
   font-size: 12px;
 }
-.account-actions {
+.account-identity {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.account-theme {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 8px 0;
+  gap: 14px;
+  min-width: 0;
 }
-.account-danger {
-  border-top: 1px solid var(--noma-border);
-  margin-top: 12px;
-  padding-top: 18px;
+.account-avatar {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--noma-surface-soft);
 }
-.account-danger summary {
-  cursor: pointer;
-  color: var(--noma-danger);
-  min-height: 44px;
+.account-avatar-fallback {
+  display: grid;
+  place-items: center;
+  color: var(--noma-brand);
+  font-size: 20px;
+  font-weight: 650;
+}
+.account-identity-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin-right: auto;
+}
+.account-identity-copy strong,
+.account-identity-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-identity-copy strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+.account-identity-copy span {
+  color: var(--noma-ink-soft);
+  font-size: 12px;
+}
+.plan-badge {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid var(--noma-brand);
+  border-radius: 999px;
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
+  font-size: 11px;
+  font-weight: 650;
+}
+.plan-badge-local {
+  border-color: var(--noma-border);
+  background: var(--noma-surface-soft);
+  color: var(--noma-ink-soft);
+}
+.account-plan-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--noma-ink-soft);
+  font-size: 12px;
+}
+.plan-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--noma-success);
+}
+.plan-status-local {
+  background: var(--noma-ink-muted);
 }
 .account-notice {
-  background: var(--noma-surface-soft);
-  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--noma-border);
   border-radius: 12px;
+  background: var(--noma-surface-soft);
 }
-.account-panel a {
+.account-notice strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.account-notice p {
+  font-size: 11px;
+}
+.settings-section :deep(.theme-segmented) {
+  width: fit-content;
+  max-width: 100%;
+}
+.settings-section :deep(.theme-segmented button) {
+  min-height: 40px;
+}
+.data-status {
+  flex: 0 0 auto;
+  color: var(--noma-ink-muted);
+  font-size: 11px;
+}
+.settings-data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+.settings-privacy-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px !important;
+}
+.settings-privacy-links a {
+  color: var(--noma-ink-soft);
   text-decoration: underline;
+  text-decoration-color: var(--noma-border-strong);
   text-underline-offset: 3px;
 }
-@media (max-width: 480px) {
-  .plan-interval {
-    grid-template-columns: 1fr;
+.settings-session {
+  padding-bottom: 22px;
+}
+.settings-danger {
+  border-top: 1px solid var(--noma-border);
+  padding-top: 18px;
+}
+.settings-danger summary {
+  min-height: 40px;
+  color: var(--noma-danger);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.settings-danger-content {
+  display: grid;
+  gap: 14px;
+  padding: 10px 0 2px;
+}
+.settings-danger-content p {
+  font-size: 12px;
+}
+.settings-danger-content .tool-field {
+  margin: 0;
+}
+.settings-danger-content .danger {
+  justify-self: start;
+}
+@media (max-width: 540px) {
+  .settings-heading h2 {
+    font-size: 24px;
   }
-  .account-plan {
+  .settings-section-heading {
+    align-items: flex-start;
+  }
+  .account-identity {
+    flex-wrap: wrap;
+  }
+  .plan-badge {
+    margin-left: 66px;
+  }
+  .account-notice {
+    align-items: flex-start;
     flex-direction: column;
-    align-items: start;
+  }
+  .settings-data-actions > button {
+    width: 100%;
+    justify-content: center;
+  }
+  .settings-section :deep(.theme-segmented) {
+    width: 100%;
+  }
+  .settings-section :deep(.theme-segmented button) {
+    flex: 1;
+    justify-content: center;
+    padding-inline: 8px;
   }
 }
 </style>

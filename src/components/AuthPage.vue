@@ -5,7 +5,6 @@ import { store } from "../flow/store";
 import BrandLogo from "./ui/BrandLogo.vue";
 import NButton from "./ui/NButton.vue";
 import NField from "./ui/NField.vue";
-import ThemeToggle from "./ui/ThemeToggle.vue";
 const props = defineProps({
   mode: { type: String, default: "login" },
   callbackError: { type: String, default: "" },
@@ -149,19 +148,10 @@ async function submit(kind = props.mode) {
       <small class="auth-story-footer">Um próximo passo, todos os dias.</small>
     </section>
     <section class="auth-form-side">
-      <div
-        style="
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          width: 100%;
-          margin-bottom: 24px;
-        "
-      >
+      <div class="auth-form-top">
         <button class="auth-back" @click="emit('navigate', '/')">
           ← Voltar para o início
         </button>
-        <ThemeToggle />
       </div>
       <div class="auth-form-wrap">
         <span class="eyebrow">{{

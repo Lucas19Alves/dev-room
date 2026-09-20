@@ -36,6 +36,11 @@ export function checkoutPrice(interval, prices) {
   return id;
 }
 
+export function checkoutIntegrationIdentifier(random = crypto.getRandomValues(new Uint8Array(8))) {
+  const suffix = Array.from(random, (byte) => String.fromCharCode(97 + (byte % 26))).join("");
+  return `noma_checkout_${suffix}`;
+}
+
 export function verifyPrice(price, interval) {
   const expected = interval === "year" ? 19000 : 1900;
   if (!price.active || price.currency !== "brl" || price.unit_amount !== expected || price.recurring?.interval !== interval || price.recurring?.interval_count !== 1)

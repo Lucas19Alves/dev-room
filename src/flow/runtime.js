@@ -284,7 +284,7 @@ export function getFlowHome(flow, now = Date.now()) {
 
   if (id === "job") {
     home.eyebrow = "SUA BUSCA, COM CONTEXTO";
-    home.title = properties.targetRole || "Seu próximo capítulo";
+    home.title = properties.targetRole || "Novo emprego";
     home.facts = [
       properties.seniority,
       (properties.workModels || []).join(" · "),
@@ -309,8 +309,9 @@ export function getFlowHome(flow, now = Date.now()) {
         const date = dateLabel(item.values?.nextActionAt);
         return date ? `${action} · ${date}` : action;
       });
-  } else if (id === "enem") {
-    home.eyebrow = "O QUE ESTUDAR HOJE";
+  } else if (id === "enem" || id === "contest") {
+    home.eyebrow =
+      id === "contest" ? "O QUE ESTUDAR PARA A PROVA" : "O QUE ESTUDAR HOJE";
     home.title =
       (properties.lowConfidenceSubjects || [])[0] ||
       (properties.prioritySubjects || [])[0] ||

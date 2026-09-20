@@ -44,46 +44,87 @@ const noteTemplates = {
   ],
 };
 
-const definition = (value) => ({
-  schemaVersion: 2,
-  kind: "flow_definition",
-  version: 2,
-  visibility: "official",
-  properties: {},
-  goals: [],
-  stages: [],
-  metrics: [],
-  instructions: { summary: value.description, prompts: [] },
-  review: { cadenceDays: 7, prompts: [] },
-  initialData: {},
-  ...value,
-  ...declarativeForOfficial(value),
-  componentConfig: {
-    tasks: {
-      groups: ["Próximos passos", "Esta semana", "Depois"],
-      features: {
-        description: true,
-        priority: true,
-        dueDate: true,
-        group: true,
-        subtasks: true,
-        recurrence: true,
-        tags: true,
-        goalLink: true,
-        stageLink: true,
+const definition = (value) => {
+  const onboarding = value.onboarding || { intro: "", steps: [] };
+  const planStep = {
+    id: "flow-plan",
+    title: "O que você quer realizar e quando?",
+    optional: true,
+    description:
+      "Registre sua intenção, um início possível e uma data-alvo. Você pode ajustar tudo depois.",
+    fields: [
+      field("intendedOutcome", "O que você quer alcançar?", "textarea", {
+        required: true,
+        default: value.objective,
+        placeholder: "Descreva o resultado que faria este Flow valer a pena.",
+      }),
+      field("startWhen", "Quando pretende começar?", "select", {
+        options: [
+          "Assim que possível",
+          "Nesta semana",
+          "Neste mês",
+          "Em uma data específica",
+          "Ainda não defini",
+        ],
+        default: "Assim que possível",
+      }),
+      field("startDate", "Data de início (se já souber)", "date"),
+      field("targetDate", "Prazo ou data-alvo geral", "date"),
+    ],
+  };
+  const prepared = {
+    schemaVersion: 2,
+    kind: "flow_definition",
+    version: 2,
+    visibility: "official",
+    tier: "free",
+    properties: {},
+    goals: [],
+    stages: [],
+    metrics: [],
+    instructions: { summary: value.description, prompts: [] },
+    review: { cadenceDays: 7, prompts: [] },
+    initialData: {},
+    ...value,
+    onboarding: {
+      ...onboarding,
+      steps: [planStep, ...(onboarding.steps || [])],
+    },
+    ...declarativeForOfficial(value),
+    componentConfig: {
+      tasks: {
+        groups: ["Próximos passos", "Esta semana", "Depois"],
+        features: {
+          description: true,
+          priority: true,
+          dueDate: true,
+          group: true,
+          subtasks: true,
+          recurrence: true,
+          tags: true,
+          goalLink: true,
+          stageLink: true,
+        },
       },
+      notes: { templates: noteTemplates[value.id] || [] },
+      links: {
+        categories: ["Leitura", "Vídeo", "Documento", "Referência"],
+      },
+      focus: {
+        presets: [value.focus || 25, 45, 60],
+        shortBreakMinutes: 5,
+        longBreakMinutes: 15,
+      },
+      ...(value.componentConfig || {}),
     },
-    notes: { templates: noteTemplates[value.id] || [] },
-    links: {
-      categories: ["Leitura", "Vídeo", "Documento", "Referência"],
-    },
-    focus: {
-      presets: [value.focus || 25, 45, 60],
-      shortBreakMinutes: 5,
-      longBreakMinutes: 15,
-    },
-    ...(value.componentConfig || {}),
-  },
+  };
+  return prepared;
+};
+
+const pathStep = (title, description, kind = "milestone") => ({
+  title,
+  description,
+  kind,
 });
 
 const tracker = (title, singular, stages, fields, empty) => ({
@@ -108,8 +149,9 @@ const tracker = (title, singular, stages, fields, empty) => ({
 export const officialDefinitions = [
   definition({
     id: "job",
-    name: "Seu próximo capítulo",
+    name: "Novo emprego",
     category: "Carreira",
+    tier: "pro",
     icon: "↗",
     color: "blue",
     objective: "Organizar uma busca por trabalho com clareza e ritmo real.",
@@ -197,14 +239,31 @@ export const officialDefinitions = [
       ],
     },
     stages: [
-      "Encontrada",
-      "Salva",
-      "Candidatura enviada",
-      "Contato",
-      "Entrevista",
-      "Etapa técnica",
-      "Oferta",
-      "Encerrada",
+      pathStep(
+        "Preparar a base",
+        "Currículo, perfil e materiais prontos para a busca que você escolheu.",
+        "checkpoint",
+      ),
+      pathStep(
+        "Abrir o radar",
+        "Encontre e salve oportunidades que combinam com o cargo desejado.",
+        "practice",
+      ),
+      pathStep(
+        "Candidatar com ritmo",
+        "Envie candidaturas da semana e registre o que foi feito.",
+        "practice",
+      ),
+      pathStep(
+        "Acompanhar conversas",
+        "Follow-ups, entrevistas e próximas ações com data.",
+        "practice",
+      ),
+      pathStep(
+        "Decidir o próximo capítulo",
+        "Ofertas, recusas conscientes e o encerramento do ciclo.",
+        "milestone",
+      ),
     ],
     goals: [
       {
@@ -327,9 +386,12 @@ export const officialDefinitions = [
     id: "enem",
     name: "Meu próximo passo: ENEM",
     category: "Estudos",
+    legacyOnly: true,
+    tier: "free",
     icon: "✳",
     color: "mint",
-    objective: "Construir uma preparação consistente para o ENEM sem perder o ritmo.",
+    objective:
+      "Construir uma preparação consistente para o ENEM sem perder o ritmo.",
     description:
       "Organize prioridades, pratique com foco e volte aos erros quando eles ainda estiverem frescos.",
     tag: "COMECE POR AQUI",
@@ -411,12 +473,36 @@ export const officialDefinitions = [
       ],
     },
     stages: [
-      "Diagnóstico",
-      "Planejamento",
-      "Estudo",
-      "Prática",
-      "Revisão",
-      "Simulados",
+      pathStep(
+        "Diagnóstico",
+        "Veja o que já está claro e o que pede reforço.",
+        "checkpoint",
+      ),
+      pathStep(
+        "Planejamento",
+        "Distribua matérias, horas e metas da semana.",
+        "lesson",
+      ),
+      pathStep(
+        "Estudo",
+        "Avance nos tópicos prioritários com sessões reais.",
+        "practice",
+      ),
+      pathStep(
+        "Prática",
+        "Resolva questões e registre erros para revisar.",
+        "practice",
+      ),
+      pathStep(
+        "Revisão",
+        "Volte ao caderno de erros antes de acumular matéria nova.",
+        "review",
+      ),
+      pathStep(
+        "Simulados",
+        "Meça o ritmo em condições próximas da prova.",
+        "milestone",
+      ),
     ],
     goals: [
       {
@@ -648,7 +734,30 @@ export const officialDefinitions = [
         },
       ],
     },
-    stages: ["Ideia", "Escopo", "Construção", "Testes", "Deploy", "Iteração"],
+    stages: [
+      pathStep("Ideia", "Nomeie o resultado da primeira versão.", "lesson"),
+      pathStep(
+        "Escopo",
+        "Liste o que entra no MVP e o que fica para depois.",
+        "checkpoint",
+      ),
+      pathStep(
+        "Construção",
+        "Entregue o próximo incremento visível.",
+        "practice",
+      ),
+      pathStep(
+        "Testes",
+        "Verifique o que quebra antes de publicar.",
+        "checkpoint",
+      ),
+      pathStep("Deploy", "Coloque uma versão usável no ar.", "milestone"),
+      pathStep(
+        "Iteração",
+        "Observe o uso e escolha o próximo ajuste.",
+        "review",
+      ),
+    ],
     goals: [
       {
         id: "mvp-defined",
@@ -753,10 +862,10 @@ export const officialDefinitions = [
     id: "college",
     name: "Faculdade em dia",
     category: "Estudos",
+    tier: "pro",
     icon: "▧",
     color: "yellow",
-    objective:
-      "Manter a faculdade em dia sem perder o fio do semestre.",
+    objective: "Manter a faculdade em dia sem perder o fio do semestre.",
     description:
       "Reúna disciplinas, entregas e prazos em um só lugar e veja o que precisa de atenção primeiro.",
     tag: "VIDA ACADÊMICA",
@@ -807,13 +916,31 @@ export const officialDefinitions = [
       ],
     },
     stages: [
-      "Disciplinas",
-      "Trabalhos",
-      "Provas",
-      "Leituras",
-      "Referências",
-      "Notas",
-      "Prazos",
+      pathStep(
+        "Organizar o semestre",
+        "Disciplinas, datas e carga semanal no mesmo lugar.",
+        "checkpoint",
+      ),
+      pathStep(
+        "Acompanhar aulas",
+        "Registre o que precisa de revisão depois de cada disciplina.",
+        "practice",
+      ),
+      pathStep(
+        "Entregas",
+        "Trabalhos e prazos visíveis com antecedência.",
+        "practice",
+      ),
+      pathStep(
+        "Provas",
+        "Prepare revisões e datas de avaliação.",
+        "checkpoint",
+      ),
+      pathStep(
+        "Fechar o ciclo",
+        "Leituras em dia e o que ficou para o próximo período.",
+        "review",
+      ),
     ],
     goals: [
       {
@@ -917,8 +1044,7 @@ export const officialDefinitions = [
     category: "Organização",
     icon: "◈",
     color: "peach",
-    objective:
-      "Organizar a semana com espaço para o que importa.",
+    objective: "Organizar a semana com espaço para o que importa.",
     description:
       "Escolha até três prioridades, proteja seu tempo e deixe o resto da vida encontrar seu lugar.",
     tag: "ENCONTRE SEU RITMO",
@@ -964,7 +1090,28 @@ export const officialDefinitions = [
         },
       ],
     },
-    stages: ["Inbox", "Prioridades", "Esta semana", "Hoje", "Depois"],
+    stages: [
+      pathStep(
+        "Capturar",
+        "Tire da cabeça o que está pedindo atenção.",
+        "practice",
+      ),
+      pathStep(
+        "Priorizar",
+        "Escolha até três movimentos que realmente importam.",
+        "checkpoint",
+      ),
+      pathStep(
+        "Proteger tempo",
+        "Reserve espaço para o que você quer cuidar.",
+        "practice",
+      ),
+      pathStep(
+        "Revisar a semana",
+        "Veja o que avançou e o que pode esperar.",
+        "review",
+      ),
+    ],
     goals: [
       {
         id: "priorities",
@@ -1133,8 +1280,7 @@ export const officialDefinitions = [
     category: "Estudos",
     icon: "◇",
     color: "mint",
-    objective:
-      "Transformar prática em progresso real.",
+    objective: "Transformar prática em progresso real.",
     description:
       "Defina uma trilha, pratique com intenção e acompanhe os marcos do seu aprendizado.",
     tag: "APRENDER FAZENDO",
@@ -1180,11 +1326,31 @@ export const officialDefinitions = [
       ],
     },
     stages: [
-      "Fundamentos",
-      "Prática guiada",
-      "Prática própria",
-      "Projeto",
-      "Revisão",
+      pathStep(
+        "Fundamentos",
+        "Entenda o mínimo para começar a praticar.",
+        "lesson",
+      ),
+      pathStep(
+        "Prática guiada",
+        "Repita com referência, sem exigir perfeição.",
+        "practice",
+      ),
+      pathStep(
+        "Prática própria",
+        "Faça sozinho e registre o que ficou mais claro.",
+        "practice",
+      ),
+      pathStep(
+        "Projeto",
+        "Use a habilidade em algo que você quer mostrar.",
+        "milestone",
+      ),
+      pathStep(
+        "Revisão",
+        "Volte ao que ainda trava e ajuste a próxima prática.",
+        "review",
+      ),
     ],
     goals: [
       {
@@ -1251,8 +1417,7 @@ export const officialDefinitions = [
     category: "Criativo",
     icon: "◐",
     color: "lavender",
-    objective:
-      "Levar ideias de conteúdo até a publicação sem perder o rumo.",
+    objective: "Levar ideias de conteúdo até a publicação sem perder o rumo.",
     description:
       "Reúna pesquisa, roteiro, produção e publicação em um fluxo que mantém o contexto vivo.",
     tag: "DA IDEIA À PUBLICAÇÃO",
@@ -1293,7 +1458,29 @@ export const officialDefinitions = [
         },
       ],
     },
-    stages: ["Ideia", "Pesquisa", "Roteiro", "Produção", "Edição", "Publicado"],
+    stages: [
+      pathStep(
+        "Escolher o tema",
+        "Uma ideia com público e formato definidos.",
+        "lesson",
+      ),
+      pathStep(
+        "Preparar",
+        "Pesquisa e roteiro suficientes para produzir.",
+        "checkpoint",
+      ),
+      pathStep(
+        "Produzir",
+        "Grave, escreva ou desenhe o material bruto.",
+        "practice",
+      ),
+      pathStep("Publicar", "Coloque no ar e registre o link.", "milestone"),
+      pathStep(
+        "Observar o retorno",
+        "Anote o que repetir na próxima peça.",
+        "review",
+      ),
+    ],
     goals: [
       {
         id: "published",
@@ -1348,6 +1535,7 @@ export const officialDefinitions = [
     id: "project",
     name: "Projeto pessoal",
     category: "Pessoal",
+    tier: "pro",
     icon: "△",
     color: "peach",
     objective:
@@ -1390,7 +1578,25 @@ export const officialDefinitions = [
         },
       ],
     },
-    stages: ["Definição", "Planejamento", "Execução", "Ajustes", "Concluído"],
+    stages: [
+      pathStep("Definição", "O resultado desejado, em uma frase.", "lesson"),
+      pathStep(
+        "Planejamento",
+        "Marcos, prazos e o primeiro passo concreto.",
+        "checkpoint",
+      ),
+      pathStep("Execução", "Avance um incremento visível.", "practice"),
+      pathStep(
+        "Ajustes",
+        "Desbloqueie o que parou e decida o que corta.",
+        "review",
+      ),
+      pathStep(
+        "Concluído",
+        "Encerre ou registre o que fica para a próxima volta.",
+        "milestone",
+      ),
+    ],
     goals: [
       {
         id: "milestones",
@@ -1447,6 +1653,678 @@ export const officialDefinitions = [
         "O que ficou esperando?",
         "Algum limite mudou?",
         "Qual é o próximo marco?",
+      ],
+    },
+  }),
+  definition({
+    id: "party",
+    name: "Planejando uma festa",
+    category: "Pessoal",
+    icon: "✳",
+    color: "lavender",
+    tier: "free",
+    objective: "Planejar uma festa do primeiro detalhe até o dia acontecer.",
+    description:
+      "Organize convidados, espaço, fornecedores, orçamento e decisões sem deixar os detalhes se perderem.",
+    tag: "CELEBRE COM CALMA",
+    focus: 25,
+    components: ["tracker", "tasks", "notes", "links"],
+    onboarding: {
+      intro: "Vamos transformar a ideia da festa em um plano possível.",
+      steps: [
+        {
+          id: "event",
+          title: "Que encontro você está preparando?",
+          fields: [
+            field("eventName", "Nome ou ocasião", "text", { required: true }),
+            field("eventDate", "Data da festa", "date"),
+            field("guestCount", "Número estimado de convidados", "number", {
+              min: 1,
+              max: 10000,
+            }),
+            field("budget", "Orçamento aproximado", "number", { min: 0 }),
+          ],
+        },
+        {
+          id: "details",
+          title: "O que já está decidido?",
+          optional: true,
+          fields: [
+            field("venue", "Local ou formato", "text"),
+            field("style", "Estilo ou tema", "text"),
+            field("mustHave", "O que não pode faltar?", "list"),
+          ],
+        },
+      ],
+    },
+    stages: [
+      pathStep(
+        "Definir a ideia",
+        "Ocasião, tamanho e clima da festa.",
+        "lesson",
+      ),
+      pathStep(
+        "Escolher local e data",
+        "Confirme espaço, horário e estrutura.",
+        "checkpoint",
+      ),
+      pathStep(
+        "Organizar pessoas e serviços",
+        "Convites, fornecedores e confirmações.",
+        "practice",
+      ),
+      pathStep(
+        "Preparar o dia",
+        "Confira compras, montagem e responsáveis.",
+        "practice",
+      ),
+      pathStep(
+        "Celebrar e registrar",
+        "Finalize o que ficou pendente e guarde memórias.",
+        "milestone",
+      ),
+    ],
+    goals: [
+      {
+        id: "planning-items",
+        title: "Itens de planejamento concluídos",
+        metricId: "itemsDone",
+        unit: "itens",
+      },
+    ],
+    componentConfig: {
+      tracker: tracker(
+        "Plano da festa",
+        "item da festa",
+        [
+          "Ideia",
+          "Pesquisar",
+          "Aguardando confirmação",
+          "Confirmado",
+          "Concluído",
+        ],
+        [
+          field("title", "O que precisa ser organizado?", "text", {
+            required: true,
+          }),
+          field("kind", "Tipo de item", "select", {
+            options: [
+              "Convidado",
+              "Local",
+              "Fornecedor",
+              "Compra",
+              "Decisão",
+              "Tarefa",
+            ],
+          }),
+          field("dueAt", "Data ou prazo", "date"),
+          field("cost", "Custo previsto", "number"),
+          field("contact", "Pessoa ou contato", "text"),
+          field("link", "Referência", "url"),
+          field("notes", "Detalhes", "textarea"),
+        ],
+        "Adicione a primeira decisão, pessoa ou tarefa da festa.",
+      ),
+    },
+    metrics: [
+      metric("itemsDone", "Itens concluídos", {
+        type: "tracker",
+        statuses: ["Concluído"],
+      }),
+      metric("itemsOpen", "Itens em aberto", {
+        type: "tracker",
+        statuses: [
+          "Ideia",
+          "Pesquisar",
+          "Aguardando confirmação",
+          "Confirmado",
+        ],
+      }),
+    ],
+    progress: {
+      mode: "ratio",
+      numeratorMetric: "itemsDone",
+      denominatorMetric: "itemsOpen",
+    },
+    instructions: {
+      summary:
+        "Cuide primeiro das decisões que destravam outras pessoas e fornecedores.",
+      prompts: [
+        "O que precisa de confirmação?",
+        "Qual prazo pode afetar o evento?",
+        "Quem precisa receber uma atualização?",
+      ],
+    },
+    review: {
+      cadenceDays: 7,
+      prompts: [
+        "O que já está confirmado?",
+        "O orçamento ainda está dentro do planejado?",
+        "Qual detalhe precisa de uma decisão?",
+      ],
+    },
+  }),
+  definition({
+    id: "language",
+    name: "Aprendendo um novo idioma",
+    category: "Estudos",
+    icon: "文",
+    color: "blue",
+    tier: "pro",
+    objective: "Construir confiança em um novo idioma com prática consistente.",
+    description:
+      "Defina uma direção, acompanhe vocabulário e situações reais e registre o que já consegue fazer.",
+    tag: "PRÁTICA QUE VIRA CONFIANÇA",
+    focus: 25,
+    components: ["tracker", "tasks", "focus", "notes", "links"],
+    onboarding: {
+      intro: "Prepare uma trilha que caiba na sua vida e no seu nível atual.",
+      steps: [
+        {
+          id: "language",
+          title: "Qual idioma e para quê?",
+          fields: [
+            field("languageName", "Idioma", "text", { required: true }),
+            field("languageReason", "Onde quer usar o idioma?", "textarea"),
+            field("startingLevel", "Nível atual", "select", {
+              options: [
+                "Iniciante",
+                "Básico",
+                "Intermediário",
+                "Avançado",
+                "Não sei ainda",
+              ],
+            }),
+            field("weeklyPracticeGoal", "Práticas por semana", "number", {
+              min: 1,
+              max: 14,
+              default: 3,
+            }),
+          ],
+        },
+        {
+          id: "practice",
+          title: "Como você prefere praticar?",
+          optional: true,
+          fields: [
+            field("practiceModes", "Práticas que quer combinar", "multi", {
+              options: [
+                "Conversação",
+                "Escuta",
+                "Leitura",
+                "Escrita",
+                "Vocabulário",
+                "Gramática",
+              ],
+            }),
+            field("resources", "Materiais para começar", "list"),
+          ],
+        },
+      ],
+    },
+    stages: [
+      pathStep(
+        "Mapear seu ponto de partida",
+        "Escolha situações e habilidades prioritárias.",
+        "lesson",
+      ),
+      pathStep(
+        "Construir vocabulário útil",
+        "Guarde palavras e expressões dentro de contexto.",
+        "practice",
+      ),
+      pathStep(
+        "Praticar compreensão",
+        "Alterne escuta e leitura com material acessível.",
+        "practice",
+      ),
+      pathStep(
+        "Usar o idioma",
+        "Faça uma conversa ou produção curta no idioma.",
+        "practice",
+      ),
+      pathStep(
+        "Revisar e ampliar",
+        "Registre o que já consegue fazer e escolha o próximo desafio.",
+        "milestone",
+      ),
+    ],
+    goals: [
+      {
+        id: "weekly-practice",
+        title: "Práticas da semana",
+        metricId: "practiceCount",
+        targetProperty: "weeklyPracticeGoal",
+        unit: "práticas",
+      },
+      {
+        id: "learned-items",
+        title: "Itens aprendidos",
+        metricId: "learnedCount",
+        unit: "itens",
+      },
+    ],
+    componentConfig: {
+      tracker: tracker(
+        "Trilha de idioma",
+        "prática de idioma",
+        [
+          "Para explorar",
+          "Planejado",
+          "Em prática",
+          "Praticado",
+          "Revisar",
+          "Aprendido",
+        ],
+        [
+          field("title", "O que estudar ou praticar?", "text", {
+            required: true,
+          }),
+          field("kind", "Tipo", "select", {
+            options: [
+              "Vocabulário",
+              "Gramática",
+              "Escuta",
+              "Leitura",
+              "Escrita",
+              "Conversação",
+            ],
+          }),
+          field("dueAt", "Próxima prática", "date"),
+          field("resource", "Material ou situação", "url"),
+          field("notes", "Exemplo, dúvida ou reflexão", "textarea"),
+        ],
+        "Registre uma situação real em que quer usar o idioma.",
+      ),
+    },
+    metrics: [
+      metric(
+        "practiceCount",
+        "Práticas concluídas",
+        { type: "tracker", statuses: ["Praticado", "Aprendido"] },
+        { targetProperty: "weeklyPracticeGoal" },
+      ),
+      metric("learnedCount", "Itens aprendidos", {
+        type: "tracker",
+        statuses: ["Aprendido"],
+      }),
+      metric("sessions", "Sessões de foco", {
+        type: "sessions",
+        aggregate: "count",
+        windowDays: 7,
+      }),
+    ],
+    progress: { mode: "indicators" },
+    instructions: {
+      summary:
+        "Pratique para usar o idioma em situações concretas, não apenas para acumular conteúdo.",
+      prompts: [
+        "O que você consegue dizer hoje?",
+        "Que expressão vale revisar?",
+        "Qual será a próxima prática real?",
+      ],
+    },
+    review: {
+      cadenceDays: 7,
+      prompts: [
+        "Que situação ficou mais fácil?",
+        "O que você praticou nesta semana?",
+        "Qual habilidade merece atenção agora?",
+      ],
+    },
+  }),
+  definition({
+    id: "office",
+    name: "Domine as ferramentas de escritório",
+    category: "Aprendizado",
+    icon: "▦",
+    color: "mint",
+    tier: "pro",
+    objective:
+      "Aprender ferramentas de escritório aplicando cada recurso em tarefas reais.",
+    description:
+      "Organize uma trilha prática para documentos, planilhas, apresentações e colaboração no trabalho.",
+    tag: "APRENDER FAZENDO",
+    focus: 30,
+    components: ["tracker", "tasks", "focus", "notes", "links"],
+    onboarding: {
+      intro: "Escolha as ferramentas e situações de trabalho que quer dominar.",
+      steps: [
+        {
+          id: "office-goal",
+          title: "O que você quer conseguir fazer?",
+          fields: [
+            field("officeGoal", "Resultado desejado", "textarea", {
+              required: true,
+            }),
+            field("officeTools", "Ferramentas prioritárias", "multi", {
+              required: true,
+              options: [
+                "Documentos",
+                "Planilhas",
+                "Apresentações",
+                "E-mail e agenda",
+                "Armazenamento e colaboração",
+              ],
+            }),
+            field("startingLevel", "Nível atual", "select", {
+              options: ["Começando", "Básico", "Intermediário", "Avançado"],
+            }),
+          ],
+        },
+        {
+          id: "practice-project",
+          title: "Qual entrega pode servir de prática?",
+          optional: true,
+          fields: [
+            field(
+              "practiceProject",
+              "Documento, planilha ou apresentação",
+              "text",
+            ),
+            field("weeklyPracticeGoal", "Práticas por semana", "number", {
+              min: 1,
+              max: 14,
+              default: 2,
+            }),
+            field("resources", "Cursos e materiais", "list"),
+          ],
+        },
+      ],
+    },
+    stages: [
+      pathStep(
+        "Escolher uma entrega real",
+        "Defina o que você quer produzir ou resolver.",
+        "lesson",
+      ),
+      pathStep(
+        "Aprender o recurso necessário",
+        "Estude só o que ajuda na entrega atual.",
+        "practice",
+      ),
+      pathStep(
+        "Aplicar e revisar",
+        "Use o recurso, confira o resultado e anote o que aprendeu.",
+        "practice",
+      ),
+      pathStep(
+        "Ampliar sua autonomia",
+        "Repita com uma tarefa um pouco mais complexa.",
+        "milestone",
+      ),
+    ],
+    goals: [
+      {
+        id: "weekly-practice",
+        title: "Práticas aplicadas",
+        metricId: "practiceCount",
+        targetProperty: "weeklyPracticeGoal",
+        unit: "práticas",
+      },
+      {
+        id: "deliveries",
+        title: "Entregas concluídas",
+        metricId: "deliveryCount",
+        unit: "entregas",
+      },
+    ],
+    componentConfig: {
+      tracker: tracker(
+        "Trilha de ferramentas",
+        "atividade prática",
+        [
+          "Na trilha",
+          "Planejada",
+          "Em prática",
+          "Aplicada",
+          "Revisar",
+          "Concluída",
+        ],
+        [
+          field("title", "Recurso ou entrega", "text", { required: true }),
+          field("kind", "Ferramenta", "select", {
+            options: [
+              "Documentos",
+              "Planilhas",
+              "Apresentações",
+              "E-mail e agenda",
+              "Colaboração",
+            ],
+          }),
+          field("dueAt", "Próxima prática", "date"),
+          field("link", "Arquivo ou material", "url"),
+          field("notes", "O que aprendeu ou precisa revisar?", "textarea"),
+        ],
+        "Adicione uma entrega pequena que possa praticar.",
+      ),
+    },
+    metrics: [
+      metric(
+        "practiceCount",
+        "Práticas aplicadas",
+        { type: "tracker", statuses: ["Aplicada", "Concluída"] },
+        { targetProperty: "weeklyPracticeGoal" },
+      ),
+      metric("deliveryCount", "Entregas concluídas", {
+        type: "tracker",
+        field: "kind",
+        statuses: ["Concluída"],
+      }),
+      metric("sessions", "Sessões de foco", {
+        type: "sessions",
+        aggregate: "count",
+        windowDays: 7,
+      }),
+    ],
+    progress: { mode: "indicators" },
+    instructions: {
+      summary:
+        "Cada recurso aprendido deve ajudar a concluir uma entrega real.",
+      prompts: [
+        "Qual arquivo você quer conseguir criar?",
+        "Que recurso precisa aprender primeiro?",
+        "Como vai conferir o resultado?",
+      ],
+    },
+    review: {
+      cadenceDays: 7,
+      prompts: [
+        "Que entrega você concluiu?",
+        "Que recurso ficou mais fácil?",
+        "Qual tarefa real será a próxima prática?",
+      ],
+    },
+  }),
+  definition({
+    id: "contest",
+    name: "Estude para o concurso",
+    category: "Estudos",
+    icon: "▤",
+    color: "yellow",
+    tier: "pro",
+    entity: { id: "study_record" },
+    experience: {
+      schemaVersion: 1,
+      version: 1,
+      layout: [
+        {
+          type: "hero",
+          eyebrow: "PREPARAÇÃO PARA CONCURSO",
+          title: "O que merece estudo agora",
+          subtitle: "Edital, prática e revisão conectados ao seu objetivo.",
+        },
+        { type: "next-actions", title: "Hoje", source: "actions", limit: 5 },
+        {
+          type: "collection",
+          title: "Plano de estudo",
+          entity: "study_record",
+          create: true,
+          createLabel: "Adicionar atividade",
+        },
+        { type: "metrics", title: "Evolução", source: "metrics", limit: 4 },
+        {
+          type: "timeline",
+          title: "Histórico de preparação",
+          source: "history",
+        },
+      ],
+    },
+    objective:
+      "Preparar-se para um concurso com prioridades, prática e revisão.",
+    description:
+      "Acompanhe edital, disciplinas, questões e simulados para direcionar seu estudo até a prova.",
+    tag: "PREPARAÇÃO PARA CONCURSO",
+    focus: 40,
+    components: ["tracker", "tasks", "focus", "notes", "links"],
+    onboarding: {
+      intro:
+        "Comece pelo concurso e pelas matérias que mais precisam de atenção.",
+      steps: [
+        {
+          id: "target-exam",
+          title: "Qual prova você está preparando?",
+          fields: [
+            field("examName", "Concurso ou processo seletivo", "text", {
+              required: true,
+            }),
+            field("examRole", "Cargo ou área", "text"),
+            field("examOrganization", "Órgão ou banca", "text"),
+            field("examDate", "Data da prova", "date"),
+            field("examNotice", "Link do edital", "url"),
+          ],
+        },
+        {
+          id: "study-plan",
+          title: "Como organizar sua preparação?",
+          optional: true,
+          fields: [
+            field("prioritySubjects", "Matérias prioritárias", "list", {
+              required: true,
+              maxItems: 8,
+            }),
+            field("weeklyHours", "Horas disponíveis por semana", "number", {
+              min: 1,
+              max: 80,
+              default: 8,
+            }),
+            field("weeklyQuestionGoal", "Questões por semana", "number", {
+              min: 1,
+              max: 1000,
+              default: 60,
+            }),
+            field(
+              "lowConfidenceSubjects",
+              "Matérias que mais preocupam",
+              "list",
+            ),
+          ],
+        },
+      ],
+    },
+    stages: [
+      pathStep(
+        "Ler o edital",
+        "Entenda matérias, pesos, etapas e regras da prova.",
+        "lesson",
+      ),
+      pathStep(
+        "Priorizar matérias",
+        "Distribua atenção conforme peso, domínio e prazo.",
+        "checkpoint",
+      ),
+      pathStep(
+        "Estudar e praticar",
+        "Alterne conteúdo, questões e revisão ativa.",
+        "practice",
+      ),
+      pathStep(
+        "Simular a prova",
+        "Treine tempo, estratégia e resistência.",
+        "practice",
+      ),
+      pathStep(
+        "Revisar a preparação",
+        "Observe resultados e ajuste o plano até a prova.",
+        "milestone",
+      ),
+    ],
+    goals: [
+      {
+        id: "weekly-questions",
+        title: "Questões resolvidas",
+        metricId: "questions",
+        targetProperty: "weeklyQuestionGoal",
+        unit: "questões",
+      },
+      {
+        id: "subjects-reviewed",
+        title: "Matérias revisadas",
+        metricId: "subjectsReviewed",
+        unit: "matérias",
+      },
+    ],
+    componentConfig: {
+      tracker: tracker(
+        "Plano de preparação",
+        "atividade de estudo",
+        ["Planejado", "Em estudo", "Praticado", "Revisar", "Concluído"],
+        [
+          field("subject", "Matéria", "text", { required: true }),
+          field("topic", "Conteúdo ou atividade", "text", { required: true }),
+          field("kind", "Tipo", "select", {
+            options: ["Conteúdo", "Questões", "Revisão", "Simulado"],
+          }),
+          field("questions", "Questões resolvidas", "number"),
+          field("correct", "Acertos", "number"),
+          field("studyDate", "Data de estudo", "date"),
+          field("notes", "Erros e aprendizados", "textarea"),
+        ],
+        "Adicione uma matéria do edital ou a primeira sessão de estudo.",
+      ),
+    },
+    metrics: [
+      metric(
+        "questions",
+        "Questões resolvidas",
+        {
+          type: "tracker",
+          field: "kind",
+          values: ["Questões", "Simulado"],
+          aggregate: "sum",
+          valueField: "questions",
+        },
+        { targetProperty: "weeklyQuestionGoal" },
+      ),
+      metric("subjectsReviewed", "Matérias revisadas", {
+        type: "tracker",
+        field: "kind",
+        values: ["Revisão"],
+        aggregate: "count",
+      }),
+      metric("sessions", "Sessões de estudo", {
+        type: "sessions",
+        aggregate: "count",
+        windowDays: 7,
+      }),
+    ],
+    progress: { mode: "indicators" },
+    instructions: {
+      summary:
+        "Distribua a preparação a partir do edital e use questões para descobrir o que precisa voltar.",
+      prompts: [
+        "Qual matéria tem maior peso?",
+        "Que erro precisa ser revisado?",
+        "Quando será o próximo simulado?",
+      ],
+    },
+    review: {
+      cadenceDays: 7,
+      prompts: [
+        "Que matérias avançaram?",
+        "O desempenho em questões mudou?",
+        "O plano ainda cabe até a prova?",
+        "Qual conteúdo precisa voltar?",
       ],
     },
   }),
