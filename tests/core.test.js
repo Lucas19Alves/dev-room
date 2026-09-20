@@ -27,6 +27,16 @@ import {
   skipReview,
 } from "../src/flow/runtime.js";
 import { buildFlowExperience } from "../src/flow/experience.js";
+import {
+  addProjectFeature,
+  addProjectStage,
+  ensureProjectWorkspace,
+  projectInsights,
+  projectOutcomeOptions,
+  rescheduleProjectTarget,
+  rescheduleProjectStep,
+  setProjectStepState,
+} from "../src/flow/projectFlow.js";
 import { checkoutIntegrationIdentifier } from "../supabase/functions/_shared/billing.js";
 
 const answers = {
@@ -112,16 +122,23 @@ test("every official Flow creates a specialized, versioned instance", () => {
   for (const template of templates) {
     const flow = makeFlow(template, template.name, answers[template.id]);
     assert.equal(flow.definitionRef.id, template.id);
-    assert.equal(flow.definitionRef.version, 2);
+    assert.equal(flow.definitionRef.version, template.version || 2);
     assert.equal(flow.definitionRef.tier, template.tier);
     assert.deepEqual(flow.result, {
       status: "in_progress",
       summary: "",
       completedAt: null,
     });
-    assert.ok(
-      template.onboarding.steps.some((step) => step.id === "flow-plan"),
-    );
+    if (template.id === "code") {
+      assert.ok(
+        !template.onboarding.steps.some((step) => step.id === "flow-plan"),
+      );
+      assert.equal(template.onboarding.allowComponentSelection, false);
+    } else {
+      assert.ok(
+        template.onboarding.steps.some((step) => step.id === "flow-plan"),
+      );
+    }
     assert.deepEqual(flow.onboarding.answers, {
       ...flow.onboarding.answers,
     });
@@ -168,11 +185,14 @@ test("official onboarding answers create useful initial data", () => {
     "Projeto",
     answers.code,
   );
-  assert.deepEqual(
-    code.componentData.kanban.map((column) => column.title),
-    ["Backlog", "Próximo", "Em desenvolvimento", "Teste", "Concluído"],
+  assert.ok(code.componentData.codeProject.steps.length > 0);
+  assert.equal(code.componentData.codeProject.steps[0].status, "active");
+  assert.ok(
+    code.componentData.codeProject.steps.every(
+      (step) => step.status !== "completed",
+    ),
   );
-  assert.equal(code.componentData.kanban[0].cards.length, 2);
+  assert.ok(code.componentData.codeProject.features.length === 0);
 
   const week = makeFlow(
     templates.find((item) => item.id === "week"),
@@ -237,18 +257,196 @@ test("metrics reflect activity without inventing outcome progress", () => {
   );
 });
 
-test("project progress uses completed milestones only when a denominator exists", () => {
+test("code project progress derives from its stages and does not invent completed work", () => {
   const flow = makeFlow(
     templates.find((item) => item.id === "code"),
     "Projeto",
-    { ...answers.code, currentStage: "Ideia" },
+    {
+      ...answers.code,
+      projectObjective: "Concluir MVP",
+      currentStage: "Implementação",
+    },
   );
-  assert.equal(flow.progress.value, 0);
-  flow.componentData.tracker.items[0].status = "Concluído";
-  refreshFlowDerivedState(flow);
-  assert.equal(flow.metrics.milestonesDone.value, 1);
-  assert.equal(flow.metrics.milestonesTotal.value, 2);
-  assert.equal(flow.progress.value, 50);
+  const project = ensureProjectWorkspace(flow);
+  assert.ok(
+    project.steps.some(
+      (step) => step.title === "Atualizar contexto: Implementação",
+    ),
+  );
+  assert.ok(project.steps.every((step) => step.status !== "completed"));
+  assert.equal(projectInsights(flow).completed, 0);
+  assert.ok(
+    project.steps.some((step) => step.isFocus && step.status === "active"),
+  );
+});
+
+test("project objective, type and stage compose different deterministic steps", () => {
+  const definition = templates.find((item) => item.id === "code");
+  const base = makeFlow(definition, "Projeto sem nome", {
+    projectObjective: "Fazer deploy",
+    projectType: ["API/serviço"],
+    stack: ["Rust", "Ferramenta própria"],
+    currentStage: "Deploy",
+    sessionDuration: "Livre",
+    targetWindow: "Sem prazo",
+  });
+  const project = ensureProjectWorkspace(base);
+  assert.equal(project.steps[0].status, "decision");
+  assert.match(project.steps[0].title, /nome do projeto/i);
+  assert.ok(
+    project.steps.some((step) => step.title === "Validar contrato e respostas"),
+  );
+  assert.ok(
+    project.steps.some(
+      (step) => step.title === "Atualizar contexto: Deploy" && step.isFocus,
+    ),
+  );
+  assert.ok(project.steps.every((step) => step.status !== "completed"));
+  assert.equal(base.properties.sessionMode, "free");
+  assert.ok(
+    project.steps.some((step) => step.tools.includes("Ferramenta própria")),
+  );
+  assert.deepEqual(
+    projectOutcomeOptions("Fazer deploy", ["API/serviço"])[0],
+    "Endpoints essenciais testados",
+  );
+});
+
+test("project stages enforce blocker and decision context, keep dependencies informational and replan overdue dates", () => {
+  const flow = makeFlow(
+    templates.find((item) => item.id === "code"),
+    "Projeto",
+    answers.code,
+  );
+  const project = ensureProjectWorkspace(flow);
+  const existing = project.steps.find((step) => step.isFocus);
+  assert.throws(
+    () => addProjectStage(flow, { name: "Acesso", status: "blocked" }),
+    /bloqueando/i,
+  );
+  assert.throws(
+    () => addProjectStage(flow, { name: "Banco", status: "decision" }),
+    /decisão/i,
+  );
+  const dependent = addProjectStage(flow, {
+    name: "Integração",
+    dependencies: [existing.id],
+    size: 2,
+  });
+  assert.equal(dependent.status, "planned");
+  assert.deepEqual(dependent.dependencies, [existing.id]);
+  const windowed = addProjectStage(flow, {
+    name: "Janela flexível",
+    dueWindow: "Próxima semana",
+  });
+  assert.equal(windowed.dateWindow, "next_week");
+  assert.ok(windowed.dueAt);
+  const overdue = addProjectStage(flow, {
+    name: "Prazo",
+    dueAt: "2020-01-01",
+    status: "active",
+    blockedReason: "",
+  });
+  assert.equal(
+    projectInsights(flow).overdueSteps.some((step) => step.id === overdue.id),
+    true,
+  );
+  rescheduleProjectStep(flow, overdue.id, "proxima-semana");
+  assert.equal(
+    projectInsights(flow).overdueSteps.some((step) => step.id === overdue.id),
+    false,
+  );
+  assert.equal(overdue.status, "active");
+  project.targetAt = "2020-01-01";
+  assert.equal(projectInsights(flow).targetOverdue, true);
+  rescheduleProjectTarget(flow, "proxima-semana");
+  assert.equal(projectInsights(flow).targetOverdue, false);
+});
+
+test("feature planning creates four checkpoints and projection waits for real history", () => {
+  const flow = makeFlow(
+    templates.find((item) => item.id === "code"),
+    "Projeto",
+    answers.code,
+  );
+  const feature = addProjectFeature(flow, {
+    name: "Login",
+    area: "Conta",
+    tools: ["Vue"],
+    size: 3,
+    completionCriteria: "Entrar com email",
+  });
+  assert.deepEqual(
+    feature.checkpoints.map((item) => item.title),
+    ["Planejar", "Implementar", "Validar", "Integrar"],
+  );
+  const parent = ensureProjectWorkspace(flow).steps.find(
+    (step) => step.featureId === feature.id,
+  );
+  assert.equal(parent.checklist.length, 4);
+  assert.equal(projectInsights(flow).estimateAt, null);
+  assert.equal(projectInsights(flow).remainingSessions, 3);
+  const completed = ensureProjectWorkspace(flow).steps.find(
+    (step) => step.isFocus,
+  );
+  completed.size = 2;
+  setProjectStepState(flow, completed.id, "completed");
+  flow.sessions.push({
+    id: "session-1",
+    stageId: completed.id,
+    seconds: 25 * 60,
+    endedAt: Date.now(),
+  });
+  const secondCompleted = ensureProjectWorkspace(flow).steps.find(
+    (step) => step.status === "active",
+  );
+  secondCompleted.size = 2;
+  setProjectStepState(flow, secondCompleted.id, "completed");
+  flow.sessions.push({
+    id: "session-2",
+    stageId: secondCompleted.id,
+    seconds: 25 * 60,
+    endedAt: Date.now(),
+  });
+  const insight = projectInsights(flow);
+  assert.ok(insight.remainingSessions > 0);
+  assert.ok(insight.estimateAt > Date.now());
+  setProjectStepState(flow, parent.id, "completed");
+  assert.equal(feature.status, "completed");
+});
+
+test("legacy code Flow component data is preserved when its project workspace is initialized", () => {
+  const flow = makeFlow(
+    templates.find((item) => item.id === "code"),
+    "Projeto antigo",
+    answers.code,
+  );
+  delete flow.componentData.codeProject;
+  flow.componentData.tracker.items.push({
+    id: "legacy-milestone",
+    status: "Planejado",
+    values: { title: "Marco antigo", kind: "Milestone", notes: "preservar" },
+  });
+  flow.componentData.kanban = [
+    {
+      id: "legacy-column",
+      title: "Backlog",
+      cards: [
+        {
+          id: "legacy-feature",
+          title: "Busca antiga",
+          description: "Contexto",
+        },
+      ],
+    },
+  ];
+  const project = ensureProjectWorkspace(flow);
+  assert.ok(project.steps.some((step) => step.legacyId === "legacy-milestone"));
+  assert.ok(
+    project.features.some((feature) => feature.legacyId === "legacy-feature"),
+  );
+  assert.equal(flow.componentData.tracker.items[0].values.notes, "preservar");
+  assert.equal(flow.componentData.kanban[0].cards[0].title, "Busca antiga");
 });
 
 test("reviews can complete, postpone and skip while preserving history", () => {
@@ -501,7 +699,7 @@ test("career experience emits structured executable actions from real sources", 
 test("official experiences keep domain-specific sections and actions", () => {
   const cases = [
     ["enem", "PLANO", ["study_topic"]],
-    ["code", "ROADMAP", ["continue_task"]],
+    ["code", "ROADMAP", []],
     ["college", "DISCIPLINAS", ["continue_task"]],
     ["week", "3 PRIORIDADES DA SEMANA", ["continue_task"]],
     ["skill", "TRILHA", ["practice_skill"]],

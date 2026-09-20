@@ -4169,6 +4169,45 @@ h1 {
   background: var(--noma-brand-soft);
   color: var(--noma-brand);
 }
+.stack-picker {
+  display: grid;
+  gap: var(--noma-space-2);
+}
+.stack-picker__input,
+.stack-picker__suggestions,
+.stack-picker__selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--noma-space-2);
+}
+.stack-picker__input input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.stack-picker__suggestions button,
+.stack-chip {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--noma-border);
+  border-radius: 999px;
+  background: var(--noma-surface);
+  color: var(--noma-ink-soft);
+}
+.stack-picker__suggestions button:hover,
+.stack-chip:hover {
+  border-color: var(--noma-brand);
+  color: var(--noma-brand);
+}
+.stack-picker__selected {
+  padding-top: 4px;
+}
+.stack-chip {
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
+}
+.stack-chip span {
+  margin-left: 4px;
+}
 .onboarding-toggle {
   display: flex;
   align-items: center;

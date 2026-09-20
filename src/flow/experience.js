@@ -6,6 +6,7 @@ import {
   declarativeEntityItems,
   entityStateLabels,
 } from "./declarativeRuntime.js";
+import { ensureProjectWorkspace, projectInsights } from "./projectFlow.js";
 
 const DAY = 86400000;
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -915,6 +916,86 @@ export function buildFlowExperience(flow, now = Date.now()) {
     .filter((entry) => entry.at)
     .sort((a, b) => b.at - a.at)
     .slice(0, 6);
+  if (id === "code") {
+    const project = ensureProjectWorkspace(flow);
+    const insight = projectInsights(flow, now);
+    const roadmap = project.steps.map((item) => ({
+      id: item.id,
+      title: item.title,
+      subtitle: item.objective,
+      status: item.status,
+      source: "code_project",
+      sourceId: item.id,
+    }));
+    const groups = [
+      {
+        label: "AGORA",
+        title: "Etapa em foco",
+        items: roadmap.filter(
+          (item) => project.steps.find((step) => step.id === item.id)?.isFocus,
+        ),
+      },
+      {
+        label: "PRÓXIMA",
+        title: "Etapa seguinte",
+        items: roadmap.filter((item) => item.status === "planned").slice(0, 1),
+      },
+      { label: "ROADMAP", title: "Etapas do projeto", items: roadmap },
+      {
+        label: "BLOQUEIOS",
+        title: "Bloqueios explícitos",
+        items: roadmap.filter((item) => item.status === "blocked"),
+      },
+      {
+        label: "DECISÕES",
+        title: "Decisões pendentes",
+        items: roadmap.filter((item) => item.status === "decision"),
+      },
+    ];
+    return {
+      id,
+      variant: id,
+      context: {
+        eyebrow: "PROJETO EM EXECUÇÃO",
+        title: flow.identity?.name || "Projeto sem nome",
+        subtitle: project.description || project.objective,
+        facts: [project.objective, ...project.projectTypes],
+      },
+      actions: [],
+      week: { metrics: metricList },
+      opportunities: [],
+      commitments: [],
+      preparation: { resources: [], notes: [], tasks: [] },
+      progress: {
+        metrics: metricList,
+        goals: clone(flow.goals || []),
+        stages: clone(flow.stages || []),
+        value: insight.total ? insight.completed / insight.total : 0,
+      },
+      history,
+      sections: {
+        hero: { eyebrow: "PROJETO EM EXECUÇÃO", title: "Etapa em foco" },
+        primary: groups[0],
+        secondary: groups.slice(1),
+        progress: {
+          label: "VISÃO GERAL",
+          title: "Progresso observado",
+          items: [
+            {
+              id: "project-total",
+              title: `${insight.total} etapas`,
+              subtitle: `${insight.completed} concluídas`,
+            },
+            {
+              id: "project-sessions",
+              title: `${insight.sessions} sessões`,
+              subtitle: `${insight.minutes} minutos`,
+            },
+          ],
+        },
+      },
+    };
+  }
   const sections = domainSections(
     flow,
     metrics,

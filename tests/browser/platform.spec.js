@@ -136,6 +136,255 @@ test("career Flow turns opportunity changes into executable actions and persists
   expect(errors).toEqual([]);
 });
 
+test("code Flow composes a project workspace and persists execution across reload", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/app");
+  await openOfficial(page, "Do código ao deploy");
+
+  await expect(page.getByLabel("Nome do Flow", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /Adicionar componentes/ }),
+  ).toHaveCount(0);
+  await page
+    .getByLabel("Objetivo deste projeto")
+    .selectOption("Criar funcionalidades");
+  await page.getByLabel("Nome do projeto").fill("Noma E2E");
+  await page
+    .getByLabel("Contexto ou resultado desejado")
+    .fill("Entregar uma área de autenticação pronta para validar.");
+  await page.getByRole("button", { name: "Continuar →" }).click();
+  await page
+    .getByRole("button", { name: "Aplicação web", exact: true })
+    .click();
+  await page.getByLabel("Janela-alvo").selectOption("7 dias");
+  await expect(
+    page.getByLabel("Quando esta versão estará pronta para você?"),
+  ).toContainText("Fluxo principal funcionando");
+  await page
+    .getByLabel("Quando esta versão estará pronta para você?")
+    .selectOption("Fluxo principal funcionando");
+  await page.getByRole("button", { name: "Continuar →" }).click();
+  await page.getByLabel("Stack ou ferramentas").fill("Vue");
+  await page.getByRole("button", { name: "Vue", exact: true }).click();
+  await page.getByLabel("Stack ou ferramentas").fill("Noma SDK");
+  await page.getByRole("button", { name: "Adicionar", exact: true }).click();
+  await page.getByLabel("Estágio atual").selectOption("Implementação");
+  await page.getByLabel("Repositório ou link").fill("https://example.com/noma");
+  await page.getByLabel("Duração da sessão de foco").selectOption("15 minutos");
+  await page.getByRole("button", { name: "Continuar →" }).click();
+  const displayName = page.getByLabel("Como podemos te chamar?", {
+    exact: true,
+  });
+  if (await displayName.isVisible()) await displayName.fill("Pessoa Noma");
+  await page.getByRole("button", { name: "Entrar no meu Flow" }).click();
+
+  await expect(page.getByLabel("Nome do projeto")).toHaveValue("Noma E2E");
+  await expect(
+    page.getByRole("heading", { name: "Atualizar contexto: Implementação" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Abrir repositório ↗" }),
+  ).toHaveAttribute("href", "https://example.com/noma");
+  await expect(page.getByText("Vue · Noma SDK", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Compartilhar|Personalizar Flow/ }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Fluxo principal funcionando", { exact: false }),
+  ).toBeVisible();
+
+  await expect(
+    page.getByRole("tab", { name: "Agora", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".code-project__roadmap")).not.toBeVisible();
+  await page.getByRole("tab", { name: /^Plano/ }).click();
+  await page.getByRole("tab", { name: /^Plano/ }).press("ArrowRight");
+  await expect(
+    page.getByRole("tab", { name: "Evolução", exact: true }),
+  ).toBeFocused();
+  await page
+    .getByRole("tab", { name: "Evolução", exact: true })
+    .press("ArrowLeft");
+  await page.getByRole("button", { name: "+ Nova etapa" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Fechar etapa ou formulário" })
+    .focus();
+  await page.keyboard.press("Shift+Tab");
+  expect(
+    await page
+      .getByRole("dialog")
+      .evaluate((element) => element.contains(document.activeElement)),
+  ).toBe(true);
+  await page.getByLabel("Nome", { exact: true }).fill("Configurar ambiente");
+  await page
+    .getByRole("combobox", { name: "Estado" })
+    .selectOption({ label: "Bloqueada" });
+  await page
+    .getByLabel("Motivo do bloqueio")
+    .fill("Acesso de homologação pendente.");
+  await page.getByRole("button", { name: "Criar etapa" }).click();
+  await page
+    .getByRole("button", { name: "Fechar etapa ou formulário" })
+    .click();
+  await expect(page.getByRole("heading", { name: "1 bloqueio" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Planejar funcionalidade" }).click();
+  await page.getByLabel("Nome da funcionalidade").fill("Autenticação");
+  await page.getByLabel("Área").fill("Conta");
+  await page.getByLabel("Tamanho estimado em sessões · opcional").fill("3");
+  await page
+    .getByLabel("Critério opcional de conclusão")
+    .fill("Entrar com email e senha.");
+  await page.getByRole("button", { name: "Criar funcionalidade" }).click();
+  const workspace = page
+    .locator(".code-project__step-workspace")
+    .filter({ hasText: "Autenticação" });
+  await expect(workspace).toBeVisible();
+  await expect(workspace.getByText("Planejar", { exact: true })).toBeVisible();
+  await expect(
+    workspace.getByText("Implementar", { exact: true }),
+  ).toBeVisible();
+  await expect(workspace.getByText("Validar", { exact: true })).toBeVisible();
+  await expect(workspace.getByText("Integrar", { exact: true })).toBeVisible();
+  await workspace.getByLabel("Nova subtarefa").fill("Testar login válido");
+  await workspace
+    .getByRole("button", { name: "Adicionar", exact: true })
+    .click();
+  await workspace.getByLabel("Testar login válido").check();
+  await workspace.getByRole("tab", { name: "Contexto", exact: true }).click();
+  await workspace
+    .getByPlaceholder("Contexto, ideias e decisões desta etapa")
+    .fill("Validar recuperação de senha também.");
+  await workspace.getByRole("tab", { name: "Executar", exact: true }).click();
+  await workspace.getByRole("button", { name: /Iniciar sessão/ }).click();
+  await expect(
+    workspace.getByRole("button", { name: /Encerrar sessão/ }),
+  ).toBeVisible();
+  await workspace.getByRole("button", { name: /Encerrar sessão/ }).click();
+  await page.getByRole("button", { name: "Fechar diálogo" }).click();
+  await page
+    .locator(".code-project__step-trigger")
+    .filter({ hasText: "Autenticação" })
+    .click();
+  await expect(
+    workspace.getByText("1 sessões registradas nesta etapa"),
+  ).toBeVisible();
+  await workspace
+    .getByRole("button", { name: "Concluir etapa", exact: true })
+    .click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(
+    page
+      .locator(".code-project__step-trigger")
+      .filter({ hasText: "Autenticação" }),
+  ).toBeFocused();
+  await page.getByRole("tab", { name: "Evolução", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Veja o que você já construiu" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".code-project__completed")
+      .getByText("Autenticação", { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "test-results/code-project-growth-desktop.png",
+    fullPage: true,
+  });
+
+  await page.reload();
+  await page.getByRole("button", { name: "Noma E2E", exact: true }).click();
+  await expect(page.getByLabel("Nome do projeto")).toHaveValue("Noma E2E");
+  await page.getByRole("tab", { name: /^Plano/ }).click();
+  await expect(
+    page
+      .locator(".code-project__step-trigger")
+      .getByText("Autenticação", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".code-project__step-trigger")
+      .getByText("Configurar ambiente", { exact: true }),
+  ).toBeVisible();
+  await page
+    .locator(".code-project__step-trigger")
+    .filter({ hasText: "Autenticação" })
+    .click();
+  const restoredWorkspace = page
+    .locator(".code-project__step-workspace")
+    .filter({ hasText: "Autenticação" });
+  await expect(
+    restoredWorkspace.getByLabel("Testar login válido"),
+  ).toBeChecked();
+  await expect(
+    restoredWorkspace.getByText("1 sessões registradas nesta etapa"),
+  ).toBeVisible();
+  await restoredWorkspace
+    .getByRole("tab", { name: "Contexto", exact: true })
+    .click();
+  await expect(
+    restoredWorkspace.getByPlaceholder(
+      "Contexto, ideias e decisões desta etapa",
+    ),
+  ).toHaveValue("Validar recuperação de senha também.");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page
+      .getByRole("dialog")
+      .evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+  ).toBe(true);
+  await page.screenshot({
+    path: "test-results/code-project-stage-mobile.png",
+    fullPage: false,
+  });
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "Agora", exact: true }).click();
+  await page.screenshot({
+    path: "test-results/code-project-now-mobile.png",
+    fullPage: true,
+  });
+  await page.evaluate(() => localStorage.setItem("noma-theme", "dark"));
+  await page.reload();
+  await page.getByRole("button", { name: "Entrar no Flow ↗" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("tab", { name: /^Plano/ }).click();
+  await page
+    .locator(".code-project__step-trigger")
+    .filter({ hasText: "Autenticação" })
+    .click();
+  await page.getByRole("tab", { name: "Contexto", exact: true }).click();
+  await page
+    .getByLabel("Notas da etapa")
+    .fill("Alteração salva ao fechar com Escape.");
+  await page.screenshot({
+    path: "test-results/code-project-stage-dark.png",
+    fullPage: false,
+  });
+  await page.keyboard.press("Escape");
+  await page.reload();
+  await page.getByRole("button", { name: "Entrar no Flow ↗" }).click();
+  await page.getByRole("tab", { name: /^Plano/ }).click();
+  await page
+    .locator(".code-project__step-trigger")
+    .filter({ hasText: "Autenticação" })
+    .click();
+  await page.getByRole("tab", { name: "Contexto", exact: true }).click();
+  await expect(page.getByLabel("Notas da etapa")).toHaveValue(
+    "Alteração salva ao fechar com Escape.",
+  );
+  expect(
+    await page
+      .locator(".code-project")
+      .evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+  ).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test("blank Flow progressively configures, isolates and persists content", async ({
   page,
 }) => {
@@ -417,17 +666,6 @@ test("official Flows expose their own experience journeys", async ({
           "Data da prova": "2026-11-08",
           "Matérias prioritárias": "Português\nDireito administrativo",
           "Horas disponíveis por semana": "8",
-        },
-      },
-    },
-    {
-      name: "Do código ao deploy",
-      heading: "O próximo incremento",
-      answers: {
-        fields: {
-          "Nome do projeto": "Projeto Noma",
-          "O que esta primeira versão precisa resolver?":
-            "Provar a experiência",
         },
       },
     },

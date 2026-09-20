@@ -1,4 +1,5 @@
 import { refreshFlowDerivedState } from "./runtime.js";
+import { createProjectWorkspace } from "./projectFlow.js";
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const uid = () => crypto.randomUUID();
@@ -18,7 +19,8 @@ export function onboardingDefaults(definition, supplied = {}) {
     for (const field of step.fields || []) {
       if (answers[field.key] === undefined && field.default !== undefined)
         answers[field.key] = clone(field.default);
-      if (field.type === "multi") answers[field.key] ||= [];
+      if (field.type === "multi" || field.type === "autocomplete-multi")
+        answers[field.key] ||= [];
       if (field.type === "boolean" && answers[field.key] === undefined)
         answers[field.key] = false;
       if (field.type === "list")
@@ -138,43 +140,36 @@ function prepareContest(flow, a) {
 }
 
 function prepareCode(flow, a, definition) {
-  const features = normalizeList(a.essentialFeatures);
-  flow.properties.essentialFeatureCount = features.length;
-  flow.componentData.tracker.items = [
-    record(a.currentStage === "Ideia" ? "Em andamento" : "Concluído", {
-      title: "Definir o MVP",
-      kind: "Milestone",
-      dueAt: a.deadline || "",
-      link: a.repositoryUrl || "",
-      notes: a.projectGoal || "",
-    }),
-    record("Planejado", {
-      title: "Publicar a primeira versão",
-      kind: "Milestone",
-      dueAt: a.deadline || "",
-      link: "",
-      notes: "",
-    }),
-  ];
-  const names = definition.componentConfig?.kanban?.columns || [
-    "Backlog",
-    "Próximo",
-    "Em desenvolvimento",
-    "Teste",
-    "Concluído",
-  ];
-  flow.componentData.kanban = names.map((title, index) => ({
-    id: uid(),
-    title,
-    cards:
-      index === 0
-        ? features.map((title) => ({ id: uid(), title, description: "" }))
-        : [],
+  const project = createProjectWorkspace(a);
+  flow.componentData.codeProject = project;
+  flow.objective =
+    a.projectGoal?.trim() || a.projectObjective || flow.objective;
+  flow.properties.projectObjective = project.objective;
+  flow.properties.projectGoal = project.description;
+  flow.properties.projectType = project.projectTypes;
+  flow.properties.stack = project.stack;
+  flow.properties.currentStage = project.currentStage;
+  flow.properties.targetDate = project.targetAt;
+  flow.properties.sessionDuration = project.sessionDuration;
+  flow.properties.sessionMode =
+    project.sessionDuration === "Livre" ? "free" : "timed";
+  const sessionMinutes = Number.parseInt(project.sessionDuration, 10);
+  if (sessionMinutes) flow.properties.focusMinutes = sessionMinutes;
+  flow.stages = project.steps.map((step, index) => ({
+    id: step.id,
+    title: step.title,
+    description: step.objective,
+    order: index,
+    status: step.status === "active" ? "current" : "upcoming",
   }));
-  flow.componentData.tasks.items = [
-    task("Escrever o que entra e o que fica fora do MVP", "Escopo"),
-    task("Escolher o próximo incremento pequeno", "Construção"),
-    task("Definir como validar a primeira versão", "Entrega"),
+  flow.goals = [
+    {
+      id: "project-result",
+      title: project.intendedOutcome || project.objective,
+      description: project.description,
+      target: 1,
+      unit: "resultado",
+    },
   ];
   const repository = validLink(a.repositoryUrl, "Repositório do projeto");
   flow.componentData.links.items = repository ? [repository] : [];

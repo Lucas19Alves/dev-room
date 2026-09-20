@@ -4,6 +4,7 @@ export const COMPONENT_DATA_VERSION = 2;
 
 import { applyDefinitionSetup } from "./setup.js";
 import { refreshFlowDerivedState } from "./runtime.js";
+import { ensureProjectWorkspace } from "./projectFlow.js";
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const id = () => crypto.randomUUID();
@@ -74,6 +75,7 @@ export function migrateComponentData(flow) {
       claimedLegacyTypes.add(component.type);
     }
   }
+  if (flow.definitionRef?.id === "code") ensureProjectWorkspace(flow);
   flow.componentDataVersion = COMPONENT_DATA_VERSION;
   return flow;
 }

@@ -8,6 +8,7 @@ import WeekExperience from "../components/experience/WeekExperience.vue";
 import SkillExperience from "../components/experience/SkillExperience.vue";
 import ContentExperience from "../components/experience/ContentExperience.vue";
 import DynamicExperience from "../components/experience/DynamicExperience.vue";
+import CodeProjectExperience from "../components/experience/CodeProjectExperience.vue";
 
 const raw = (component) => markRaw(component);
 
@@ -20,7 +21,7 @@ export const experienceRegistry = Object.freeze({
   job: raw(JobExperience),
   enem: raw(StudyExperience),
   contest: raw(StudyExperience),
-  code: raw(ProjectExperience),
+  code: raw(CodeProjectExperience),
   college: raw(CollegeExperience),
   week: raw(WeekExperience),
   skill: raw(SkillExperience),

@@ -88,7 +88,10 @@ const definition = (value) => {
     ...value,
     onboarding: {
       ...onboarding,
-      steps: [planStep, ...(onboarding.steps || [])],
+      steps: [
+        ...(value.skipGenericPlan ? [] : [planStep]),
+        ...(onboarding.steps || []),
+      ],
     },
     ...declarativeForOfficial(value),
     componentConfig: {
@@ -665,99 +668,133 @@ export const officialDefinitions = [
       "deploy",
       "playground",
     ],
+    version: 3,
+    skipGenericPlan: true,
     onboarding: {
       intro:
-        "Vamos transformar a ideia em um projeto com começo, próximos passos e entrega.",
+        "Conte o que quer fazer. O Noma combina etapas adequadas ao seu projeto e ao ponto em que ele está.",
+      hideNameStep: true,
+      allowComponentSelection: false,
       steps: [
         {
-          id: "project",
-          title: "O que você está construindo?",
+          id: "project-intention",
+          title: "O que você quer fazer?",
           fields: [
-            field("projectName", "Nome do projeto", "text", { required: true }),
-            field(
-              "projectGoal",
-              "O que esta primeira versão precisa resolver?",
-              "textarea",
-              { required: true },
-            ),
-            field("projectType", "Tipo de projeto", "select", {
+            field("projectObjective", "Objetivo deste projeto", "select", {
+              required: true,
               options: [
-                "Site",
-                "Aplicação web",
-                "Aplicativo",
-                "API",
-                "Automação",
-                "Biblioteca",
-                "Outro",
+                "Tirar ideia do papel",
+                "Concluir MVP",
+                "Evoluir projeto",
+                "Criar funcionalidades",
+                "Estabilizar/corrigir",
+                "Preparar release",
+                "Fazer deploy",
+                "Retomar projeto",
               ],
+            }),
+            field("projectName", "Nome do projeto", "text", {
+              placeholder: "Opcional",
+            }),
+            field("projectGoal", "Contexto ou resultado desejado", "textarea", {
+              placeholder: "O que este trabalho deve mudar ou resolver?",
+            }),
+            field("startWhen", "Quando quer começar?", "select", {
+              options: [
+                "Hoje",
+                "Esta semana",
+                "Próxima semana",
+                "Data específica",
+                "Sem data",
+              ],
+              default: "Hoje",
+            }),
+            field("startDate", "Data de início", "date", {
+              visibleWhen: { key: "startWhen", value: "Data específica" },
             }),
           ],
         },
         {
-          id: "technical",
-          title: "Qual é o ponto de partida?",
+          id: "project-result",
+          title: "Como será uma versão pronta para você?",
           fields: [
-            field("stack", "Tecnologias ou stack", "list", {
-              placeholder: "Ex.: Vue, Supabase",
+            field("projectType", "Tipo de projeto", "multi", {
+              options: [
+                "Site",
+                "Aplicação web",
+                "Aplicativo mobile",
+                "API/serviço",
+                "Automação",
+                "Biblioteca/pacote",
+                "Jogo",
+                "Ferramenta interna",
+                "Outro",
+              ],
+            }),
+            field("targetWindow", "Janela-alvo", "select", {
+              options: [
+                "Sem prazo",
+                "7 dias",
+                "2 semanas",
+                "1 mês",
+                "3 meses",
+                "Data específica",
+              ],
+              default: "Sem prazo",
+            }),
+            field("targetDate", "Data-alvo", "date", {
+              visibleWhen: { key: "targetWindow", value: "Data específica" },
+            }),
+            field(
+              "intendedOutcome",
+              "Quando esta versão estará pronta para você?",
+              "select",
+              {
+                optionsFrom: "projectOutcomeOptions",
+              },
+            ),
+          ],
+        },
+        {
+          id: "project-context",
+          title: "Qual é o contexto técnico atual?",
+          fields: [
+            field("stack", "Stack ou ferramentas", "autocomplete-multi", {
+              placeholder: "Busque tecnologias ou digite para adicionar",
             }),
             field("currentStage", "Estágio atual", "select", {
               options: [
                 "Ideia",
-                "Escopo",
-                "Construção",
-                "Testes",
+                "Planejamento",
+                "Implementação",
+                "Validação",
+                "Integração",
+                "Release",
                 "Deploy",
-                "Iteração",
+                "Manutenção",
+                "Não sei ainda",
               ],
+              default: "Não sei ainda",
             }),
             field("repositoryUrl", "Repositório ou link", "url", {
               placeholder: "Opcional",
             }),
-            field("deadline", "Prazo", "date"),
-          ],
-        },
-        {
-          id: "scope",
-          title: "O que torna a primeira versão suficiente?",
-          optional: true,
-          fields: [
-            field("essentialFeatures", "Funcionalidades essenciais", "list", {
-              placeholder: "Uma por linha ou separadas por vírgula",
-            }),
-            field("focusMinutes", "Duração de uma sessão", "number", {
-              min: 10,
-              max: 180,
-              default: 50,
-              suffix: "min",
+            field("sessionDuration", "Duração da sessão de foco", "select", {
+              options: [
+                "15 minutos",
+                "25 minutos",
+                "45 minutos",
+                "60 minutos",
+                "90 minutos",
+                "Livre",
+              ],
+              default: "25 minutos",
             }),
           ],
         },
       ],
     },
-    stages: [
-      pathStep("Ideia", "Nomeie o resultado da primeira versão.", "lesson"),
-      pathStep(
-        "Escopo",
-        "Liste o que entra no MVP e o que fica para depois.",
-        "checkpoint",
-      ),
-      pathStep(
-        "Construção",
-        "Entregue o próximo incremento visível.",
-        "practice",
-      ),
-      pathStep(
-        "Testes",
-        "Verifique o que quebra antes de publicar.",
-        "checkpoint",
-      ),
-      pathStep("Deploy", "Coloque uma versão usável no ar.", "milestone"),
-      pathStep(
-        "Iteração",
-        "Observe o uso e escolha o próximo ajuste.",
-        "review",
-      ),
-    ],
+    stages: [],
     goals: [
       {
         id: "mvp-defined",

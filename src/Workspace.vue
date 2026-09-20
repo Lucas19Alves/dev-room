@@ -132,6 +132,23 @@ const {
   signOut,
   copyLink,
 } = usePlatform();
+
+function toggleProjectSession(stageId) {
+  if (session.value?.flowId === active.value?.id) {
+    if (session.value.stageId !== stageId) {
+      window.alert(
+        "Finalize a sessão atual antes de iniciar foco em outra etapa.",
+      );
+      return;
+    }
+    finishSession();
+    return;
+  }
+  toggleSession({
+    stageId,
+    mode: active.value?.properties?.sessionMode === "free" ? "free" : "focus",
+  });
+}
 </script>
 <template>
   <div class="platform" @keydown.esc="closeMobileMenu">
@@ -689,8 +706,10 @@ const {
           </div>
         </template>
         <template v-else-if="page === 'workspace' && active">
-          <div class="eyebrow">{{ active.identity.category }} / SEU FLOW</div>
-          <div class="page-heading">
+          <div v-if="active.definitionRef.id !== 'code'" class="eyebrow">
+            {{ active.identity.category }} / SEU FLOW
+          </div>
+          <div v-if="active.definitionRef.id !== 'code'" class="page-heading">
             <div>
               <input
                 class="flow-title"
@@ -704,7 +723,11 @@ const {
             <div class="button-group">
               <button class="outline" @click="adding = !adding">
                 Personalizar Flow</button
-              ><button class="outline" @click="modal = 'publish'">
+              ><button
+                v-if="active.definitionRef.id !== 'code'"
+                class="outline"
+                @click="modal = 'publish'"
+              >
                 Compartilhar</button
               ><button
                 class="icon-button"
@@ -720,7 +743,12 @@ const {
             :flow="active"
             :update="activeDefinitionUpdate"
             :experience="experience"
+            :session="session"
+            :seconds="seconds"
             @review="modal = 'review'"
+            @delete="modal = 'delete'"
+            @change="update"
+            @session="toggleProjectSession"
             @metric="updateManualMetric"
             @action="executeAction"
             @command="executeCommand"
@@ -728,7 +756,10 @@ const {
             @opportunity-update="updateOpportunity"
             @opportunity-status="updateOpportunityStatus"
           />
-          <section v-if="adding" class="component-picker">
+          <section
+            v-if="adding && active.definitionRef.id !== 'code'"
+            class="component-picker"
+          >
             <div class="section-title">
               <h2>O que faz sentido para este Flow?</h2>
               <button @click="adding = false">Concluir ✓</button>
@@ -765,13 +796,19 @@ const {
               preserva seu conteúdo para uma restauração futura.
             </p>
           </section>
-          <div v-if="adding" class="customize-surface">
+          <div
+            v-if="adding && active.definitionRef.id !== 'code'"
+            class="customize-surface"
+          >
             <p class="subtle">
               Capacidades avançadas ficam aqui. O estado vivo do seu Flow
               continua acima.
             </p>
           </div>
-          <div v-if="adding" class="workspace-grid">
+          <div
+            v-if="adding && active.definitionRef.id !== 'code'"
+            class="workspace-grid"
+          >
             <section
               v-for="(component, index) in activeComponents(active)"
               :key="`${active.id}:${component.id}`"
