@@ -148,7 +148,8 @@ function prepareCode(flow, a, definition) {
   flow.properties.projectGoal = project.description;
   flow.properties.projectType = project.projectTypes;
   flow.properties.stack = project.stack;
-  flow.properties.currentStage = project.currentStage;
+  flow.properties.declaredInitialStage = project.declaredInitialStage;
+  flow.properties.currentStage = project.derivedStage;
   flow.properties.targetDate = project.targetAt;
   flow.properties.sessionDuration = project.sessionDuration;
   flow.properties.sessionMode =

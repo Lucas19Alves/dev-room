@@ -6,7 +6,11 @@ import {
   declarativeEntityItems,
   entityStateLabels,
 } from "./declarativeRuntime.js";
-import { ensureProjectWorkspace, projectInsights } from "./projectFlow.js";
+import {
+  ensureProjectWorkspace,
+  projectInsights,
+  projectNextStep,
+} from "./projectFlow.js";
 
 const DAY = 86400000;
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -919,6 +923,29 @@ export function buildFlowExperience(flow, now = Date.now()) {
   if (id === "code") {
     const project = ensureProjectWorkspace(flow);
     const insight = projectInsights(flow, now);
+    const focusProjectStep = project.steps.find((item) => item.isFocus);
+    const nextProjectStep = projectNextStep(
+      project,
+      focusProjectStep?.order ?? -1,
+    );
+    const codeMetrics = [
+      {
+        id: "project-completed",
+        label: "Passos concluídos",
+        value: insight.completed,
+        target: insight.total,
+      },
+      {
+        id: "project-blocked",
+        label: "Impedimentos",
+        value: insight.blocked,
+      },
+      {
+        id: "project-decisions",
+        label: "Decisões pendentes",
+        value: insight.decisions,
+      },
+    ];
     const roadmap = project.steps.map((item) => ({
       id: item.id,
       title: item.title,
@@ -930,17 +957,19 @@ export function buildFlowExperience(flow, now = Date.now()) {
     const groups = [
       {
         label: "AGORA",
-        title: "Etapa em foco",
+        title: "Passo em foco",
         items: roadmap.filter(
           (item) => project.steps.find((step) => step.id === item.id)?.isFocus,
         ),
       },
       {
         label: "PRÓXIMA",
-        title: "Etapa seguinte",
-        items: roadmap.filter((item) => item.status === "planned").slice(0, 1),
+        title: "Próximo passo disponível",
+        items: nextProjectStep
+          ? roadmap.filter((item) => item.id === nextProjectStep.id)
+          : [],
       },
-      { label: "ROADMAP", title: "Etapas do projeto", items: roadmap },
+      { label: "ROADMAP", title: "Passos do projeto", items: roadmap },
       {
         label: "BLOQUEIOS",
         title: "Bloqueios explícitos",
@@ -962,19 +991,19 @@ export function buildFlowExperience(flow, now = Date.now()) {
         facts: [project.objective, ...project.projectTypes],
       },
       actions: [],
-      week: { metrics: metricList },
+      week: { metrics: codeMetrics },
       opportunities: [],
       commitments: [],
       preparation: { resources: [], notes: [], tasks: [] },
       progress: {
-        metrics: metricList,
-        goals: clone(flow.goals || []),
-        stages: clone(flow.stages || []),
+        metrics: codeMetrics,
+        goals: [],
+        stages: roadmap,
         value: insight.total ? insight.completed / insight.total : 0,
       },
       history,
       sections: {
-        hero: { eyebrow: "PROJETO EM EXECUÇÃO", title: "Etapa em foco" },
+        hero: { eyebrow: "PROJETO EM EXECUÇÃO", title: "Passo em foco" },
         primary: groups[0],
         secondary: groups.slice(1),
         progress: {
@@ -983,7 +1012,7 @@ export function buildFlowExperience(flow, now = Date.now()) {
           items: [
             {
               id: "project-total",
-              title: `${insight.total} etapas`,
+              title: `${insight.total} passos`,
               subtitle: `${insight.completed} concluídas`,
             },
             {

@@ -67,6 +67,12 @@ const steps = computed(() => [
   },
 ]);
 const step = computed(() => steps.value[current.value]);
+const isChipSelect = (field) =>
+  field.type === "select" && field.presentation === "chips";
+
+function selectOne(field, option) {
+  answers[field.key] = option;
+}
 
 function valuesFor(field) {
   if (!["list", "multi", "autocomplete-multi"].includes(field.type))
@@ -153,7 +159,10 @@ function fieldValid(field) {
 const canContinue = computed(() => {
   if (step.value.kind === "purpose") return flowName.value.trim().length > 0;
   if (step.value.kind === "components") return selected.value.length > 0;
-  if (step.value.kind === "ready") return displayName.value.trim().length > 0;
+  if (step.value.kind === "ready")
+    return (
+      props.definition.id === "code" || displayName.value.trim().length > 0
+    );
   return (step.value.fields || []).filter(visibleField).every(fieldValid);
 });
 
@@ -194,7 +203,10 @@ function finish() {
 </script>
 
 <template>
-  <div class="flow-onboarding">
+  <div
+    class="flow-onboarding"
+    :class="{ 'flow-onboarding--code': definition.id === 'code' }"
+  >
     <div class="eyebrow">
       SEU NOVO FLOW / {{ current + 1 }} DE {{ steps.length }}
     </div>
@@ -238,7 +250,8 @@ function finish() {
       >
         <label
           v-if="
-            !['multi', 'boolean', 'autocomplete-multi'].includes(field.type)
+            !['multi', 'boolean', 'autocomplete-multi'].includes(field.type) &&
+            !isChipSelect(field)
           "
           class="tool-field"
           :for="`onboarding-${field.key}`"
@@ -275,6 +288,22 @@ function finish() {
           />
           <small v-if="field.suffix">Em {{ field.suffix }}</small>
         </label>
+        <fieldset
+          v-else-if="isChipSelect(field)"
+          class="onboarding-options onboarding-options--single"
+        >
+          <legend>{{ field.label }}</legend>
+          <button
+            v-for="option in optionsFor(field)"
+            :key="option"
+            type="button"
+            :aria-pressed="answers[field.key] === option"
+            :class="{ chosen: answers[field.key] === option }"
+            @click="selectOne(field, option)"
+          >
+            {{ option }}
+          </button>
+        </fieldset>
         <div
           v-else-if="field.type === 'autocomplete-multi'"
           class="tool-field stack-picker"
@@ -389,7 +418,10 @@ function finish() {
           }}
         </p>
       </div>
-      <label class="tool-field" for="display-name"
+      <label
+        v-if="definition.id !== 'code'"
+        class="tool-field"
+        for="display-name"
         >Como podemos te chamar?<input
           id="display-name"
           v-model="displayName"

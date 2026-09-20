@@ -31,12 +31,16 @@ import {
   addProjectFeature,
   addProjectStage,
   ensureProjectWorkspace,
+  projectCalendarEntries,
   projectInsights,
+  projectNextStep,
   projectOutcomeOptions,
   rescheduleProjectTarget,
   rescheduleProjectStep,
   setProjectStepState,
 } from "../src/flow/projectFlow.js";
+import { calendarEntries } from "../src/flow/overview.js";
+import { buildFlowReport } from "../src/flow/reports.js";
 import { checkoutIntegrationIdentifier } from "../supabase/functions/_shared/billing.js";
 
 const answers = {
@@ -270,9 +274,13 @@ test("code project progress derives from its stages and does not invent complete
   const project = ensureProjectWorkspace(flow);
   assert.ok(
     project.steps.some(
-      (step) => step.title === "Atualizar contexto: Implementação",
+      (step) => step.title === "Entender o ponto atual: Implementação",
     ),
   );
+  assert.equal(project.declaredInitialStage, "Implementação");
+  assert.equal(project.derivedStage, "Implementação");
+  assert.ok(project.steps.every((step) => step.checklist.length > 0));
+  assert.ok(project.steps.every((step) => Number(step.size) > 0));
   assert.ok(project.steps.every((step) => step.status !== "completed"));
   assert.equal(projectInsights(flow).completed, 0);
   assert.ok(
@@ -298,8 +306,13 @@ test("project objective, type and stage compose different deterministic steps", 
   );
   assert.ok(
     project.steps.some(
-      (step) => step.title === "Atualizar contexto: Deploy" && step.isFocus,
+      (step) => step.title === "Entender o ponto atual: Deploy" && step.isFocus,
     ),
+  );
+  assert.ok(
+    project.steps
+      .filter((step) => step.source !== "onboarding")
+      .every((step) => !["planning", "release"].includes(step.type)),
   );
   assert.ok(project.steps.every((step) => step.status !== "completed"));
   assert.equal(base.properties.sessionMode, "free");
@@ -335,6 +348,12 @@ test("project stages enforce blocker and decision context, keep dependencies inf
   });
   assert.equal(dependent.status, "planned");
   assert.deepEqual(dependent.dependencies, [existing.id]);
+  const available = addProjectStage(flow, { name: "Pode começar agora" });
+  assert.notEqual(projectNextStep(project).id, dependent.id);
+  assert.equal(
+    projectNextStep({ steps: [existing, dependent, available] }).id,
+    available.id,
+  );
   const windowed = addProjectStage(flow, {
     name: "Janela flexível",
     dueWindow: "Próxima semana",
@@ -371,9 +390,9 @@ test("feature planning creates four checkpoints and projection waits for real hi
   );
   const feature = addProjectFeature(flow, {
     name: "Login",
-    area: "Conta",
+    area: "Autenticação",
     tools: ["Vue"],
-    size: 3,
+    size: "Média",
     completionCriteria: "Entrar com email",
   });
   assert.deepEqual(
@@ -383,9 +402,15 @@ test("feature planning creates four checkpoints and projection waits for real hi
   const parent = ensureProjectWorkspace(flow).steps.find(
     (step) => step.featureId === feature.id,
   );
-  assert.equal(parent.checklist.length, 4);
+  assert.equal(parent.checklist.length, 6);
+  assert.ok(
+    parent.checklist.some(
+      (item) => item.text === "Testar entrada e saída da conta",
+    ),
+  );
   assert.equal(projectInsights(flow).estimateAt, null);
-  assert.equal(projectInsights(flow).remainingSessions, 3);
+  assert.ok(projectInsights(flow).remainingSessions >= 3);
+  const now = Date.now();
   const completed = ensureProjectWorkspace(flow).steps.find(
     (step) => step.isFocus,
   );
@@ -395,7 +420,7 @@ test("feature planning creates four checkpoints and projection waits for real hi
     id: "session-1",
     stageId: completed.id,
     seconds: 25 * 60,
-    endedAt: Date.now(),
+    endedAt: now - 14 * 86400000,
   });
   const secondCompleted = ensureProjectWorkspace(flow).steps.find(
     (step) => step.status === "active",
@@ -406,13 +431,75 @@ test("feature planning creates four checkpoints and projection waits for real hi
     id: "session-2",
     stageId: secondCompleted.id,
     seconds: 25 * 60,
-    endedAt: Date.now(),
+    endedAt: now - 7 * 86400000,
   });
-  const insight = projectInsights(flow);
+  flow.sessions.push({
+    id: "session-3",
+    stageId: secondCompleted.id,
+    seconds: 90 * 60,
+    endedAt: now,
+  });
+  const insight = projectInsights(flow, now);
   assert.ok(insight.remainingSessions > 0);
-  assert.ok(insight.estimateAt > Date.now());
+  assert.ok(insight.focusSessionsPerWeek > 0);
+  assert.ok(insight.estimateAt > now);
+  assert.ok(insight.estimateAt - now > 86400000);
   setProjectStepState(flow, parent.id, "completed");
   assert.equal(feature.status, "completed");
+});
+
+test("code project is the source of truth for insights and the global calendar", () => {
+  const flow = makeFlow(
+    templates.find((item) => item.id === "code"),
+    "Projeto com datas",
+    {
+      ...answers.code,
+      startWhen: "Hoje",
+      targetWindow: "2 semanas",
+      currentStage: "Implementação",
+    },
+  );
+  const project = ensureProjectWorkspace(flow);
+  const decision = addProjectStage(flow, {
+    name: "Escolher provedor",
+    type: "decision",
+    status: "decision",
+    decisionRequired: "Qual serviço usar?",
+    dueAt: project.targetAt,
+  });
+  addProjectFeature(flow, {
+    name: "Login",
+    area: "Autenticação",
+    dueAt: project.targetAt,
+    size: "Pequena",
+  });
+  flow.componentData.tracker.items.push({
+    id: "legacy-only",
+    status: "Concluído",
+    values: { title: "Não duplicar", dueAt: project.targetAt },
+  });
+  const direct = projectCalendarEntries(flow);
+  assert.ok(direct.some((entry) => entry.kind === "Início do projeto"));
+  assert.ok(direct.some((entry) => entry.kind === "Prazo do projeto"));
+  assert.ok(
+    direct.some(
+      (entry) => entry.sourceId === decision.id && entry.kind === "Decisão",
+    ),
+  );
+  assert.ok(direct.some((entry) => entry.kind === "Funcionalidade"));
+  assert.equal(direct.filter((entry) => entry.title === "Login").length, 1);
+  const global = calendarEntries([flow]);
+  assert.ok(global.some((entry) => entry.source === "codeProject"));
+  assert.ok(!global.some((entry) => entry.title === "Não duplicar"));
+  assert.equal(projectInsights(flow).completed, 0);
+  const report = buildFlowReport(flow);
+  assert.equal(report.pipeline.length, 0);
+  assert.equal(report.journey.total, project.steps.length);
+  assert.equal(report.goals.length, 0);
+  assert.equal(
+    report.insights.find((item) => item.label === "Passos concluídos").value,
+    `0/${project.steps.length}`,
+  );
 });
 
 test("legacy code Flow component data is preserved when its project workspace is initialized", () => {

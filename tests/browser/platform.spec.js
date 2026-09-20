@@ -149,8 +149,8 @@ test("code Flow composes a project workspace and persists execution across reloa
     page.getByRole("button", { name: /Adicionar componentes/ }),
   ).toHaveCount(0);
   await page
-    .getByLabel("Objetivo deste projeto")
-    .selectOption("Criar funcionalidades");
+    .getByRole("button", { name: "Criar funcionalidades", exact: true })
+    .click();
   await page.getByLabel("Nome do projeto").fill("Noma E2E");
   await page
     .getByLabel("Contexto ou resultado desejado")
@@ -159,7 +159,7 @@ test("code Flow composes a project workspace and persists execution across reloa
   await page
     .getByRole("button", { name: "Aplicação web", exact: true })
     .click();
-  await page.getByLabel("Janela-alvo").selectOption("7 dias");
+  await page.getByRole("button", { name: "7 dias", exact: true }).click();
   await expect(
     page.getByLabel("Quando esta versão estará pronta para você?"),
   ).toContainText("Fluxo principal funcionando");
@@ -167,13 +167,15 @@ test("code Flow composes a project workspace and persists execution across reloa
     .getByLabel("Quando esta versão estará pronta para você?")
     .selectOption("Fluxo principal funcionando");
   await page.getByRole("button", { name: "Continuar →" }).click();
-  await page.getByLabel("Stack ou ferramentas").fill("Vue");
+  await page.getByLabel("Tecnologias usadas").fill("Vue");
   await page.getByRole("button", { name: "Vue", exact: true }).click();
-  await page.getByLabel("Stack ou ferramentas").fill("Noma SDK");
+  await page.getByLabel("Tecnologias usadas").fill("Noma SDK");
   await page.getByRole("button", { name: "Adicionar", exact: true }).click();
-  await page.getByLabel("Estágio atual").selectOption("Implementação");
+  await page
+    .getByLabel("Momento atual do projeto")
+    .selectOption("Implementação");
   await page.getByLabel("Repositório ou link").fill("https://example.com/noma");
-  await page.getByLabel("Duração da sessão de foco").selectOption("15 minutos");
+  await page.getByRole("button", { name: "15 minutos", exact: true }).click();
   await page.getByRole("button", { name: "Continuar →" }).click();
   const displayName = page.getByLabel("Como podemos te chamar?", {
     exact: true,
@@ -183,7 +185,9 @@ test("code Flow composes a project workspace and persists execution across reloa
 
   await expect(page.getByLabel("Nome do projeto")).toHaveValue("Noma E2E");
   await expect(
-    page.getByRole("heading", { name: "Atualizar contexto: Implementação" }),
+    page.getByRole("heading", {
+      name: "Entender o ponto atual: Implementação",
+    }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Abrir repositório ↗" }),
@@ -195,20 +199,33 @@ test("code Flow composes a project workspace and persists execution across reloa
   await expect(
     page.getByText("Fluxo principal funcionando", { exact: false }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Continuar este passo →", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog").locator('input[type="checkbox"]'),
+  ).toHaveCount(3);
+  await expect(
+    page.getByRole("dialog").getByLabel("Tamanho do passo"),
+  ).toHaveValue("Média");
+  await page.keyboard.press("Escape");
 
   await expect(
     page.getByRole("tab", { name: "Agora", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".code-project__roadmap")).not.toBeVisible();
   await page.getByRole("tab", { name: /^Plano/ }).click();
+  await expect(page.getByText("Desenhar o comportamento esperado")).toHaveCount(
+    0,
+  );
   await page.getByRole("tab", { name: /^Plano/ }).press("ArrowRight");
   await expect(
-    page.getByRole("tab", { name: "Evolução", exact: true }),
+    page.getByRole("tab", { name: "Progresso", exact: true }),
   ).toBeFocused();
   await page
-    .getByRole("tab", { name: "Evolução", exact: true })
+    .getByRole("tab", { name: "Progresso", exact: true })
     .press("ArrowLeft");
-  await page.getByRole("button", { name: "+ Nova etapa" }).click();
+  await page.getByRole("button", { name: "+ Novo passo" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page
     .getByRole("button", { name: "Fechar etapa ou formulário" })
@@ -219,27 +236,33 @@ test("code Flow composes a project workspace and persists execution across reloa
       .getByRole("dialog")
       .evaluate((element) => element.contains(document.activeElement)),
   ).toBe(true);
-  await page.getByLabel("Nome", { exact: true }).fill("Configurar ambiente");
   await page
-    .getByRole("combobox", { name: "Estado" })
+    .getByLabel("Nome do passo", { exact: true })
+    .fill("Configurar ambiente");
+  await page
+    .getByRole("combobox", { name: "Como este passo começa?" })
     .selectOption({ label: "Bloqueada" });
   await page
     .getByLabel("Motivo do bloqueio")
     .fill("Acesso de homologação pendente.");
-  await page.getByRole("button", { name: "Criar etapa" }).click();
+  await page.getByRole("button", { name: "Adicionar passo" }).click();
   await page
     .getByRole("button", { name: "Fechar etapa ou formulário" })
     .click();
-  await expect(page.getByRole("heading", { name: "1 bloqueio" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "1 impedimento" }),
+  ).toBeVisible();
 
-  await page.getByRole("button", { name: "Planejar funcionalidade" }).click();
+  await page.getByRole("button", { name: "+ Nova funcionalidade" }).click();
   await page.getByLabel("Nome da funcionalidade").fill("Autenticação");
-  await page.getByLabel("Área").fill("Conta");
-  await page.getByLabel("Tamanho estimado em sessões · opcional").fill("3");
+  await page.getByRole("button", { name: "Autenticação", exact: true }).click();
+  await expect(
+    page.getByRole("dialog").getByRole("combobox", { name: "Tamanho" }),
+  ).toHaveValue("Média");
   await page
-    .getByLabel("Critério opcional de conclusão")
+    .getByLabel("Como você saberá que está pronta? · opcional")
     .fill("Entrar com email e senha.");
-  await page.getByRole("button", { name: "Criar funcionalidade" }).click();
+  await page.getByRole("button", { name: "Adicionar funcionalidade" }).click();
   const workspace = page
     .locator(".code-project__step-workspace")
     .filter({ hasText: "Autenticação" });
@@ -250,16 +273,16 @@ test("code Flow composes a project workspace and persists execution across reloa
   ).toBeVisible();
   await expect(workspace.getByText("Validar", { exact: true })).toBeVisible();
   await expect(workspace.getByText("Integrar", { exact: true })).toBeVisible();
-  await workspace.getByLabel("Nova subtarefa").fill("Testar login válido");
+  await workspace.getByLabel("Nova ação").fill("Testar login válido");
   await workspace
     .getByRole("button", { name: "Adicionar", exact: true })
     .click();
   await workspace.getByLabel("Testar login válido").check();
-  await workspace.getByRole("tab", { name: "Contexto", exact: true }).click();
+  await workspace.getByRole("tab", { name: "Anotações", exact: true }).click();
   await workspace
-    .getByPlaceholder("Contexto, ideias e decisões desta etapa")
+    .getByPlaceholder("Guarde aqui ideias, detalhes e decisões")
     .fill("Validar recuperação de senha também.");
-  await workspace.getByRole("tab", { name: "Executar", exact: true }).click();
+  await workspace.getByRole("tab", { name: "Fazer", exact: true }).click();
   await workspace.getByRole("button", { name: /Iniciar sessão/ }).click();
   await expect(
     workspace.getByRole("button", { name: /Encerrar sessão/ }),
@@ -271,10 +294,10 @@ test("code Flow composes a project workspace and persists execution across reloa
     .filter({ hasText: "Autenticação" })
     .click();
   await expect(
-    workspace.getByText("1 sessões registradas nesta etapa"),
+    workspace.getByText("1 períodos de foco feitos neste passo"),
   ).toBeVisible();
   await workspace
-    .getByRole("button", { name: "Concluir etapa", exact: true })
+    .getByRole("button", { name: "Concluir este passo", exact: true })
     .click();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).not.toBeVisible();
@@ -283,7 +306,7 @@ test("code Flow composes a project workspace and persists execution across reloa
       .locator(".code-project__step-trigger")
       .filter({ hasText: "Autenticação" }),
   ).toBeFocused();
-  await page.getByRole("tab", { name: "Evolução", exact: true }).click();
+  await page.getByRole("tab", { name: "Progresso", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Veja o que você já construiu" }),
   ).toBeVisible();
@@ -322,14 +345,14 @@ test("code Flow composes a project workspace and persists execution across reloa
     restoredWorkspace.getByLabel("Testar login válido"),
   ).toBeChecked();
   await expect(
-    restoredWorkspace.getByText("1 sessões registradas nesta etapa"),
+    restoredWorkspace.getByText("1 períodos de foco feitos neste passo"),
   ).toBeVisible();
   await restoredWorkspace
-    .getByRole("tab", { name: "Contexto", exact: true })
+    .getByRole("tab", { name: "Anotações", exact: true })
     .click();
   await expect(
     restoredWorkspace.getByPlaceholder(
-      "Contexto, ideias e decisões desta etapa",
+      "Guarde aqui ideias, detalhes e decisões",
     ),
   ).toHaveValue("Validar recuperação de senha também.");
   await page.setViewportSize({ width: 390, height: 844 });
@@ -357,7 +380,7 @@ test("code Flow composes a project workspace and persists execution across reloa
     .locator(".code-project__step-trigger")
     .filter({ hasText: "Autenticação" })
     .click();
-  await page.getByRole("tab", { name: "Contexto", exact: true }).click();
+  await page.getByRole("tab", { name: "Anotações", exact: true }).click();
   await page
     .getByLabel("Notas da etapa")
     .fill("Alteração salva ao fechar com Escape.");
@@ -366,6 +389,7 @@ test("code Flow composes a project workspace and persists execution across reloa
     fullPage: false,
   });
   await page.keyboard.press("Escape");
+  await expect(page.locator(".sync")).toHaveText("Salvo neste dispositivo");
   await page.reload();
   await page.getByRole("button", { name: "Entrar no Flow ↗" }).click();
   await page.getByRole("tab", { name: /^Plano/ }).click();
@@ -373,7 +397,7 @@ test("code Flow composes a project workspace and persists execution across reloa
     .locator(".code-project__step-trigger")
     .filter({ hasText: "Autenticação" })
     .click();
-  await page.getByRole("tab", { name: "Contexto", exact: true }).click();
+  await page.getByRole("tab", { name: "Anotações", exact: true }).click();
   await expect(page.getByLabel("Notas da etapa")).toHaveValue(
     "Alteração salva ao fechar com Escape.",
   );

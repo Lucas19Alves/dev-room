@@ -3,6 +3,7 @@ import { journeyProgress } from "./journey.js";
 import { calculateMetrics } from "./runtime.js";
 import { isFlowArchived } from "./entitlements.js";
 import { componentDataEntries } from "./model.js";
+import { ensureProjectWorkspace, projectInsights } from "./projectFlow.js";
 
 const dayMs = 86400000;
 
@@ -64,7 +65,23 @@ export function flowInsights(flow, now = Date.now()) {
       insight("Horas", metrics.studyHours?.value ?? 0, "de estudo registrado"),
     ];
   }
-  if (id === "code" || id === "project") {
+  if (id === "code") {
+    const project = projectInsights(flow, now);
+    return [
+      insight("Passos concluídos", `${project.completed}/${project.total}`),
+      insight("Em andamento", project.active),
+      insight("Impedimentos", project.blocked),
+      insight("Decisões", project.decisions),
+      insight("Sessões", project.sessions),
+      insight("Tempo", `${project.minutes} min`),
+      insight(
+        "Funcionalidades",
+        `${project.featuresCompleted}/${project.features}`,
+      ),
+      insight("Datas para rever", project.overdue),
+    ];
+  }
+  if (id === "project") {
     return [
       insight(
         "Marcos",
@@ -112,11 +129,39 @@ export function flowInsights(flow, now = Date.now()) {
 }
 
 export function buildFlowReport(flow, now = Date.now()) {
-  const journey = journeyProgress(flow);
-  const metrics = Object.values(calculateMetrics(flow, now));
+  const isCodeProject = flow.definitionRef?.id === "code";
+  const project = isCodeProject ? ensureProjectWorkspace(flow) : null;
+  const projectStats = isCodeProject ? projectInsights(flow, now) : null;
+  const journey = isCodeProject
+    ? {
+        completed: projectStats.completed,
+        total: projectStats.total,
+        percent: projectStats.total
+          ? Math.round((projectStats.completed / projectStats.total) * 100)
+          : 0,
+        current:
+          project.steps.find((step) => step.isFocus) ||
+          project.steps.find((step) => step.status === "active") ||
+          null,
+        stages: project.steps.map((step) => ({
+          id: step.id,
+          title: step.title,
+          status: step.status,
+          completedAt: step.completedAt || null,
+        })),
+      }
+    : journeyProgress(flow);
+  const metrics = isCodeProject
+    ? flowInsights(flow, now).map((item, index) => ({
+        id: `code-project-${index}`,
+        label: item.label,
+        value: item.value,
+        unit: item.detail,
+      }))
+    : Object.values(calculateMetrics(flow, now));
   const weekStart = now - 7 * dayMs;
   const history = eventHistory([flow]).slice(0, 24);
-  const goals = (flow.goals || []).map((goal) => ({
+  const goals = (isCodeProject ? [] : flow.goals || []).map((goal) => ({
     id: goal.id,
     title: goal.title,
     current: goal.current ?? null,
@@ -137,7 +182,7 @@ export function buildFlowReport(flow, now = Date.now()) {
     insights: flowInsights(flow, now),
     metrics,
     goals,
-    pipeline: pipelineCounts(flow),
+    pipeline: isCodeProject ? [] : pipelineCounts(flow),
     sessions: {
       total: (flow.sessions || []).length,
       minutes: minutesFromSessions(flow.sessions),

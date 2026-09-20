@@ -322,7 +322,9 @@ export function usePlatform() {
     if (
       !name?.trim() ||
       !selectedComponents.length ||
-      (!store.account.onboarded && !person?.trim())
+      (!store.account.onboarded &&
+        !person?.trim() &&
+        draft.value?.id !== "code")
     )
       return;
     const definition = clone(payload?.definition || draft.value);

@@ -4,7 +4,10 @@ import {
   addProjectFeature,
   addProjectStage,
   ensureProjectWorkspace,
+  FEATURE_AREAS,
+  PROJECT_SIZE_SESSIONS,
   projectInsights,
+  projectNextStep,
   projectStatusLabel,
   rescheduleProjectTarget,
   rescheduleProjectStep,
@@ -35,12 +38,7 @@ const nextStep = computed(() => {
   const focusIndex = ordered.value.findIndex(
     (step) => step.id === focusStep.value?.id,
   );
-  return (
-    ordered.value
-      .slice(Math.max(0, focusIndex + 1))
-      .find((step) => step.status === "planned") ||
-    ordered.value.find((step) => step.status === "planned")
-  );
+  return projectNextStep(project.value, focusStep.value?.order ?? focusIndex);
 });
 const blockers = computed(() =>
   ordered.value.filter((step) => step.status === "blocked"),
@@ -50,6 +48,7 @@ const decisions = computed(() =>
 );
 const expandedId = ref("");
 const panel = ref("");
+const dialogDirty = ref(false);
 const activeTab = ref("now");
 const workspaceTab = ref("execution");
 const stepFilter = ref("all");
@@ -65,11 +64,6 @@ const visibleSteps = computed(() =>
         ? !["completed", "dismissed"].includes(step.status)
         : step.status === stepFilter.value),
   ),
-);
-const progress = computed(() =>
-  stats.value.total
-    ? Math.round((stats.value.completed / stats.value.total) * 100)
-    : 0,
 );
 const tabs = [
   { id: "now", label: "Agora" },
@@ -123,9 +117,15 @@ onBeforeUnmount(() => {
 function closeDialog() {
   if (dialog.value?.contains(document.activeElement))
     document.activeElement.blur();
+  if (dialogDirty.value) saveDialogChange();
   expandedId.value = "";
   panel.value = "";
   stateDraft.stepId = "";
+}
+
+function saveDialogChange() {
+  dialogDirty.value = false;
+  changed();
 }
 function trapDialogFocus(event) {
   const elements = [
@@ -183,19 +183,19 @@ const stageForm = reactive({
   tools: [],
   status: "planned",
   dependencies: [],
-  size: "",
+  size: "Média",
   objective: "",
   blockedReason: "",
   decisionRequired: "",
 });
 const featureForm = reactive({
   name: "",
-  area: "",
+  area: "Interface",
   tools: [],
   dueAt: "",
   dueWindow: "Sem data",
   specificDate: "",
-  size: "",
+  size: "Média",
   status: "planned",
   dependencies: [],
   completionCriteria: "",
@@ -286,7 +286,7 @@ function openPanel(value) {
       tools: [...project.value.stack],
       status: "planned",
       dependencies: [],
-      size: "",
+      size: "Média",
       objective: "",
       blockedReason: "",
       decisionRequired: "",
@@ -294,12 +294,12 @@ function openPanel(value) {
   if (value === "feature")
     Object.assign(featureForm, {
       name: "",
-      area: "",
+      area: "Interface",
       tools: [...project.value.stack],
       dueAt: "",
       dueWindow: "Sem data",
       specificDate: "",
-      size: "",
+      size: "Média",
       status: "planned",
       dependencies: [],
       completionCriteria: "",
@@ -312,6 +312,11 @@ function toggleTool(form, tool) {
   form.tools = form.tools.includes(tool)
     ? form.tools.filter((item) => item !== tool)
     : [...form.tools, tool];
+}
+
+function setStepSize(step) {
+  step.size = PROJECT_SIZE_SESSIONS[step.sizeLabel] || step.size;
+  changed();
 }
 
 function submitStage() {
@@ -396,15 +401,17 @@ function updateFeatureFromChecklist(step) {
     changed();
     return;
   }
-  feature.checkpoints = (step.checklist || []).map((item) => ({
-    id: item.id,
-    title: item.text,
-    status: item.done ? "completed" : "planned",
-  }));
-  if (
-    feature.checkpoints.length &&
-    feature.checkpoints.every((item) => item.status === "completed")
-  )
+  const checkpointIds = new Set(
+    (feature.checkpoints || []).map((item) => item.id),
+  );
+  feature.checkpoints = (step.checklist || [])
+    .filter((item) => checkpointIds.has(item.id))
+    .map((item) => ({
+      id: item.id,
+      title: item.text,
+      status: item.done ? "completed" : "planned",
+    }));
+  if (step.checklist?.length && step.checklist.every((item) => item.done))
     setProjectStepState(props.flow, step.id, "completed");
   else feature.status = step.status;
   changed();
@@ -467,8 +474,8 @@ function beginSession(step) {
 <template>
   <div class="specialized-experience code-project">
     <div v-if="update" class="code-project__update" role="status">
-      Há uma versão atualizada deste Flow (v{{ update.availableVersion }}).
-      Tudo o que você já fez continua aqui.
+      Há uma versão atualizada deste Flow (v{{ update.availableVersion }}). Tudo
+      o que você já fez continua aqui.
     </div>
     <header class="code-project__header">
       <div class="code-project__title">
@@ -525,13 +532,13 @@ function beginSession(step) {
       </div>
     </header>
     <div class="code-project__progress-strip">
-      <span>{{ stats.completed }} de {{ stats.total }} etapas concluídas</span
+      <span>{{ stats.completed }} de {{ stats.total }} passos concluídos</span
       ><progress
         aria-label="Progresso do projeto"
         :value="stats.completed"
         :max="stats.total || 1"
       ></progress
-      ><strong>{{ progress }}%</strong>
+      ><strong>Fase atual: {{ project.derivedStage }}</strong>
     </div>
 
     <nav
@@ -564,7 +571,7 @@ function beginSession(step) {
         <div class="code-project__section-title">
           <div>
             <span class="eyebrow">O QUE FAZER AGORA</span>
-            <h2>{{ focusStep?.title || "Escolha sua próxima etapa" }}</h2>
+            <h2>{{ focusStep?.title || "Escolha seu próximo passo" }}</h2>
           </div>
           <span
             v-if="focusStep"
@@ -584,7 +591,7 @@ function beginSession(step) {
         </button>
         <div v-if="focusStep" class="code-project__actions">
           <button class="dark-button" @click="expandedId = focusStep.id">
-            Continuar esta etapa →
+            Continuar este passo →
           </button>
           <button
             v-if="!activeSessionFor(focusStep)"
@@ -602,7 +609,7 @@ function beginSession(step) {
       <section class="code-project__next">
         <div>
           <span class="eyebrow">DEPOIS DISSO</span>
-          <h3>{{ nextStep?.title || "Sem próxima etapa planejada" }}</h3>
+          <h3>{{ nextStep?.title || "Sem próximo passo disponível" }}</h3>
           <p>
             {{
               nextStep?.objective ||
@@ -624,7 +631,7 @@ function beginSession(step) {
           <span class="eyebrow">RESULTADO QUE VOCÊ QUER ALCANÇAR</span>
           <h3>{{ project.intendedOutcome || project.objective }}</h3>
           <p>
-            {{ project.currentStage }} ·
+            {{ project.derivedStage }} ·
             {{ stateLabels[focusStep?.status] || "Sem foco definido" }}
           </p>
         </div>
@@ -646,8 +653,8 @@ function beginSession(step) {
               : "Espaço para avançar"
           }}</strong>
           <p>
-            {{ blockers.length }} impedimentos · {{ decisions.length }} decisões ·
-            {{ stats.overdue }} datas para rever
+            {{ blockers.length }} impedimentos · {{ decisions.length }} decisões
+            · {{ stats.overdue }} datas para rever
           </p>
         </div>
         <button class="text-button" @click="activeTab = 'plan'">
@@ -668,9 +675,7 @@ function beginSession(step) {
             <div>
               <span class="eyebrow">PASSO A PASSO</span>
               <h2>O caminho até a entrega</h2>
-              <p>
-                Veja o que já foi feito e escolha o próximo passo.
-              </p>
+              <p>Veja o que já foi feito e escolha o próximo passo.</p>
             </div>
             <div class="code-project__actions">
               <button class="outline" @click="openPanel('stage')">
@@ -748,7 +753,9 @@ function beginSession(step) {
         <div>
           <span class="eyebrow">DATAS PARA REVER</span>
           <h3>Alguma data já passou</h3>
-          <p>Escolha uma nova data quando estiver pronto. Seu progresso não muda.</p>
+          <p>
+            Escolha uma nova data quando estiver pronto. Seu progresso não muda.
+          </p>
         </div>
         <button
           v-for="step in stats.overdueSteps"
@@ -789,7 +796,9 @@ function beginSession(step) {
             {{ blockers.length }}
             {{ blockers.length === 1 ? "impedimento" : "impedimentos" }}
           </h3>
-          <p v-if="!blockers.length">Nada está impedindo o projeto de avançar.</p>
+          <p v-if="!blockers.length">
+            Nada está impedindo o projeto de avançar.
+          </p>
           <button
             v-for="step in blockers"
             :key="step.id"
@@ -822,14 +831,12 @@ function beginSession(step) {
       class="code-project__tab-content"
     >
       <section class="code-project__growth-hero">
-        <div
-          class="code-project__ring"
-          :style="{ '--progress': progress + '%' }"
-        >
-          <strong>{{ progress }}<small>%</small></strong>
+        <div class="code-project__growth-count">
+          <strong>{{ stats.completed }}</strong>
+          <span>passos concluídos</span>
         </div>
         <div>
-          <span class="eyebrow">CADA ETAPA CONTA</span>
+          <span class="eyebrow">CADA PASSO CONTA</span>
           <h2>
             {{
               stats.completed
@@ -838,8 +845,9 @@ function beginSession(step) {
             }}
           </h2>
           <p>
-            {{ stats.completed }} de {{ stats.total }} etapas concluídas. Avance
-            no seu ritmo.
+            Fase atual: {{ project.derivedStage }}. Você concluiu
+            {{ stats.completed }} de {{ stats.total }} passos. Avance no seu
+            ritmo.
           </p>
         </div>
       </section>
@@ -907,7 +915,9 @@ function beginSession(step) {
           Informe quanto trabalho cada passo deve levar para o Noma calcular
           quanto ainda falta. A data só aparece quando houver dados suficientes.
         </p>
-        <button class="outline" @click="emit('review')">Fazer uma revisão</button>
+        <button class="outline" @click="emit('review')">
+          Fazer uma revisão
+        </button>
       </section>
 
       <section class="code-project__completed">
@@ -989,12 +999,14 @@ function beginSession(step) {
                 stateLabels[ordered.find((item) => item.id === id)?.status] ||
                 "Planejada"
               }}</span
-            ><small>Dependências pendentes não bloqueiam esta etapa.</small>
+            ><small
+              >Este passo não será sugerido até os anteriores terminarem.</small
+            >
           </div>
           <nav
             class="code-project__tabs code-project__tabs--workspace"
             role="tablist"
-            aria-label="Detalhes da etapa"
+            aria-label="Áreas deste passo"
           >
             <button
               v-for="tab in workspaceTabs"
@@ -1048,7 +1060,7 @@ function beginSession(step) {
                 </li>
               </ul>
               <p v-else class="subtle">
-                Adicione subtarefas para dar forma à execução.
+                Divida este passo em ações pequenas e fáceis de concluir.
               </p>
               <form
                 class="code-project__inline-form"
@@ -1056,13 +1068,13 @@ function beginSession(step) {
               >
                 <input
                   v-model="checklistDraft"
-                  aria-label="Nova subtarefa"
-                  placeholder="Nova subtarefa"
+                  aria-label="Nova ação"
+                  placeholder="Qual é a próxima ação?"
                 /><button class="outline" type="submit">Adicionar</button>
               </form>
             </section>
             <section class="code-project__subsection">
-              <h4>Foco e sessões</h4>
+              <h4>Tempo de foco</h4>
               <button class="outline" @click="beginSession(step)">
                 {{
                   activeSessionFor(step)
@@ -1071,7 +1083,8 @@ function beginSession(step) {
                 }}
               </button>
               <p>
-                {{ stepSessions(step).length }} sessões registradas nesta etapa
+                {{ stepSessions(step).length }} períodos de foco feitos neste
+                passo
               </p>
             </section>
             <div class="code-project__execution-actions">
@@ -1082,8 +1095,8 @@ function beginSession(step) {
               >
                 {{
                   step.status === "completed"
-                    ? "Etapa concluída"
-                    : "Concluir etapa"
+                    ? "Passo concluído"
+                    : "Concluir este passo"
                 }}</button
               ><button
                 v-if="
@@ -1093,7 +1106,7 @@ function beginSession(step) {
                 class="outline"
                 @click="changeState(step, 'active')"
               >
-                Definir como foco</button
+                Fazer agora</button
               ><span class="subtle"
                 >Seu progresso é salvo automaticamente.</span
               >
@@ -1112,8 +1125,9 @@ function beginSession(step) {
                 v-model="step.notes"
                 aria-label="Notas da etapa"
                 rows="4"
-                placeholder="Contexto, ideias e decisões desta etapa"
-                @change="changed"
+                placeholder="Guarde aqui ideias, detalhes e decisões"
+                @input="dialogDirty = true"
+                @change="saveDialogChange"
               ></textarea>
             </section>
             <section class="code-project__subsection">
@@ -1145,17 +1159,17 @@ function beginSession(step) {
             </section>
             <details class="code-project__resource">
               <summary>
-                Código e experimentos <span>Snippets e rascunhos</span>
+                Código e testes <span>Trechos de código e rascunhos</span>
               </summary>
               <section class="code-project__subsection">
-                <h4>Snippets e playground</h4>
+                <h4>Trechos de código e área de testes</h4>
                 <input
                   v-model="snippetDraft.title"
-                  aria-label="Título do snippet"
-                  placeholder="Título do snippet"
+                  aria-label="Nome do trecho de código"
+                  placeholder="Nome do trecho"
                 /><select
                   v-model="snippetDraft.language"
-                  aria-label="Linguagem do snippet"
+                  aria-label="Linguagem do trecho de código"
                 >
                   <option>javascript</option>
                   <option>typescript</option>
@@ -1169,18 +1183,19 @@ function beginSession(step) {
                   placeholder="Trecho de código contextual"
                 ></textarea
                 ><button class="outline" @click="addSnippet(step)">
-                  Guardar snippet
+                  Guardar trecho
                 </button>
                 <pre
                   v-for="snippet in step.snippets"
                   :key="snippet.id"
                 ><code>{{ snippet.code }}</code></pre>
                 <label
-                  >Rascunho de playground<textarea
+                  >Área livre para testar código<textarea
                     v-model="step.scratchpad"
                     rows="4"
-                    placeholder="Experimente uma ideia para esta etapa"
-                    @change="changed"
+                    placeholder="Teste uma ideia para este passo"
+                    @input="dialogDirty = true"
+                    @change="saveDialogChange"
                   ></textarea>
                 </label>
               </section>
@@ -1189,7 +1204,7 @@ function beginSession(step) {
               v-if="['release', 'deployment', 'monitoring'].includes(step.type)"
               class="code-project__subsection"
             >
-              <h4>Deploy e release</h4>
+              <h4>Publicação</h4>
               <label
                 >URL publicada<input
                   v-model="step.deployUrl"
@@ -1197,9 +1212,7 @@ function beginSession(step) {
                   placeholder="https://"
                   @change="changed"
               /></label>
-              <p>
-                Use este espaço para registrar o destino e validar a publicação.
-              </p>
+              <p>Cole aqui o endereço da versão publicada.</p>
             </section>
           </div>
           <div
@@ -1210,20 +1223,24 @@ function beginSession(step) {
             class="code-project__workspace-grid"
           >
             <section class="code-project__subsection">
-              <h4>Prazo e tamanho</h4>
+              <h4>Data e tamanho</h4>
               <label
                 >Data flexível<input
                   v-model="step.dueAt"
                   type="date"
                   @change="changed" /></label
               ><label
-                >Tamanho estimado em sessões<input
-                  v-model.number="step.size"
-                  type="number"
-                  min="1"
-                  max="100"
-                  placeholder="Opcional"
-                  @change="changed" /></label
+                >Tamanho do passo<select
+                  v-model="step.sizeLabel"
+                  @change="setStepSize(step)"
+                >
+                  <option
+                    v-for="(_, label) in PROJECT_SIZE_SESSIONS"
+                    :key="label"
+                  >
+                    {{ label }}
+                  </option>
+                </select></label
               ><span
                 v-if="stepIsOverdue(step)"
                 class="code-project__overdue-note"
@@ -1232,14 +1249,14 @@ function beginSession(step) {
               >
             </section>
             <section class="code-project__subsection">
-              <h4>Ferramentas desta etapa</h4>
+              <h4>Tecnologias usadas</h4>
               <div class="code-project__tags">
                 <span v-for="tool in step.tools" :key="tool">{{ tool }}</span>
               </div>
-              <p class="subtle">Stack e capacidades ligadas a esta etapa.</p>
+              <p class="subtle">Tecnologias escolhidas para este passo.</p>
             </section>
             <div class="code-project__state-actions">
-              <strong>Alterar estado</strong
+              <strong>Como está este passo?</strong
               ><button
                 v-for="(label, state) in stateLabels"
                 :key="state"
@@ -1257,7 +1274,7 @@ function beginSession(step) {
               @submit.prevent="confirmDraftState(step)"
             >
               <label v-if="stateDraft.status === 'blocked'"
-                >O que está bloqueando esta etapa?<textarea
+                >O que está impedindo este passo?<textarea
                   v-model="step.blockedReason"
                   required
                   rows="2"
@@ -1268,7 +1285,7 @@ function beginSession(step) {
                   required
                   rows="2"
                 ></textarea></label
-              ><button class="dark-button" type="submit">Salvar estado</button
+              ><button class="dark-button" type="submit">Salvar</button
               ><button
                 class="text-button"
                 type="button"
@@ -1306,11 +1323,9 @@ function beginSession(step) {
         >
           <div class="code-project__section-title">
             <div>
-              <span class="eyebrow">PLANEJAMENTO</span>
+              <span class="eyebrow">ADICIONAR AO PLANO</span>
               <h2 id="code-project-form-title">
-                {{
-                  panel === "stage" ? "Nova etapa" : "Planejar funcionalidade"
-                }}
+                {{ panel === "stage" ? "Novo passo" : "Nova funcionalidade" }}
               </h2>
             </div>
           </div>
@@ -1320,18 +1335,18 @@ function beginSession(step) {
             @submit.prevent="submitStage"
           >
             <label
-              >Nome<input
+              >Nome do passo<input
                 v-model="stageForm.name"
                 required
                 maxlength="120" /></label
             ><label
-              >Tipo<select v-model="stageForm.type">
+              >Que tipo de trabalho é?<select v-model="stageForm.type">
                 <option v-for="type in stageTypes" :key="type" :value="type">
                   {{ typeLabels[type] }}
                 </option>
               </select></label
             ><label
-              >Janela da etapa<select v-model="stageForm.dueWindow">
+              >Quando pretende fazer?<select v-model="stageForm.dueWindow">
                 <option>Sem data</option>
                 <option>Esta semana</option>
                 <option>Próxima semana</option>
@@ -1343,7 +1358,7 @@ function beginSession(step) {
                 type="date"
                 required /></label
             ><label
-              >Estado<select v-model="stageForm.status">
+              >Como este passo começa?<select v-model="stageForm.status">
                 <option
                   v-for="(label, state) in stateLabels"
                   :key="state"
@@ -1353,29 +1368,36 @@ function beginSession(step) {
                 </option>
               </select></label
             ><label
-              >Dependências<select v-model="stageForm.dependencies" multiple>
+              >Precisa de outro passo antes?<select
+                v-model="stageForm.dependencies"
+                multiple
+              >
                 <option v-for="step in ordered" :key="step.id" :value="step.id">
                   {{ step.title }}
                 </option></select
               ><small
-                >Uma dependência pendente não bloqueia a etapa.</small
+                >Opcional. O Noma só recomendará este passo quando os anteriores
+                terminarem.</small
               ></label
             ><label
-              >Tamanho estimado em sessões · opcional<input
-                v-model.number="stageForm.size"
-                type="number"
-                min="1"
-                max="100" /></label
+              >Tamanho<select v-model="stageForm.size">
+                <option
+                  v-for="(_, label) in PROJECT_SIZE_SESSIONS"
+                  :key="label"
+                >
+                  {{ label }}
+                </option>
+              </select></label
             ><label
-              >Objetivo da etapa<textarea
+              >O que precisa estar pronto ao terminar?<textarea
                 v-model="stageForm.objective"
                 rows="2"
               ></textarea>
             </label>
             <fieldset>
-              <legend>Ferramentas da stack</legend>
+              <legend>Tecnologias deste passo</legend>
               <p v-if="!project.stack.length" class="subtle">
-                Nenhuma ferramenta foi registrada na stack deste projeto.
+                Nenhuma tecnologia foi informada para este projeto.
               </p>
               <button
                 v-for="tool in STACK_CATALOG.filter((item) =>
@@ -1417,7 +1439,9 @@ function beginSession(step) {
             <footer>
               <button class="outline" type="button" @click="panel = ''">
                 Cancelar</button
-              ><button class="dark-button" type="submit">Criar etapa</button>
+              ><button class="dark-button" type="submit">
+                Adicionar passo
+              </button>
             </footer>
           </form>
           <form
@@ -1429,13 +1453,22 @@ function beginSession(step) {
               >Nome da funcionalidade<input
                 v-model="featureForm.name"
                 required
-                maxlength="120" /></label
+                maxlength="120"
+            /></label>
+            <fieldset class="code-project__quick-options">
+              <legend>Parte do projeto</legend>
+              <button
+                v-for="area in FEATURE_AREAS"
+                :key="area"
+                type="button"
+                :aria-pressed="featureForm.area === area"
+                @click="featureForm.area = area"
+              >
+                {{ area }}
+              </button>
+            </fieldset>
             ><label
-              >Área<input
-                v-model="featureForm.area"
-                placeholder="Ex.: autenticação, pagamentos" /></label
-            ><label
-              >Prazo flexível<select v-model="featureForm.dueWindow">
+              >Quando pretende fazer?<select v-model="featureForm.dueWindow">
                 <option>Sem data</option>
                 <option>Esta semana</option>
                 <option>Próxima semana</option>
@@ -1447,13 +1480,18 @@ function beginSession(step) {
                 type="date"
                 required /></label
             ><label
-              >Tamanho estimado em sessões · opcional<input
-                v-model.number="featureForm.size"
-                type="number"
-                min="1"
-                max="100" /></label
+              >Tamanho<select v-model="featureForm.size">
+                <option
+                  v-for="(_, label) in PROJECT_SIZE_SESSIONS"
+                  :key="label"
+                >
+                  {{ label }}
+                </option>
+              </select></label
             ><label
-              >Estado<select v-model="featureForm.status">
+              >Como esta funcionalidade começa?<select
+                v-model="featureForm.status"
+              >
                 <option
                   v-for="(label, state) in stateLabels"
                   :key="state"
@@ -1463,21 +1501,24 @@ function beginSession(step) {
                 </option>
               </select></label
             ><label
-              >Dependências<select v-model="featureForm.dependencies" multiple>
+              >Precisa de outro passo antes?<select
+                v-model="featureForm.dependencies"
+                multiple
+              >
                 <option v-for="step in ordered" :key="step.id" :value="step.id">
                   {{ step.title }}
                 </option>
               </select></label
             ><label
-              >Critério opcional de conclusão<textarea
+              >Como você saberá que está pronta? · opcional<textarea
                 v-model="featureForm.completionCriteria"
                 rows="2"
               ></textarea>
             </label>
             <fieldset>
-              <legend>Ferramentas da stack</legend>
+              <legend>Tecnologias desta funcionalidade</legend>
               <p v-if="!project.stack.length" class="subtle">
-                Nenhuma ferramenta foi registrada na stack deste projeto.
+                Nenhuma tecnologia foi informada para este projeto.
               </p>
               <button
                 v-for="tool in STACK_CATALOG.filter((item) =>
@@ -1517,14 +1558,14 @@ function beginSession(step) {
               ></textarea>
             </label>
             <p class="subtle">
-              A funcionalidade terá checkpoints: Planejar → Implementar →
-              Validar → Integrar.
+              O Noma criará quatro ações: planejar, construir, testar e
+              integrar.
             </p>
             <footer>
               <button class="outline" type="button" @click="panel = ''">
                 Cancelar</button
               ><button class="dark-button" type="submit">
-                Criar funcionalidade
+                Adicionar funcionalidade
               </button>
             </footer>
           </form>
@@ -1666,31 +1707,25 @@ function beginSession(step) {
 .code-project__growth-hero p {
   color: var(--noma-ink-soft);
 }
-.code-project__ring {
+.code-project__growth-count {
   display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 7rem;
-  height: 7rem;
-  border-radius: 50%;
-  background: conic-gradient(
-    var(--noma-brand) var(--progress),
-    var(--noma-surface-soft) 0
-  );
+  flex: 0 0 8rem;
+  gap: 0.2rem;
+  padding: 1rem;
+  border-radius: 16px;
+  background: var(--noma-surface-soft);
 }
-.code-project__ring strong {
-  display: grid;
-  grid-auto-flow: column;
-  align-items: center;
-  justify-content: center;
-  width: 5.7rem;
-  height: 5.7rem;
-  border-radius: 50%;
-  background: var(--noma-surface);
-  font-size: 1.8rem;
+.code-project__growth-count strong {
+  font-size: 2rem;
 }
-.code-project__ring small {
-  font-size: 0.9rem;
+.code-project__growth-count span {
+  color: var(--noma-ink-soft);
+  font-size: 0.8rem;
+}
+.code-project__quick-options button[aria-pressed="true"] {
+  border-color: var(--noma-brand);
+  background: var(--noma-brand-soft);
+  color: var(--noma-brand);
 }
 .code-project__completed {
   display: grid;
@@ -1836,15 +1871,6 @@ function beginSession(step) {
   .code-project__growth-hero {
     gap: 1rem;
     align-items: start;
-  }
-  .code-project__ring {
-    width: 5rem;
-    height: 5rem;
-  }
-  .code-project__ring strong {
-    width: 4rem;
-    height: 4rem;
-    font-size: 1.35rem;
   }
   .code-project__dialog {
     width: calc(100vw - 1rem);

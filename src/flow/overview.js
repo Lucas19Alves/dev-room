@@ -1,6 +1,7 @@
 import { buildFlowExperience } from "./experience.js";
 import { componentDataEntries } from "./model.js";
 import { isFlowArchived } from "./entitlements.js";
+import { projectCalendarEntries } from "./projectFlow.js";
 
 export function dateTime(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -194,6 +195,8 @@ export function calendarEntries(flows = [], now = Date.now()) {
       });
   }
   for (const flow of flows.filter((flow) => !isFlowArchived(flow))) {
+    if (flow.definitionRef?.id === "code")
+      for (const entry of projectCalendarEntries(flow)) add(flow, entry);
     for (const action of buildFlowExperience(flow, now).actions || [])
       add(flow, {
         title: action.title,
@@ -221,7 +224,9 @@ export function calendarEntries(flows = [], now = Date.now()) {
               entityType: entityId,
             });
     }
-    for (const { data } of componentDataEntries(flow, "tasks"))
+    for (const { data } of flow.definitionRef?.id === "code"
+      ? []
+      : componentDataEntries(flow, "tasks"))
       for (const item of data.items || [])
         if (!item.done)
           add(flow, {
@@ -231,7 +236,9 @@ export function calendarEntries(flows = [], now = Date.now()) {
             kind: "Prazo",
             source: "tasks",
           });
-    for (const { data } of componentDataEntries(flow, "tracker"))
+    for (const { data } of flow.definitionRef?.id === "code"
+      ? []
+      : componentDataEntries(flow, "tracker"))
       for (const item of data.items || [])
         for (const field of [
           "dueAt",

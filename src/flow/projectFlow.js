@@ -404,6 +404,186 @@ const stageAliases = {
   Iteração: ["implementation", "monitoring"],
 };
 
+const stageOrder = {
+  planning: 0,
+  stability: 1,
+  implementation: 1,
+  validation: 2,
+  integration: 3,
+  release: 4,
+  deployment: 5,
+  monitoring: 6,
+  decision: 0,
+};
+
+const stageLabels = {
+  planning: "Planejamento",
+  stability: "Correção",
+  implementation: "Implementação",
+  validation: "Validação",
+  integration: "Integração",
+  release: "Preparação da versão",
+  deployment: "Publicação",
+  monitoring: "Acompanhamento",
+  decision: "Decisão",
+};
+
+export const PROJECT_SIZE_SESSIONS = {
+  Pequena: 1,
+  Média: 3,
+  Grande: 6,
+};
+
+export const FEATURE_AREAS = [
+  "Interface",
+  "Autenticação",
+  "API",
+  "Dados",
+  "Integração",
+  "Infra",
+  "Pagamentos",
+  "Qualidade",
+  "Outro",
+];
+
+const checklistByType = {
+  planning: [
+    "Definir o resultado esperado",
+    "Listar o que entra e o que fica para depois",
+    "Escolher o próximo passo concreto",
+  ],
+  implementation: [
+    "Confirmar o comportamento esperado",
+    "Construir o caminho principal",
+    "Revisar o que foi alterado",
+  ],
+  validation: [
+    "Testar o caminho principal",
+    "Testar erros e casos alternativos",
+    "Registrar o que precisa ser corrigido",
+  ],
+  integration: [
+    "Conectar a mudança ao restante do projeto",
+    "Verificar se os caminhos existentes continuam funcionando",
+    "Confirmar que a mudança está pronta para seguir",
+  ],
+  release: [
+    "Revisar o que será entregue",
+    "Registrar mudanças e riscos",
+    "Preparar uma forma segura de desfazer a mudança",
+  ],
+  deployment: [
+    "Conferir configurações e acessos",
+    "Publicar a versão",
+    "Abrir a versão publicada e conferir o essencial",
+  ],
+  stability: [
+    "Reproduzir o problema",
+    "Corrigir a causa principal",
+    "Confirmar que o problema não voltou",
+  ],
+  monitoring: [
+    "Definir o que precisa ser observado",
+    "Conferir sinais e erros",
+    "Registrar o resultado do acompanhamento",
+  ],
+  decision: [
+    "Reunir as opções",
+    "Comparar impactos e limites",
+    "Registrar a escolha",
+  ],
+};
+
+const featureChecklistByArea = {
+  Interface: [
+    "Conferir estados de carregamento, vazio e erro",
+    "Testar em telas pequenas e grandes",
+  ],
+  Autenticação: [
+    "Testar entrada e saída da conta",
+    "Testar acesso negado e recuperação",
+  ],
+  API: ["Definir entradas e respostas", "Testar erros, autenticação e limites"],
+  Dados: [
+    "Revisar regras e migração dos dados",
+    "Testar leitura, gravação e recuperação",
+  ],
+  Integração: [
+    "Validar credenciais e ambiente de teste",
+    "Testar falha e nova tentativa",
+  ],
+  Infra: [
+    "Conferir variáveis, acessos e ambientes",
+    "Validar logs e forma de recuperação",
+  ],
+  Pagamentos: [
+    "Testar pagamento aprovado, recusado e cancelado",
+    "Confirmar eventos e atualização do acesso",
+  ],
+  Qualidade: [
+    "Definir os cenários essenciais",
+    "Automatizar ou registrar a verificação",
+  ],
+  Outro: ["Definir o comportamento principal", "Testar o resultado esperado"],
+};
+
+const checklistItems = (items = []) =>
+  items.map((text) => ({ id: makeId(), text, done: false }));
+
+function sizeForType(type) {
+  return ["implementation", "validation", "integration", "stability"].includes(
+    type,
+  )
+    ? "Média"
+    : "Pequena";
+}
+
+function sessionsForSize(value, fallback = null) {
+  if (PROJECT_SIZE_SESSIONS[value]) return PROJECT_SIZE_SESSIONS[value];
+  const numeric = Number(value);
+  return numeric > 0 ? numeric : fallback;
+}
+
+function dependenciesCompleted(project, step) {
+  return (step.dependencies || []).every((id) => {
+    const dependency = project.steps.find((item) => item.id === id);
+    return (
+      !dependency || ["completed", "dismissed"].includes(dependency.status)
+    );
+  });
+}
+
+export function projectNextStep(project, afterOrder = -1) {
+  const available = [...(project?.steps || [])]
+    .filter(
+      (step) =>
+        step.status === "planned" && dependenciesCompleted(project, step),
+    )
+    .sort((a, b) => a.order - b.order);
+  return (
+    available.find((step) => step.order > afterOrder) || available[0] || null
+  );
+}
+
+export function deriveProjectStage(project) {
+  const steps = [...(project?.steps || [])].sort((a, b) => a.order - b.order);
+  const focus =
+    steps.find((step) => step.isFocus && step.status === "active") ||
+    steps.find((step) => step.status === "active");
+  if (focus) return stageLabels[focus.type] || "Em andamento";
+  const next = projectNextStep(project);
+  if (next) return stageLabels[next.type] || "Próximo passo";
+  if (
+    steps.length &&
+    steps.every((step) => ["completed", "dismissed"].includes(step.status))
+  )
+    return "Concluído";
+  const latest = [...steps]
+    .reverse()
+    .find((step) => step.status === "completed");
+  return latest ? stageLabels[latest.type] || "Em andamento" : "Planejamento";
+}
+
 const outcomeOptions = {
   "Tirar ideia do papel": [
     "Protótipo que demonstra a ideia",
@@ -526,6 +706,7 @@ function moduleStep(
     standardTools.push("snippets", "playground");
   if (["release", "deployment", "monitoring"].includes(type))
     standardTools.push("deploy");
+  const sizeLabel = sizeForType(type);
   return {
     id: makeId(),
     title,
@@ -537,9 +718,12 @@ function moduleStep(
     dueAt: date || "",
     dateWindow: date ? "flexible" : "none",
     dependencies: [],
-    size: null,
+    size: PROJECT_SIZE_SESSIONS[sizeLabel],
+    sizeLabel,
     tools: [...new Set([...standardTools, ...(answers.stack || [])])],
-    checklist: [],
+    checklist: checklistItems(
+      checklistByType[type] || checklistByType.planning,
+    ),
     notes: "",
     links: [],
     snippets: [],
@@ -568,7 +752,7 @@ export function createProjectWorkspace(rawAnswers = {}, now = Date.now()) {
         .filter(Boolean);
   const startAt = startDateFor(answers, now);
   const targetAt = targetDateFor(answers, now);
-  const modules = [
+  let modules = [
     ...(modulesByObjective[objective] || modulesByObjective["Evoluir projeto"]),
   ];
   for (const typeModule of types
@@ -585,21 +769,30 @@ export function createProjectWorkspace(rawAnswers = {}, now = Date.now()) {
     );
   }
   const currentKinds = stageAliases[answers.currentStage] || [];
+  if (currentKinds.length) {
+    const currentIndex = modules.findIndex(([, kind]) =>
+      currentKinds.includes(kind),
+    );
+    if (currentIndex >= 0) modules = modules.slice(currentIndex);
+    else {
+      const currentRank = Math.min(
+        ...currentKinds.map((kind) => stageOrder[kind] ?? 0),
+      );
+      modules = modules.filter(
+        ([, kind]) => (stageOrder[kind] ?? 0) >= currentRank,
+      );
+    }
+  }
   if (answers.currentStage && answers.currentStage !== "Não sei ainda") {
     const kind = currentKinds[0] || "planning";
     modules.unshift([
-      `Atualizar contexto: ${answers.currentStage}`,
+      `Entender o ponto atual: ${answers.currentStage}`,
       kind,
-      `Registre o que já existe em ${answers.currentStage}, o que falta e qual será o próximo passo.`,
+      `Confira o que já está pronto, o que falta e escolha o próximo passo.`,
       "current-stage",
     ]);
   }
-  const focusIndex = currentKinds.length
-    ? Math.max(
-        0,
-        modules.findIndex(([, kind]) => currentKinds.includes(kind)),
-      )
-    : 0;
+  const focusIndex = 0;
   const dates = dueDatesFor(modules.length, startAt, targetAt, now);
   const steps = modules.map((module, index) => {
     const step = moduleStep(
@@ -635,8 +828,8 @@ export function createProjectWorkspace(rawAnswers = {}, now = Date.now()) {
       step.order = index;
     });
   }
-  return {
-    schemaVersion: 1,
+  const workspace = {
+    schemaVersion: 2,
     projectName: String(answers.projectName || "").trim() || "Projeto sem nome",
     objective,
     description: answers.projectGoal || "",
@@ -646,12 +839,17 @@ export function createProjectWorkspace(rawAnswers = {}, now = Date.now()) {
     targetAt,
     targetWindow: answers.targetWindow || "Sem prazo",
     intendedOutcome: answers.intendedOutcome || "",
+    declaredInitialStage: answers.currentStage || "Não sei ainda",
+    derivedStage: "Planejamento",
     currentStage: answers.currentStage || "Não sei ainda",
     sessionDuration: answers.sessionDuration || "25 minutos",
     repositoryUrl: answers.repositoryUrl || "",
     features: [],
     steps,
   };
+  workspace.derivedStage = deriveProjectStage(workspace);
+  workspace.currentStage = workspace.derivedStage;
+  return workspace;
 }
 
 function oldStatus(status) {
@@ -669,8 +867,39 @@ export function ensureProjectWorkspace(flow) {
   if (!flow || flow.definitionRef?.id !== "code") return null;
   flow.componentData ||= {};
   const current = flow.componentData.codeProject;
-  if (current?.schemaVersion === 1 && Array.isArray(current.steps))
+  if (current && Array.isArray(current.steps)) {
+    current.schemaVersion = 2;
+    current.declaredInitialStage ||=
+      current.currentStage ||
+      flow.onboarding?.answers?.currentStage ||
+      "Não sei ainda";
+    current.features ||= [];
+    current.steps.forEach((step) => {
+      step.dependencies ||= [];
+      if (
+        step.source !== "manual" &&
+        !step.featureId &&
+        (!Array.isArray(step.checklist) || !step.checklist.length)
+      )
+        step.checklist = checklistItems(
+          checklistByType[step.type] || checklistByType.planning,
+        );
+      if (step.source !== "manual" && !(Number(step.size) > 0)) {
+        step.sizeLabel = sizeForType(step.type);
+        step.size = PROJECT_SIZE_SESSIONS[step.sizeLabel];
+      } else if (!step.sizeLabel && Number(step.size) > 0) {
+        step.sizeLabel =
+          Number(step.size) <= 1
+            ? "Pequena"
+            : Number(step.size) >= 6
+              ? "Grande"
+              : "Média";
+      }
+    });
+    current.derivedStage = deriveProjectStage(current);
+    current.currentStage = current.derivedStage;
     return current;
+  }
   const answers = flow.onboarding?.answers || {};
   const workspace = createProjectWorkspace(
     {
@@ -835,6 +1064,9 @@ export function addProjectStage(flow, input) {
       "Próxima semana": "next_week",
       "Data específica": "specific",
     }[input.dueWindow] || (dueAt ? "specific" : "none");
+  const sizeLabel = PROJECT_SIZE_SESSIONS[input.size]
+    ? input.size
+    : input.sizeLabel || "";
   const step = {
     ...moduleStep(
       [title, input.type || "implementation", input.objective || ""],
@@ -847,7 +1079,8 @@ export function addProjectStage(flow, input) {
     dateWindow,
     isFocus: false,
     dependencies: input.dependencies || [],
-    size: input.size ? Number(input.size) : null,
+    size: sessionsForSize(input.size, null),
+    sizeLabel,
     blockedReason: input.blockedReason || "",
     decisionRequired: input.decisionRequired || "",
     tools: [
@@ -864,6 +1097,8 @@ export function addProjectStage(flow, input) {
     item.order = index;
   });
   event(flow, step, "project_step_created");
+  project.derivedStage = deriveProjectStage(project);
+  project.currentStage = project.derivedStage;
   return step;
 }
 
@@ -891,11 +1126,14 @@ export function addProjectFeature(flow, input) {
   const feature = {
     id: featureId,
     name,
-    area: input.area || "",
+    area: FEATURE_AREAS.includes(input.area)
+      ? input.area
+      : input.area || "Outro",
     tools: input.tools || [...project.stack],
     dueAt,
     dateWindow: input.dueWindow || (dueAt ? "Data específica" : "Sem data"),
-    size: input.size ? Number(input.size) : null,
+    size: sessionsForSize(input.size, PROJECT_SIZE_SESSIONS.Média),
+    sizeLabel: PROJECT_SIZE_SESSIONS[input.size] ? input.size : "Média",
     status: input.status || "planned",
     dependencies: input.dependencies || [],
     blockedReason: input.blockedReason || "",
@@ -917,16 +1155,23 @@ export function addProjectFeature(flow, input) {
     tools: feature.tools,
     status: input.status,
     dependencies: input.dependencies,
-    size: input.size,
+    size: input.size || "Média",
     blockedReason: input.blockedReason,
     decisionRequired: input.decisionRequired,
   });
   parent.featureId = featureId;
-  parent.checklist = checkpoints.map((checkpoint) => ({
-    id: checkpoint.id,
-    text: checkpoint.title,
-    done: false,
-  }));
+  parent.sizeLabel = feature.sizeLabel;
+  parent.size = feature.size;
+  parent.checklist = [
+    ...checkpoints.map((checkpoint) => ({
+      id: checkpoint.id,
+      text: checkpoint.title,
+      done: false,
+    })),
+    ...checklistItems(
+      featureChecklistByArea[feature.area] || featureChecklistByArea.Outro,
+    ),
+  ];
   return feature;
 }
 
@@ -971,9 +1216,7 @@ export function setProjectStepState(flow, stepId, status, details = {}) {
     step.isFocus = true;
   } else if (["completed", "dismissed"].includes(status) && step.isFocus) {
     step.isFocus = false;
-    const next = project.steps
-      .filter((item) => item.id !== step.id && item.status === "planned")
-      .sort((a, b) => a.order - b.order)[0];
+    const next = projectNextStep(project, step.order);
     if (next) {
       const previousNextStatus = next.status;
       next.status = "active";
@@ -985,6 +1228,8 @@ export function setProjectStepState(flow, stepId, status, details = {}) {
     }
   }
   event(flow, step, "project_step_state_changed", { previous, status });
+  project.derivedStage = deriveProjectStage(project);
+  project.currentStage = project.derivedStage;
   return step;
 }
 
@@ -1070,53 +1315,30 @@ export function projectInsights(flow, now = Date.now()) {
     sessions.reduce((sum, session) => sum + (Number(session.seconds) || 0), 0) /
       60,
   );
-  const completedWithSessions = completed.map((step) => ({
-    step,
-    sessions: sessions.filter(
-      (session) => session.stageId === step.id && Number(session.seconds) > 0,
-    ),
-  }));
-  const historical = completedWithSessions.filter(
-    ({ step, sessions: records }) =>
-      (Number(step.size) || 0) > 0 && records.length > 0,
-  );
-  const historicalSessionCount = historical.reduce(
-    (sum, item) => sum + item.sessions.length,
-    0,
-  );
-  const historySufficient =
-    historical.length >= 2 || historicalSessionCount >= 3;
   const sizedRemaining = steps.filter(
     (step) =>
       !["completed", "dismissed"].includes(step.status) &&
       Number(step.size) > 0,
   );
-  const remainingSessions = historySufficient
-    ? Math.ceil(
-        (sizedRemaining.reduce((sum, step) => sum + Number(step.size), 0) *
-          historical.reduce(
-            (sum, item) => sum + item.sessions.length / Number(item.step.size),
-            0,
-          )) /
-          historical.length,
-      )
-    : sizedRemaining.length
-      ? sizedRemaining.reduce((sum, step) => sum + Number(step.size), 0)
-      : null;
-  const historicalSecondsPerSession = historicalSessionCount
-    ? historical.reduce(
-        (sum, item) =>
-          sum +
-          item.sessions.reduce(
-            (seconds, session) => seconds + Number(session.seconds),
-            0,
-          ),
-        0,
-      ) / historicalSessionCount
+  const remainingSessions = sizedRemaining.length
+    ? sizedRemaining.reduce((sum, step) => sum + Number(step.size), 0)
+    : null;
+  const datedSessions = sessions
+    .filter(
+      (session) =>
+        Number(session.seconds) > 0 && Number.isFinite(Number(session.endedAt)),
+    )
+    .sort((a, b) => Number(a.endedAt) - Number(b.endedAt));
+  const historyDays = datedSessions.length
+    ? Math.max(1, (now - Number(datedSessions[0].endedAt)) / DAY)
     : 0;
+  const historySufficient = datedSessions.length >= 3 && historyDays >= 7;
+  const focusSessionsPerWeek = historySufficient
+    ? Math.round((datedSessions.length / (historyDays / 7)) * 10) / 10
+    : null;
   const estimateAt =
-    historySufficient && remainingSessions !== null
-      ? now + remainingSessions * historicalSecondsPerSession * 1000
+    focusSessionsPerWeek && remainingSessions !== null
+      ? now + (remainingSessions / focusSessionsPerWeek) * 7 * DAY
       : null;
   const completedDates = completed
     .map((step) => step.completedAt)
@@ -1156,10 +1378,64 @@ export function projectInsights(flow, now = Date.now()) {
     updates: projectEvents.length,
     lastUpdateAt: projectEvents.at(-1)?.at || null,
     pacePerWeek,
+    focusSessionsPerWeek,
+    derivedStage: project.derivedStage,
     overdueSteps: overdue,
     remainingSessions,
     estimateAt,
   };
+}
+
+export function projectCalendarEntries(flow) {
+  const project = ensureProjectWorkspace(flow);
+  if (!project) return [];
+  const entries = [];
+  if (project.startAt)
+    entries.push({
+      title: `Início de ${flow.identity.name}`,
+      date: project.startAt,
+      sourceId: "project:start",
+      kind: "Início do projeto",
+      source: "codeProject",
+    });
+  if (project.targetAt)
+    entries.push({
+      title: project.intendedOutcome || `Prazo de ${flow.identity.name}`,
+      date: project.targetAt,
+      sourceId: "project:target",
+      kind: "Prazo do projeto",
+      source: "codeProject",
+    });
+  for (const step of project.steps || []) {
+    if (
+      step.featureId ||
+      !step.dueAt ||
+      ["completed", "dismissed"].includes(step.status)
+    )
+      continue;
+    entries.push({
+      title: step.title,
+      date: step.dueAt,
+      sourceId: step.id,
+      kind:
+        step.status === "decision" || step.type === "decision"
+          ? "Decisão"
+          : "Passo do projeto",
+      source: "codeProject",
+    });
+  }
+  for (const feature of project.features || []) {
+    if (!feature.dueAt || ["completed", "dismissed"].includes(feature.status))
+      continue;
+    entries.push({
+      title: feature.name,
+      date: feature.dueAt,
+      sourceId: feature.id,
+      kind: "Funcionalidade",
+      source: "codeProject",
+    });
+  }
+  return entries;
 }
 
 export function projectStatusLabel(step, now = Date.now()) {

@@ -4169,6 +4169,24 @@ h1 {
   background: var(--noma-brand-soft);
   color: var(--noma-brand);
 }
+.flow-onboarding--code .onboarding-options--single {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.flow-onboarding--code .onboarding-options--single legend {
+  grid-column: 1 / -1;
+}
+.flow-onboarding--code .onboarding-options--single button {
+  justify-content: flex-start;
+  min-height: 48px;
+  border-radius: var(--noma-radius-md);
+  text-align: left;
+}
+@media (max-width: 540px) {
+  .flow-onboarding--code .onboarding-options--single {
+    grid-template-columns: 1fr;
+  }
+}
 .stack-picker {
   display: grid;
   gap: var(--noma-space-2);

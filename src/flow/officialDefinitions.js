@@ -679,9 +679,12 @@ export const officialDefinitions = [
         {
           id: "project-intention",
           title: "O que você quer fazer?",
+          description:
+            "Escolha o resultado mais próximo do que você precisa agora.",
           fields: [
             field("projectObjective", "Objetivo deste projeto", "select", {
               required: true,
+              presentation: "chips",
               options: [
                 "Tirar ideia do papel",
                 "Concluir MVP",
@@ -700,6 +703,7 @@ export const officialDefinitions = [
               placeholder: "O que este trabalho deve mudar ou resolver?",
             }),
             field("startWhen", "Quando quer começar?", "select", {
+              presentation: "chips",
               options: [
                 "Hoje",
                 "Esta semana",
@@ -716,7 +720,9 @@ export const officialDefinitions = [
         },
         {
           id: "project-result",
-          title: "Como será uma versão pronta para você?",
+          title: "Qual é o ponto de chegada?",
+          description:
+            "Você pode mudar este prazo depois, sem perder progresso.",
           fields: [
             field("projectType", "Tipo de projeto", "multi", {
               options: [
@@ -731,7 +737,8 @@ export const officialDefinitions = [
                 "Outro",
               ],
             }),
-            field("targetWindow", "Janela-alvo", "select", {
+            field("targetWindow", "Em quanto tempo quer chegar lá?", "select", {
+              presentation: "chips",
               options: [
                 "Sem prazo",
                 "7 dias",
@@ -757,12 +764,14 @@ export const officialDefinitions = [
         },
         {
           id: "project-context",
-          title: "Qual é o contexto técnico atual?",
+          title: "Onde o projeto está agora?",
+          description:
+            "Isso evita mostrar passos que você já deixou para trás.",
           fields: [
-            field("stack", "Stack ou ferramentas", "autocomplete-multi", {
+            field("stack", "Tecnologias usadas", "autocomplete-multi", {
               placeholder: "Busque tecnologias ou digite para adicionar",
             }),
-            field("currentStage", "Estágio atual", "select", {
+            field("currentStage", "Momento atual do projeto", "select", {
               options: [
                 "Ideia",
                 "Planejamento",
@@ -779,17 +788,23 @@ export const officialDefinitions = [
             field("repositoryUrl", "Repositório ou link", "url", {
               placeholder: "Opcional",
             }),
-            field("sessionDuration", "Duração da sessão de foco", "select", {
-              options: [
-                "15 minutos",
-                "25 minutos",
-                "45 minutos",
-                "60 minutos",
-                "90 minutos",
-                "Livre",
-              ],
-              default: "25 minutos",
-            }),
+            field(
+              "sessionDuration",
+              "Quanto tempo quer reservar por vez?",
+              "select",
+              {
+                presentation: "chips",
+                options: [
+                  "15 minutos",
+                  "25 minutos",
+                  "45 minutos",
+                  "60 minutos",
+                  "90 minutos",
+                  "Livre",
+                ],
+                default: "25 minutos",
+              },
+            ),
           ],
         },
       ],
