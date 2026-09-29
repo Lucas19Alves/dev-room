@@ -48,6 +48,7 @@ import {
   faUpRightAndDownLeftFromCenter, faDownLeftAndUpRightToCenter, faPlus, faThLarge, faRightToBracket,
   faArrowRightFromBracket, faCubes, faUserLock, faGlobe, faUserAstronaut, faLightbulb, faGear, faRobot,
   faImage, faTableColumns, faKey, faCircleInfo, faPaperPlane, faCodePullRequest, faCodeCommit, faCircleExclamation, faDollarSign,
+  faLaptopCode,
 } from '@fortawesome/free-solid-svg-icons'
 import { faGithub } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
@@ -62,6 +63,7 @@ library.add(
   faArrowRightFromBracket, faCubes, faUserLock, faGlobe, faUserAstronaut, faLightbulb, faGear,
   faGithub, faRobot, faImage, faTableColumns, faKey, faCircleInfo, faPaperPlane, faCodePullRequest, faDollarSign,
   faCodeCommit, faCircleExclamation,
+  faLaptopCode,
 )
 
 const app = createApp(App)

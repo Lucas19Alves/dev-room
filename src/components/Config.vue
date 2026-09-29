@@ -38,25 +38,36 @@
           v-for="theme in themes"
           :key="theme.value"
           type="button"
-          class="rounded-lg p-2 flex flex-col items-center border-2 border-solid transition"
+          class="rounded-xl p-3 flex flex-col items-stretch border border-solid transition"
           :style="{
             borderColor: currentTheme === theme.value ? 'var(--accent)' : theme.border,
             background: theme.preview,
-            color: currentTheme === theme.value ? 'var(--accent)' : '#fff',
+            color: theme.text,
+            boxShadow: currentTheme === theme.value ? '0 0 0 3px var(--accent-soft)' : 'none',
             touchAction: 'manipulation'
           }"
           @click="setTheme(theme.value)"
           :id="`config-theme-btn-${theme.value}`"
           tabindex="0"
         >
-          <span class="font-bold text-xs mb-1 flex items-center gap-1" :id="`config-theme-label-${theme.value}`">
-            {{ theme.label }}
+          <span class="font-bold text-xs mb-3 flex items-center justify-between gap-2" :id="`config-theme-label-${theme.value}`">
+            <span>{{ theme.label }}</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold" :style="{ background: theme.chip, color: theme.text }">
+              {{ theme.mode }}
+            </span>
             <font-awesome-icon
               v-if="currentTheme === theme.value"
               icon="fa-solid fa-check"
-              class="text-green-300 ml-1"
+              class="ml-auto"
+              :style="{ color: theme.accent }"
               :id="`config-theme-check-${theme.value}`"
             />
+          </span>
+          <span class="flex items-center gap-1.5 rounded-lg px-2 py-2" :style="{ background: theme.surface }" aria-hidden="true">
+            <span class="w-2 h-2 rounded-full bg-red-400"></span>
+            <span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+            <span class="w-2 h-2 rounded-full bg-green-400"></span>
+            <span class="ml-1 h-1.5 flex-1 rounded-full" :style="{ background: theme.accent }"></span>
           </span>
         </button>
       </div>
@@ -99,14 +110,14 @@
         <div v-if="docTab === 'Visão Geral'" id="config-doc-intro">
           <div class="mb-3">
             <font-awesome-icon icon="fa-solid fa-lightbulb" class="text-yellow-400 mr-2" />
-            <b>Dev Room</b> é seu ambiente digital para produtividade, organização e foco, feito especialmente para devs!
+            <b>CentralOS</b> é seu ambiente digital para produtividade, organização e foco, feito especialmente para devs!
           </div>
           <ul class="list-disc ml-5 mt-2 space-y-1" id="config-doc-intro-list">
             <li>
               <b>Widgets modulares:</b> To-Do, Notas rápidas, Pomodoro, Timer, Snippets, Checklist de Deploy, Lembrete de água, Player de música, Gerador de dados fake e Busca inteligente.
             </li>
             <li>
-              <b>Personalização:</b> Escolha entre <span class="font-bold text-pink-300">10+ temas</span> e deixe o ambiente com a sua cara.
+              <b>Personalização:</b> Escolha entre <span class="font-bold text-pink-300">10 temas translúcidos</span>, com opções claras e escuras.
             </li>
             <li>
               <b>Experiência fluida:</b> No desktop, organize as janelas livremente. No mobile, navegue pelo menu lateral.
@@ -120,9 +131,9 @@
           </ul>
           <div class="mt-4 p-3 rounded bg-gray-800 border border-pink-500 flex flex-col gap-2 items-center text-center">
             <span class="font-bold text-pink-300 text-base">🌟 Contribua ou acompanhe o projeto no GitHub:</span>
-            <a href="https://github.com/Lucas19Alves/dev-room" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-project-github">
+            <a href="https://github.com/Lucas19Alves/CentralOS" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-project-github">
               <font-awesome-icon icon="fa-brands fa-github" />
-              github.com/Lucas19Alves/dev-room
+              Repositório do CentralOS
             </a>
             <span class="text-xs text-gray-400">Pull requests, issues e sugestões são bem-vindos!</span>
           </div>
@@ -137,11 +148,12 @@
             <li><b>To-Do List:</b> Lista de tarefas com salvamento automático. Marque, edite ou exclua tarefas.</li>
             <li><b>Notas Rápidas:</b> Bloco para anotações rápidas, ideias ou lembretes. Fixe ou desafixe notas.</li>
             <li><b>Snippets de Código:</b> Salve e consulte trechos de código úteis.</li>
+            <li><b>Code Playground:</b> Experimente HTML, CSS e JavaScript em um ambiente isolado.</li>
             <li><b>Checklist de Deploy:</b> Lista de verificação para garantir um deploy seguro. Personalize seus itens.</li>
             <li><b>Pomodoro:</b> Técnica de produtividade baseada em ciclos de foco e pausa.</li>
             <li><b>Lembrete de Água:</b> Defina intervalos para ser lembrado de beber água.</li>
             <li><b>Busca:</b> Pesquise rapidamente entre suas notas, tarefas e códigos.</li>
-            <li><b>Temas:</b> Personalize as cores e o visual do Dev Room.</li>
+            <li><b>Temas:</b> Personalize as cores e o visual do CentralOS.</li>
             <li><b>Player de Música:</b> Ouça músicas para relaxar ou focar durante o trabalho.</li>
             <li><b>Gerador de Dados:</b> Gere dados fake para testes de desenvolvimento.</li>
           </ul>
@@ -167,9 +179,9 @@
           <div class="mt-4 p-3 rounded bg-gray-800 border border-pink-500 flex flex-col gap-2 items-center text-center">
             <span class="font-bold text-pink-300 text-base">⭐ Projeto Open Source</span>
             <span class="text-xs text-gray-400">Acesse, contribua ou compartilhe:</span>
-            <a href="https://github.com/Lucas19Alves/dev-room" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-project-github">
+            <a href="https://github.com/Lucas19Alves/CentralOS" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-project-github">
               <font-awesome-icon icon="fa-brands fa-github" />
-              github.com/Lucas19Alves/dev-room
+              Repositório do CentralOS
             </a>
           </div>
         </div>
@@ -207,66 +219,16 @@ watch(() => props.nome, (novo) => {
 })
 
 const themes = [
-  {
-    label: 'Padrão',
-    value: 'theme-default',
-    preview: 'linear-gradient(135deg, #1e293b 60%, #2563eb 100%)',
-    border: '#2563eb'
-  },
-  {
-    label: 'Dark',
-    value: 'theme-dark',
-    preview: 'linear-gradient(135deg, #111827 60%, #374151 100%)',
-    border: '#374151'
-  },
-  {
-    label: 'Solarized',
-    value: 'theme-solarized',
-    preview: 'linear-gradient(135deg, #002b36 60%, #b58900 100%)',
-    border: '#b58900'
-  },
-  {
-    label: 'Dracula',
-    value: 'theme-dracula',
-    preview: 'linear-gradient(135deg, #282a36 60%, #bd93f9 100%)',
-    border: '#bd93f9'
-  },
-  {
-    label: 'Gruvbox',
-    value: 'theme-gruvbox',
-    preview: 'linear-gradient(135deg, #282828 60%, #fabd2f 100%)',
-    border: '#fabd2f'
-  },
-  {
-    label: 'Nord',
-    value: 'theme-nord',
-    preview: 'linear-gradient(135deg, #2e3440 60%, #88c0d0 100%)',
-    border: '#88c0d0'
-  },
-  {
-    label: 'Monokai',
-    value: 'theme-monokai',
-    preview: 'linear-gradient(135deg, #272822 60%, #f92672 100%)',
-    border: '#f92672'
-  },
-  {
-    label: 'One Dark',
-    value: 'theme-onedark',
-    preview: 'linear-gradient(135deg, #282c34 60%, #61afef 100%)',
-    border: '#61afef'
-  },
-  {
-    label: 'Night Owl',
-    value: 'theme-nightowl',
-    preview: 'linear-gradient(135deg, #011627 60%, #82aaff 100%)',
-    border: '#82aaff'
-  },
-  {
-    label: 'Palenight',
-    value: 'theme-palenight',
-    preview: 'linear-gradient(135deg, #292d3e 60%, #c792ea 100%)',
-    border: '#c792ea'
-  }
+  { label: 'Azul', mode: 'Claro', value: 'theme-default', preview: 'linear-gradient(135deg, #f8fbff, #dceaff)', surface: 'rgba(255,255,255,.72)', chip: 'rgba(10,132,255,.12)', text: '#172033', accent: '#0a84ff', border: 'rgba(10,132,255,.28)' },
+  { label: 'Grafite', mode: 'Escuro', value: 'theme-dark', preview: 'linear-gradient(135deg, #343844, #15171d)', surface: 'rgba(255,255,255,.1)', chip: 'rgba(255,255,255,.1)', text: '#f5f7fb', accent: '#0a84ff', border: 'rgba(255,255,255,.14)' },
+  { label: 'Champagne', mode: 'Claro', value: 'theme-solarized', preview: 'linear-gradient(135deg, #fffdf7, #f4dfb8)', surface: 'rgba(255,255,255,.7)', chip: 'rgba(201,135,18,.13)', text: '#352b1d', accent: '#c98712', border: 'rgba(201,135,18,.28)' },
+  { label: 'Ameixa', mode: 'Escuro', value: 'theme-dracula', preview: 'linear-gradient(135deg, #54375e, #1b1422)', surface: 'rgba(255,255,255,.1)', chip: 'rgba(255,111,181,.16)', text: '#fff7fd', accent: '#ff6fb5', border: 'rgba(255,111,181,.28)' },
+  { label: 'Âmbar', mode: 'Claro', value: 'theme-gruvbox', preview: 'linear-gradient(135deg, #fffaf2, #edd2a9)', surface: 'rgba(255,255,255,.7)', chip: 'rgba(229,138,22,.13)', text: '#34291f', accent: '#e58a16', border: 'rgba(229,138,22,.28)' },
+  { label: 'Gelo', mode: 'Claro', value: 'theme-nord', preview: 'linear-gradient(135deg, #f7feff, #d5edf5)', surface: 'rgba(255,255,255,.72)', chip: 'rgba(22,138,173,.12)', text: '#1d2d37', accent: '#168aad', border: 'rgba(22,138,173,.28)' },
+  { label: 'Cereja', mode: 'Escuro', value: 'theme-monokai', preview: 'linear-gradient(135deg, #512c38, #1a1115)', surface: 'rgba(255,255,255,.1)', chip: 'rgba(255,55,95,.16)', text: '#fff7fa', accent: '#ff375f', border: 'rgba(255,55,95,.3)' },
+  { label: 'Oceano', mode: 'Escuro', value: 'theme-onedark', preview: 'linear-gradient(135deg, #1e526d, #0b151d)', surface: 'rgba(255,255,255,.1)', chip: 'rgba(50,173,230,.16)', text: '#f4fbff', accent: '#32ade6', border: 'rgba(50,173,230,.3)' },
+  { label: 'Meia-noite', mode: 'Escuro', value: 'theme-nightowl', preview: 'linear-gradient(135deg, #273d78, #090d1f)', surface: 'rgba(255,255,255,.1)', chip: 'rgba(94,139,255,.16)', text: '#f5f7ff', accent: '#5e8bff', border: 'rgba(94,139,255,.3)' },
+  { label: 'Lavanda', mode: 'Claro', value: 'theme-palenight', preview: 'linear-gradient(135deg, #fffaff, #e7d5f5)', surface: 'rgba(255,255,255,.72)', chip: 'rgba(175,82,222,.12)', text: '#30233b', accent: '#af52de', border: 'rgba(175,82,222,.28)' }
 ]
 
 function setTheme(theme) {

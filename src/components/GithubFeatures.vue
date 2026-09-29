@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4">
+  <div class="p-4 h-full overflow-auto" id="github-features-main">
     <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
       <font-awesome-icon icon="fa-brands fa-github" class="text-gray-400 text-2xl" />
       GitHub Features

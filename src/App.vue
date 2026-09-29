@@ -1,30 +1,36 @@
 <script setup>
-import Timer from './components/Timer.vue'
-import MusicPlayer from './components/MusicPlayer.vue'
-import TodoList from './components/TodoList.vue'
-import QuickNotes from './components/QuickNotes.vue'
-import CodeSnippets from './components/CodeSnippets.vue'
-import DeployChecklist from './components/DeployChecklist.vue'
-import Pomodoro from './components/Pomodoro.vue'
-import Search from './components/Search.vue'
-import WaterReminder from './components/WaterReminder.vue'
 import Window from './components/Window.vue'
-import FakeDataGenerator from './components/FakeDataGenerator.vue'
-import Config from './components/Config.vue'
 import StickyNotes from './components/StickyNotes.vue'
-import ChatGPTApi from './components/ChatGPTApi.vue'
-import GithubFeatures from './components/GithubFeatures.vue'
-import Kanban from './components/Kanban.vue'
-import Converter from './components/Converter.vue'
-import { ref, reactive, onMounted, onUnmounted, watch, watchEffect, computed } from 'vue'
+import draggable from 'vuedraggable'
+import { ref, reactive, onMounted, onUnmounted, watch, computed, defineAsyncComponent } from 'vue'
 import { SpeedInsights } from '@vercel/speed-insights/vue';
 import { inject } from "@vercel/analytics"
-import { Octokit } from '@octokit/rest';
-import { ensureRepo, saveDataToRepo, loadDataFromRepo } from './utils/githubSync';
+import { saveDataToRepo, loadDataFromRepo } from './utils/githubSync';
 import { getDevRoomData, setDevRoomData } from './utils/storage';
+
+const Timer = defineAsyncComponent(() => import('./components/Timer.vue'))
+const MusicPlayer = defineAsyncComponent(() => import('./components/MusicPlayer.vue'))
+const TodoList = defineAsyncComponent(() => import('./components/TodoList.vue'))
+const QuickNotes = defineAsyncComponent(() => import('./components/QuickNotes.vue'))
+const CodeSnippets = defineAsyncComponent(() => import('./components/CodeSnippets.vue'))
+const DeployChecklist = defineAsyncComponent(() => import('./components/DeployChecklist.vue'))
+const Pomodoro = defineAsyncComponent(() => import('./components/Pomodoro.vue'))
+const Search = defineAsyncComponent(() => import('./components/Search.vue'))
+const WaterReminder = defineAsyncComponent(() => import('./components/WaterReminder.vue'))
+const FakeDataGenerator = defineAsyncComponent(() => import('./components/FakeDataGenerator.vue'))
+const Config = defineAsyncComponent(() => import('./components/Config.vue'))
+const ChatGPTApi = defineAsyncComponent(() => import('./components/ChatGPTApi.vue'))
+const GithubFeatures = defineAsyncComponent(() => import('./components/GithubFeatures.vue'))
+const Kanban = defineAsyncComponent(() => import('./components/Kanban.vue'))
+const Converter = defineAsyncComponent(() => import('./components/Converter.vue'))
+const CodePlayground = defineAsyncComponent(() => import('./components/CodePlayground.vue'))
 
 const NOME_KEY = 'dev-room-nome'
 const THEME_KEY = 'dev-room-theme'
+const THEME_CLASSES = [
+  'theme-default', 'theme-dark', 'theme-solarized', 'theme-dracula', 'theme-gruvbox',
+  'theme-nord', 'theme-monokai', 'theme-onedark', 'theme-nightowl', 'theme-palenight'
+]
 
 const userName = ref(localStorage.getItem(NOME_KEY) || '')
 const nomeInput = ref(userName.value || '')
@@ -32,6 +38,7 @@ const onboardingDone = ref(localStorage.getItem('dev-room-onboarding') === 'ok')
 const onboardingStep = ref(0)
 const checkedOnboarding = ref(false)
 const firstLoginModal = ref(localStorage.getItem('dev-room-first-login') !== 'ok' && localStorage.getItem('dev-room-first-login') !== 'skip')
+const initialModalVisible = computed(() => !onboardingDone.value || firstLoginModal.value)
 
 // Salva nome do usuário e avança onboarding
 function saveName() {
@@ -50,9 +57,11 @@ function endOnboarding() {
 
 const currentTheme = ref('theme-default')
 function applyTheme(theme) {
-  currentTheme.value = theme
-  document.documentElement.className = theme
-  localStorage.setItem(THEME_KEY, theme)
+  const selectedTheme = THEME_CLASSES.includes(theme) ? theme : 'theme-default'
+  currentTheme.value = selectedTheme
+  document.documentElement.classList.remove(...THEME_CLASSES)
+  document.documentElement.classList.add(selectedTheme)
+  localStorage.setItem(THEME_KEY, selectedTheme)
 }
 
 function setNome(novoNome) {
@@ -67,25 +76,35 @@ function skipFirstLogin() {
 
 let zIndexCounter = 10
 const openWindows = reactive([])
+let appStateSaveTimer = null
+let syncPushIntervalId = null
+let syncPullIntervalId = null
 
 // Salva estado principal do app no localStorage e dev-room-data
 function saveAppState() {
+  clearTimeout(appStateSaveTimer)
+  appStateSaveTimer = null
   const data = getDevRoomData()
   data.nome = userName.value
   data.tema = currentTheme.value
   data.windows = JSON.parse(JSON.stringify(openWindows))
-  data.lastModified = Date.now() // <-- Adicione isso
+  data.lastModified = Date.now()
   setDevRoomData(data)
   localStorage.setItem(NOME_KEY, userName.value)
   localStorage.setItem(THEME_KEY, currentTheme.value)
   localStorage.setItem('dev-room-windows', JSON.stringify(openWindows))
-  localStorage.setItem('dev-room-lastModified', data.lastModified) // <-- Salva também localmente
+  localStorage.setItem('dev-room-lastModified', data.lastModified)
 }
 
-// Observa mudanças e salva estado
-watch(userName, saveAppState)
-watch(currentTheme, saveAppState)
-watch(openWindows, saveAppState, { deep: true })
+function scheduleAppStateSave() {
+  clearTimeout(appStateSaveTimer)
+  appStateSaveTimer = window.setTimeout(saveAppState, 300)
+}
+
+// Agrupa alterações rápidas, como movimento e redimensionamento de janelas.
+watch(userName, scheduleAppStateSave)
+watch(currentTheme, scheduleAppStateSave)
+watch(openWindows, scheduleAppStateSave, { deep: true })
 
 // Papel de parede - agora aplica diretamente ao estilo do body
 const wallpaper = ref(null)
@@ -141,15 +160,17 @@ onMounted(() => {
   
   checkMobile()
   window.addEventListener('resize', checkMobile)
+  window.addEventListener('storage', handleStorageSync)
 
   // Restaurar janelas abertas
   const savedWindows = localStorage.getItem('dev-room-windows')
   if (savedWindows) {
     try {
       const parsed = JSON.parse(savedWindows)
-      openWindows.splice(0, openWindows.length, ...parsed)
-      if (parsed.length) {
-        zIndexCounter = Math.max(...parsed.map(w => w.zIndex ?? 10), zIndexCounter)
+      const availableWindows = parsed.filter(win => mobileTabs.some(tab => tab.type === win.type))
+      openWindows.splice(0, openWindows.length, ...availableWindows)
+      if (availableWindows.length) {
+        zIndexCounter = Math.max(...availableWindows.map(w => w.zIndex ?? 10), zIndexCounter)
       }
     } catch (e) {
       localStorage.removeItem('dev-room-windows')
@@ -173,9 +194,10 @@ onMounted(() => {
   if (allData.nome) userName.value = allData.nome
   if (allData.tema) applyTheme(allData.tema)
   if (allData.windows && Array.isArray(allData.windows)) {
-    openWindows.splice(0, openWindows.length, ...allData.windows)
-    if (allData.windows.length) {
-      zIndexCounter = Math.max(...allData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
+    const availableWindows = allData.windows.filter(win => mobileTabs.some(tab => tab.type === win.type))
+    openWindows.splice(0, openWindows.length, ...availableWindows)
+    if (availableWindows.length) {
+      zIndexCounter = Math.max(...availableWindows.map(w => w.zIndex ?? 10), zIndexCounter)
     }
   }
 
@@ -194,6 +216,11 @@ onMounted(() => {
 
 onUnmounted(() => {
   clearInterval(intervalId)
+  clearInterval(syncPushIntervalId)
+  clearInterval(syncPullIntervalId)
+  if (appStateSaveTimer) saveAppState()
+  window.removeEventListener('storage', handleStorageSync)
+  window.removeEventListener('resize', checkMobile)
 })
 
 const now = ref(new Date())
@@ -232,11 +259,8 @@ const windowComponents = {
   ChatGPTApi,
   Kanban,
   Converter,
+  CodePlayground,
 }
-
-watch(openWindows, (windows) => {
-  localStorage.setItem('dev-room-windows', JSON.stringify(windows))
-}, { deep: true })
 
 const mobileActiveTab = ref('Timer')
 
@@ -247,6 +271,7 @@ const mobileTabs = [
   { type: 'Kanban', label: 'Kanban', icon: 'fa-solid fa-table-columns' },
   { type: 'QuickNotes', label: 'Notas Rápidas', icon: 'fa-solid fa-sticky-note' },
   { type: 'CodeSnippets', label: 'Snippets de Código', icon: 'fa-solid fa-code' },
+  { type: 'CodePlayground', label: 'Code Playground', icon: 'fa-solid fa-laptop-code' },
   { type: 'GithubFeatures', label: 'GitHub', icon: 'fa-brands fa-github' },
   { type: 'DeployChecklist', label: 'Checklist de Deploy', icon: 'fa-solid fa-rocket' },
   { type: 'Pomodoro', label: 'Pomodoro', icon: 'fa-solid fa-clock' },
@@ -257,6 +282,53 @@ const mobileTabs = [
   { type: 'Converter', label: 'Conversor de moedas', icon: 'fa-solid fa-dollar-sign' },
   { type: 'Config', label: 'Configurações', icon: 'fa-solid fa-gear' },
 ]
+
+const DOCK_ORDER_KEY = 'centralos-dock-order'
+
+function loadDockTabs() {
+  try {
+    const savedOrder = JSON.parse(localStorage.getItem(DOCK_ORDER_KEY) || '[]')
+    if (!Array.isArray(savedOrder)) return [...mobileTabs]
+    const positions = new Map(savedOrder.map((type, index) => [type, index]))
+    return [...mobileTabs].sort((a, b) =>
+      (positions.get(a.type) ?? Number.MAX_SAFE_INTEGER) -
+      (positions.get(b.type) ?? Number.MAX_SAFE_INTEGER)
+    )
+  } catch {
+    return [...mobileTabs]
+  }
+}
+
+const dockTabs = ref(loadDockTabs())
+const dockDragging = ref(false)
+const dockReveal = ref(false)
+
+watch(dockTabs, (tabs) => {
+  localStorage.setItem(DOCK_ORDER_KEY, JSON.stringify(tabs.map(tab => tab.type)))
+}, { deep: true })
+
+function handleDockItemClick(type) {
+  if (dockDragging.value) return
+  const win = openWindows.find(windowItem => windowItem.type === type)
+  if (!win) {
+    openWindow(type)
+    return
+  }
+  if (win.minimized) {
+    restoreWindow(win.id)
+    bringToFront(win.id)
+  } else if (win.zIndex === zIndexCounter) {
+    minimizeWindow(win.id)
+  } else {
+    bringToFront(win.id)
+  }
+}
+
+function finishDockDrag() {
+  window.setTimeout(() => {
+    dockDragging.value = false
+  }, 0)
+}
 
 const mobileMenuOpen = ref(false)
 
@@ -289,25 +361,28 @@ function openWindow(type) {
     Config: 'Configurações',
     ChatGPTApi: 'ChatGPT API',
     Kanban: 'Kanban',
+    Converter: 'Conversor de moedas',
+    CodePlayground: 'Code Playground',
   }
   const defaultSizes = {
-    Timer: { width: 320, height: 360 },
-    MusicPlayer: { width: 340, height: 520 },
-    TodoList: { width: 340, height: 540 },
+    Timer: { width: 360, height: 380 },
+    MusicPlayer: { width: 380, height: 640 },
+    TodoList: { width: 420, height: 520 },
     Docs: { width: 480, height: 500 },
     QuickNotes: { width: 620, height: 600 },
     CodeSnippets: { width: 600, height: 680 },
     GithubFeatures: { width: 740, height: 400 },
-    DeployChecklist: { width: 340, height: 520 },
-    Pomodoro: { width: 400, height: 420 },
+    DeployChecklist: { width: 420, height: 560 },
+    Pomodoro: { width: 400, height: 500 },
     Search: { width: 700, height: 500 },
     Themes: { width: 340, height: 560 },
-    WaterReminder: { width: 340, height: 400 },
-    FakeDataGenerator: { width: 340, height: 400 },
-    Config: { width: 340, height: 400 },
+    WaterReminder: { width: 420, height: 500 },
+    FakeDataGenerator: { width: 400, height: 460 },
+    Config: { width: 480, height: 640 },
     ChatGPTApi: { width: 600, height: 600 },
     Kanban: { width: 1000, height: 600 },
-    Converter: { width: 600, height: 300 },
+    Converter: { width: 420, height: 400 },
+    CodePlayground: { width: 900, height: 680 },
   }
   let { width, height } = defaultSizes[type] || { width: 340, height: 220 }
 
@@ -396,9 +471,30 @@ function installApp() {
 }
 
 const isMobile = ref(false)
+const viewportSize = reactive({ width: window.innerWidth, height: window.innerHeight })
 function checkMobile() {
-  isMobile.value = window.innerWidth <= 768
+  viewportSize.width = window.innerWidth
+  viewportSize.height = window.innerHeight
+  isMobile.value = viewportSize.width <= 768
 }
+
+const isDockObstructed = computed(() => {
+  if (isMobile.value) return false
+  const statusBarHeight = 50
+  const dockWidth = Math.min(viewportSize.width * 0.94, 860)
+  const dockLeft = (viewportSize.width - dockWidth) / 2
+  const dockRight = dockLeft + dockWidth
+  const dockTop = viewportSize.height - 82
+
+  return openWindows.some(win => {
+    if (win.minimized) return false
+    const left = win.x
+    const right = win.x + win.width
+    const top = statusBarHeight + win.y
+    const bottom = top + win.height
+    return right > dockLeft && left < dockRight && bottom > dockTop && top < viewportSize.height
+  })
+})
 
 const showPixModal = ref(false)
 
@@ -477,14 +573,23 @@ function confirmLogoutGitHub() {
 
 function loginWithGitHub() {
   const clientId = 'Ov23liLXp3BH07oDymH4'
-  const redirectUri = window.location.origin
-  const scope = 'repo'
-  window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`
+  // O GitHub usa a callback cadastrada no OAuth App; isso evita divergência
+  // entre localhost, preview e o domínio de produção.
+  const state = crypto.randomUUID()
+  sessionStorage.setItem('centralos-github-oauth-state', state)
+  const params = new URLSearchParams({ client_id: clientId, scope: 'repo', state })
+  window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`
 }
 
 async function handleGitHubCallback() {
   const urlParams = new URLSearchParams(window.location.search)
   const code = urlParams.get('code')
+  const returnedState = urlParams.get('state')
+  const expectedState = sessionStorage.getItem('centralos-github-oauth-state')
+  if (code && (!expectedState || returnedState !== expectedState)) {
+    window.history.replaceState({}, document.title, window.location.pathname)
+    return
+  }
   if (code) {
     const res = await fetch('/api/github-callback', {
       method: 'POST',
@@ -500,6 +605,7 @@ async function handleGitHubCallback() {
       onboardingDone.value = true
       localStorage.setItem('dev-room-onboarding', 'ok')
       await loadDataFromRepoAndSet()
+      sessionStorage.removeItem('centralos-github-oauth-state')
       window.history.replaceState({}, document.title, window.location.pathname)
     }
   }
@@ -507,6 +613,7 @@ async function handleGitHubCallback() {
 
 async function fetchGitHubUserName() {
   if (!githubToken.value) return
+  const { Octokit } = await import('@octokit/rest')
   const octokit = new Octokit({ auth: githubToken.value })
   const { data } = await octokit.users.getAuthenticated()
   userName.value = data.name || data.login || ''
@@ -515,12 +622,15 @@ async function fetchGitHubUserName() {
 }
 
 async function syncDataToRepo() {
-  if (!githubToken.value || !githubUserLogin.value) return
+  if (!githubToken.value || !githubUserLogin.value || isSyncing.value || document.hidden) return
+  isSyncing.value = true
   try {
     await saveDataToRepo(githubToken.value, githubUserLogin.value, localStorage.getItem('dev-room-data') || '{}')
     // Backup salvo no GitHub
   } catch (err) {
     // Erro ao salvar backup no GitHub
+  } finally {
+    isSyncing.value = false
   }
 }
 
@@ -539,9 +649,10 @@ async function loadDataFromRepoAndSet() {
     if (repoData.nome) userName.value = repoData.nome
     if (repoData.tema) applyTheme(repoData.tema)
     if (repoData.windows && Array.isArray(repoData.windows)) {
-      openWindows.splice(0, openWindows.length, ...repoData.windows)
-      if (repoData.windows.length) {
-        zIndexCounter = Math.max(...repoData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
+      const availableWindows = repoData.windows.filter(win => mobileTabs.some(tab => tab.type === win.type))
+      openWindows.splice(0, openWindows.length, ...availableWindows)
+      if (availableWindows.length) {
+        zIndexCounter = Math.max(...availableWindows.map(w => w.zIndex ?? 10), zIndexCounter)
       }
     }
   }
@@ -552,30 +663,16 @@ function logoutGitHub() {
   localStorage.removeItem('github_token')
 }
 
-// Sincronização automática ao alterar localStorage em outras abas
-watchEffect(() => {
-  if (githubToken.value && githubUserLogin.value) {
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'dev-room-data') {
-        syncDataToRepo()
-      }
-    })
+function handleStorageSync(event) {
+  if (event.key === 'dev-room-data' && githubToken.value && githubUserLogin.value) {
+    syncDataToRepo()
   }
-})
-
-// Sincronização automática ao alterar localStorage na mesma aba
-watchEffect(() => {
-  if (githubToken.value && githubUserLogin.value) {
-    const data = localStorage.getItem('dev-room-data')
-    if (data) {
-      syncDataToRepo()
-    }
-  }
-})
+}
 
 // Sincroniza backup local com GitHub a cada 2s se houver alteração
 let lastData = localStorage.getItem('dev-room-data')
-setInterval(() => {
+syncPushIntervalId = window.setInterval(() => {
+  if (document.hidden) return
   if (githubToken.value && githubUserLogin.value) {
     const currentData = localStorage.getItem('dev-room-data')
     if (currentData !== lastData) {
@@ -583,11 +680,11 @@ setInterval(() => {
       syncDataToRepo()
     }
   }
-}, 2000)
+}, 5000)
 
 // Sincroniza backup do GitHub para localStorage a cada 10s
-setInterval(async () => {
-  if (githubToken.value && githubUserLogin.value) {
+syncPullIntervalId = window.setInterval(async () => {
+  if (!document.hidden && githubToken.value && githubUserLogin.value && !isSyncing.value) {
     try {
       const repoContent = await loadDataFromRepo(githubToken.value, githubUserLogin.value)
       const repoData = JSON.parse(repoContent || '{}')
@@ -604,9 +701,10 @@ setInterval(async () => {
         if (repoData.nome) userName.value = repoData.nome
         if (repoData.tema) applyTheme(repoData.tema)
         if (repoData.windows && Array.isArray(repoData.windows)) {
-          openWindows.splice(0, openWindows.length, ...repoData.windows)
-          if (repoData.windows.length) {
-            zIndexCounter = Math.max(...repoData.windows.map(w => w.zIndex ?? 10), zIndexCounter)
+          const availableWindows = repoData.windows.filter(win => mobileTabs.some(tab => tab.type === win.type))
+          openWindows.splice(0, openWindows.length, ...availableWindows)
+          if (availableWindows.length) {
+            zIndexCounter = Math.max(...availableWindows.map(w => w.zIndex ?? 10), zIndexCounter)
           }
         }
       }
@@ -614,7 +712,7 @@ setInterval(async () => {
       // Silencia erros de rede ou 404
     }
   }
-}, 3000)
+}, 30000)
 
 watch(onboardingStep, (step) => {
   if (step === 5 && githubToken.value) {
@@ -658,8 +756,8 @@ const showPixToast = ref(false) // <-- Adicione esta linha
       <div class="max-w-md w-full bg-gray-900 p-8 rounded-xl shadow-xl text-center border border-blue-500" id="onboarding-content">
         <!-- 1. Recepção -->
         <div v-if="onboardingStep === 0" id="onboarding-step-0">
-          <font-awesome-icon icon="fa-solid fa-rocket" class="text-4xl mb-4 text-blue-400" />
-          <h2 class="text-2xl font-bold mb-4">Bem-vindo ao Dev Room</h2>
+          <img src="/icons/centralos-logo.png" alt="Logo do CentralOS" class="w-20 h-20 mx-auto mb-4 object-contain" />
+          <h2 class="text-2xl font-bold mb-4">Bem-vindo ao CentralOS</h2>
           <p class="mb-6">Seu espaço digital para produtividade, organização e foco, feito especialmente para devs!</p>
           <button
             @click="onboardingStep++"
@@ -672,7 +770,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
         <!-- 2. Apoio -->
         <div v-else-if="onboardingStep === 1" id="onboarding-step-1">
           <font-awesome-icon icon="fa-solid fa-heart" class="text-3xl mb-4 text-pink-400" />
-          <h2 class="text-xl font-bold mb-4">Apoie o Dev Room!</h2>
+          <h2 class="text-xl font-bold mb-4">Apoie o CentralOS!</h2>
           <p class="mb-4">
             Se você gostar do projeto, considere contribuir clicando no botão <b>Me apoie</b> no canto superior.<br>
             Assim você ajuda a manter e evoluir essa ferramenta gratuita para todos!
@@ -691,7 +789,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
           <h2 class="text-xl font-bold mb-4">Funcionalidades</h2>
           <ul class="list-disc ml-5 mt-2 space-y-1 text-left">
             <li><b>Widgets:</b> To-Do, Notas rápidas, Pomodoro, Timer, Snippets, Checklist de Deploy, Lembrete de água, Player de música, Gerador de dados fake e Busca inteligente.</li>
-            <li><b>Personalização:</b> 10+ temas para deixar o ambiente com a sua cara.</li>
+            <li><b>Personalização:</b> 10 temas translúcidos, com opções claras e escuras.</li>
             <li><b>Experiência fluida:</b> No desktop, organize as janelas livremente. No mobile, navegue pelo menu lateral.</li>
             <li><b>Salvamento automático:</b> Tudo salvo no navegador ou sincronizado com seu GitHub.</li>
           </ul>
@@ -708,8 +806,8 @@ const showPixToast = ref(false) // <-- Adicione esta linha
           <font-awesome-icon icon="fa-brands fa-github" class="text-3xl mb-4 text-gray-300" />
           <h2 class="text-xl font-bold mb-4">Open Source</h2>
           <p class="mb-4">
-            O Dev Room é <b>open source</b>! Veja o código, contribua ou adapte para seu time.<br>
-            <a href="https://github.com/Lucas19Alves/dev-room" target="_blank" class="text-blue-300 underline">github.com/Lucas19Alves/dev-room</a>
+            O CentralOS é <b>open source</b>! Veja o código, contribua ou adapte para seu time.<br>
+            <a href="https://github.com/Lucas19Alves/CentralOS" target="_blank" class="text-blue-300 underline">Repositório do CentralOS</a>
           </p>
           <button
             @click="onboardingStep++"
@@ -771,7 +869,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
           <button
             @click="endOnboarding"
             class="cursor-pointer bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white font-semibold w-full"
-            aria-label="Começar a usar o Dev Room"
+            aria-label="Começar a usar o CentralOS"
             id="onboarding-finish-btn"
           >
             Começar
@@ -792,12 +890,12 @@ const showPixToast = ref(false) // <-- Adicione esta linha
     id="main-app" 
     class="h-screen text-gray-100 relative overflow-hidden"
     :style="{ 
-      backgroundColor: wallpaper ? 'transparent' : 'var(--bg-main)', 
+      background: wallpaper ? 'transparent' : 'var(--desktop-bg)',
       color: 'var(--text-main)'
     }">
 
     <!-- Barra superior mobile com botão de abrir menu e "Me apoie" -->
-    <div v-if="isMobile" class="w-full flex items-center justify-between gap-2 px-4 py-3" :style="{
+    <div v-if="isMobile" class="relative w-full flex items-center justify-between gap-2 px-4 py-3" :style="{
       background: 'var(--bg-panel)',
       borderBottom: '1px solid var(--accent)'
     }" id="mobile-topbar">
@@ -817,6 +915,9 @@ const showPixToast = ref(false) // <-- Adicione esta linha
         <font-awesome-icon icon="fa-solid fa-bars" class="text-xl" />
         Menu
       </button>
+      <div class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" aria-hidden="true">
+        <img src="/icons/centralos-logo.png" alt="" class="w-10 h-10 object-contain" />
+      </div>
       <!-- Botão de apoio mobile -->
       <button
         class="flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-base shadow transition border"
@@ -852,11 +953,15 @@ const showPixToast = ref(false) // <-- Adicione esta linha
           }"
           id="mobile-menu"
         >
+          <div class="mb-6 flex items-center gap-3">
+            <img src="/icons/centralos-logo.png" alt="Logo do CentralOS" class="w-11 h-11 object-contain" />
+            <span class="text-xl font-bold" :style="{ color: 'var(--text-main)' }">CentralOS</span>
+          </div>
           <!-- Saudação e botão fechar alinhados -->
           <div class="mb-6 flex flex-row items-center justify-between w-full">
             <div class="flex items-center gap-2 mb-4">
               <span class="text-base font-semibold" :style="{color: 'var(--name)'}">
-                Olá, dev <span>{{ userName }}</span>
+                Olá, <span>{{ userName }}</span>
               </span>
               <button
                 v-if="!githubToken"
@@ -925,32 +1030,48 @@ const showPixToast = ref(false) // <-- Adicione esta linha
     <!-- Conteúdo principal desktop -->
     <div v-else>
       <!-- Barra de status superior -->
-      <div id="statusBar" class="bg-gray-800 text-blue-200 p-4 flex flex-row justify-between items-center shadow"
+      <div id="statusBar" class="bg-gray-800 text-blue-200 px-4 py-2 flex flex-row justify-between items-center shadow"
         :style="{ background: 'var(--bg-panel)' }">
-        <div id="support-btn-container">
+        <div id="status-bar-brand-actions" class="flex items-center gap-3">
+          <div class="flex items-center gap-2" id="status-bar-brand">
+            <img src="/icons/centralos-logo.png" alt="Logo do CentralOS" class="w-8 h-8 object-contain" />
+            <span class="text-base font-bold" :style="{ color: 'var(--text-main)' }">CentralOS</span>
+          </div>
+          <div id="support-btn-container">
           <!-- Botão de apoio desktop -->
+            <button
+              class="cursor-pointer font-bold px-3 py-1.5 rounded-full shadow flex items-center gap-1.5 text-sm transition"
+              :style="{
+                background: 'var(--accent)',
+                color: 'var(--text-main)',
+                border: '2px solid var(--accent)'
+              }" @click="showPixModal = true" title="Me apoie"
+              id="support-btn"
+            >
+              <font-awesome-icon icon="fa-solid fa-heart" class="text-sm" />
+              Apoiar
+            </button>
+          </div>
           <button
-            class="cursor-pointer font-bold px-4 py-2 rounded-full shadow flex items-center gap-2 transition"
-            :style="{
-              background: 'var(--accent)',
-              color: 'var(--text-main)',
-              border: '2px solid var(--accent)'
-            }" @click="showPixModal = true" title="Me apoie"
-            id="support-btn"
+            class="cursor-pointer px-3 py-1.5 rounded-full flex items-center gap-1.5 text-sm font-semibold"
+            :style="{ background: 'var(--bg-panel-secondary)', color: 'var(--text-main)', border: '1px solid var(--glass-border)' }"
+            @click="activatePauseMode"
+            title="Modo Pausa"
+            id="pause-btn-desktop"
           >
-            <font-awesome-icon icon="fa-solid fa-heart" class="text-xl" />
-            Me apoie
+            <font-awesome-icon icon="fa-solid fa-mug-hot" class="text-orange-400" />
+            Pausa
           </button>
         </div>
-        <div id="status-bar-user" class="flex items-center gap-2">
+        <div id="status-bar-user" class="flex items-center gap-1.5 text-sm">
           <h1>
-            Olá, dev <span class="font-semibold" :style="{color: 'var(--name)'}">{{ userName }}</span>
+            Olá, <span class="font-semibold" :style="{color: 'var(--name)'}">{{ userName }}</span>
           </h1>
           <!-- Botão de login na statusbar -->
           <button
             v-if="!githubToken"
             @click="showLoginModal = true"
-            class="ml-2 flex items-center justify-center rounded-full p-2 border-2 transition"
+            class="ml-1 flex items-center justify-center rounded-full p-1.5 border transition"
             :style="{
               background: 'var(--bg-panel)',
               color: 'var(--text-main)',
@@ -959,13 +1080,13 @@ const showPixToast = ref(false) // <-- Adicione esta linha
             title="Entrar"
             id="status-bar-login-btn"
           >
-            <font-awesome-icon icon="fa-solid fa-right-to-bracket" class="text-lg" />
+            <font-awesome-icon icon="fa-solid fa-right-to-bracket" class="text-base" />
           </button>
           <!-- Botão de logout na statusbar -->
           <button
             v-else
             @click="showLogoutModal = true"
-            class="ml-2 flex items-center justify-center rounded-full p-2 border-2 transition"
+            class="ml-1 flex items-center justify-center rounded-full p-1.5 border transition"
             :style="{
               background: 'var(--bg-panel)',
               color: 'var(--text-main)',
@@ -974,11 +1095,12 @@ const showPixToast = ref(false) // <-- Adicione esta linha
             title="Sair"
             id="status-bar-logout-btn"
           >
-            <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-lg" />
+            <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-base" />
           </button>
         </div>
-        <div class="flex flex-row gap-4 items-center" id="status-bar-clock">
-          <h1 class="flex flex-row items-center gap-2">
+        <div class="flex flex-row gap-3 items-center text-sm" id="status-bar-clock">
+          <span class="hidden lg:inline" :style="{ color: 'var(--text-muted)' }">{{ formatDate(now) }}</span>
+          <h1 class="flex flex-row items-center gap-1.5 tabular-nums">
             {{ formatTime(now) }}
             <font-awesome-icon icon="fa-solid fa-clock" class="text-blue-300" />
           </h1>
@@ -986,7 +1108,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
       </div>
 
       <!-- Área das janelas abertas -->
-      <div id="roomContent" class="relative w-full h-[calc(100vh-200px)]">
+      <div id="roomContent" class="relative w-full h-[calc(100vh-50px)]">
         <template v-for="win in openWindows" :key="win.id">
           <Window :title="win.title" :x="win.x" :y="win.y" :zIndex="win.zIndex" :width="win.width" :height="win.height"
             :containerSelector="'#roomContent'" :minimized="win.minimized" @close="closeWindow(win.id)"
@@ -1000,88 +1122,78 @@ const showPixToast = ref(false) // <-- Adicione esta linha
       </div>
 
       <!-- Dock desktop -->
-      <div id="dock"
-        class="p-4 flex flex-wrap justify-center items-center rounded-xl shadow-2xl fixed left-1/2 -translate-x-1/2 bottom-6 w-[90vw] max-w-7xl border"
+      <div
+        v-if="isDockObstructed"
+        class="fixed inset-x-0 bottom-0 h-4 z-[9000]"
+        aria-hidden="true"
+        @mouseenter="dockReveal = true"
+        id="dock-reveal-zone"
+      ></div>
+      <div v-if="!initialModalVisible" id="dock"
+        class="p-2 flex justify-center items-center shadow-2xl fixed left-1/2 bottom-3 w-fit max-w-[94vw] border z-[9000]"
+        :class="{ 'dock-auto-hidden': isDockObstructed && !dockReveal }"
         :style="{
           background: 'var(--bg-panel)',
           color: 'var(--text-main)',
           borderColor: 'var(--accent)'
-        }">
-        <div class="flex flex-wrap gap-3 justify-center items-center w-full max-w-6xl" id="desktop-dock-icons">
-          <!-- Ícones do dock desktop -->
-          <div
-            v-for="winTab in mobileTabs"
-            :key="winTab.type"
-            class="flex flex-col items-center group cursor-pointer w-16 relative"
-            @click="() => {
-              const win = openWindows.find(w => w.type === winTab.type)
-              if (win) {
-                if (win.minimized) {
-                  restoreWindow(win.id)
-                  bringToFront(win.id)
-                } else if (win.zIndex === zIndexCounter) {
-                  minimizeWindow(win.id)
-                } else {
-                  bringToFront(win.id)
-                }
-              } else {
-                openWindow(winTab.type)
-              }
-            }"
-            :id="`desktop-dock-icon-${winTab.type}`"
-          >
-            <font-awesome-icon :icon="winTab.icon" :class="[
-              winTab.type === 'Timer' ? 'text-blue-400 hover:text-blue-200' : '',
-              winTab.type === 'MusicPlayer' ? 'text-green-400 hover:text-green-200' : '',
-              winTab.type === 'TodoList' ? 'text-yellow-400 hover:text-yellow-200' : '',
-              winTab.type === 'Docs' ? 'text-pink-400 hover:text-pink-200' : '',
-              winTab.type === 'QuickNotes' ? 'text-orange-400 hover:text-orange-200' : '',
-              winTab.type === 'GithubFeatures' ? 'text-gray-400 hover:text-gray-200' : '',
-              winTab.type === 'CodeSnippets' ? 'text-purple-400 hover:text-purple-200' : '',
-              winTab.type === 'DeployChecklist' ? 'text-teal-400 hover:text-teal-200' : '',
-              winTab.type === 'Pomodoro' ? 'text-red-400 hover:text-red-200' : '',
-              winTab.type === 'Search' ? 'text-cyan-400 hover:text-cyan-200' : '',
-              winTab.type === 'Themes' ? 'text-fuchsia-400 hover:text-fuchsia-200' : '',
-              winTab.type === 'WaterReminder' ? 'text-sky-400 hover:text-sky-200' : '',
-              winTab.type === 'FakeDataGenerator' ? 'text-lime-400 hover:text-lime-200' : '',
-              winTab.type === 'ChatGPTApi' ? 'text-emerald-400 hover:text-emerald-200' : '',
-              winTab.type === 'Kanban' ? 'text-blue-400 hover:text-blue-200' : '',
-              winTab.type === 'Converter' ? 'text-blue-400 hover:text-blue-200' : '',
-            ]" class="text-2xl" />
-            <span class="dock-tooltip group-hover:opacity-100">{{ winTab.label }}</span>
-            <span
-              v-if="openWindows.find(w => w.type === winTab.type && w.minimized)"
-              class="absolute top-1 right-2 w-2 h-2 rounded-full bg-yellow-400 border border-yellow-700"
-              title="Minimizada"
-              :id="`desktop-dock-icon-minimized-${winTab.type}`"
-            ></span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Botão modo pausa Desktop -->
-    <div
-      v-if="!isMobile"
-      class="fixed left-[calc(5vw-64px)] bottom-6 z-50 flex flex-col items-center"
-      style="min-width: 64px;"
-      id="pause-btn-desktop-container"
-    >
-      <button
-        class="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-xs shadow transition border"
-        :style="{
-          background: 'var(--bg-panel)',
-          color: 'var(--text-main)',
-          borderColor: 'var(--accent)',
-          opacity: 0.95
         }"
-        @click="activatePauseMode"
-        title="Modo Pausa"
-        id="pause-btn-desktop"
+        @mouseenter="dockReveal = true"
+        @mouseleave="dockReveal = false"
       >
-        <font-awesome-icon icon="fa-solid fa-mug-hot" class="text-orange-400 text-xl" />
-        Pausa
-      </button>
+        <draggable
+          v-model="dockTabs"
+          item-key="type"
+          tag="div"
+          class="flex flex-nowrap gap-1 justify-start items-center overflow-visible px-1"
+          ghost-class="dock-item-ghost"
+          chosen-class="dock-item-chosen"
+          :animation="180"
+          @start="dockDragging = true"
+          @end="finishDockDrag"
+          id="desktop-dock-icons"
+        >
+          <template #item="{ element: winTab }">
+            <div
+              class="dock-item flex flex-col items-center justify-center group cursor-grab active:cursor-grabbing w-10 h-10 rounded-xl relative flex-none"
+              :class="{
+                'dock-item-active': openWindows.some(w => w.type === winTab.type && !w.minimized),
+                'dock-item-minimized': openWindows.some(w => w.type === winTab.type && w.minimized)
+              }"
+              @click="handleDockItemClick(winTab.type)"
+              :title="`${winTab.label} — arraste para reordenar`"
+              :aria-label="winTab.label"
+              :id="`desktop-dock-icon-${winTab.type}`"
+            >
+              <font-awesome-icon :icon="winTab.icon" :class="[
+                winTab.type === 'Timer' ? 'text-blue-400 hover:text-blue-200' : '',
+                winTab.type === 'MusicPlayer' ? 'text-green-400 hover:text-green-200' : '',
+                winTab.type === 'TodoList' ? 'text-yellow-400 hover:text-yellow-200' : '',
+                winTab.type === 'Docs' ? 'text-pink-400 hover:text-pink-200' : '',
+                winTab.type === 'QuickNotes' ? 'text-orange-400 hover:text-orange-200' : '',
+                winTab.type === 'GithubFeatures' ? 'text-gray-400 hover:text-gray-200' : '',
+                winTab.type === 'CodeSnippets' ? 'text-purple-400 hover:text-purple-200' : '',
+                winTab.type === 'CodePlayground' ? 'text-orange-400 hover:text-orange-200' : '',
+                winTab.type === 'DeployChecklist' ? 'text-teal-400 hover:text-teal-200' : '',
+                winTab.type === 'Pomodoro' ? 'text-red-400 hover:text-red-200' : '',
+                winTab.type === 'Search' ? 'text-cyan-400 hover:text-cyan-200' : '',
+                winTab.type === 'Themes' ? 'text-fuchsia-400 hover:text-fuchsia-200' : '',
+                winTab.type === 'WaterReminder' ? 'text-sky-400 hover:text-sky-200' : '',
+                winTab.type === 'FakeDataGenerator' ? 'text-lime-400 hover:text-lime-200' : '',
+                winTab.type === 'ChatGPTApi' ? 'text-emerald-400 hover:text-emerald-200' : '',
+                winTab.type === 'Kanban' ? 'text-blue-400 hover:text-blue-200' : '',
+                winTab.type === 'Converter' ? 'text-blue-400 hover:text-blue-200' : '',
+              ]" class="text-xl dock-item-icon" />
+              <span class="dock-tooltip group-hover:opacity-100">{{ winTab.label }}</span>
+              <span
+                v-if="openWindows.find(w => w.type === winTab.type && w.minimized)"
+                class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-yellow-400"
+                title="Minimizada"
+                :id="`desktop-dock-icon-minimized-${winTab.type}`"
+              ></span>
+            </div>
+          </template>
+        </draggable>
+      </div>
     </div>
 
     <!-- Botão modo pausa Mobile (no menu, separado dos itens) -->
@@ -1173,9 +1285,9 @@ const showPixToast = ref(false) // <-- Adicione esta linha
         <p class="mb-3 text-center">Apoie o projeto enviando qualquer valor via Pix!</p>
         <img src="/images/qrcode-pix.png" alt="QR Code Pix" class="w-48 h-48 object-contain mb-3 border rounded bg-white p-2" />
         <div class="mb-3 w-full">
-          <label class="block text-sm font-semibold mb-1 text-center">Chave Pix (celular):</label>
+          <label class="block text-sm font-semibold mb-1 text-center">Chave Pix (e-mail):</label>
           <div class="flex items-center justify-center gap-2">
-            <span class="bg-gray-800 px-2 py-1 rounded select-all text-sm" id="pix-key">(11) 98192-7567</span>
+            <span class="bg-gray-800 px-2 py-1 rounded select-all text-sm" id="pix-key">appnamanga@gmail.com</span>
             <button
               @click="copyPixKey"
               class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-bold transition"
@@ -1202,10 +1314,11 @@ const showPixToast = ref(false) // <-- Adicione esta linha
 
     <!-- Modal de instalação PWA -->
     <div v-if="showInstallPrompt"
-      class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-blue-800 text-white px-6 py-3 rounded shadow-lg z-50 flex items-center gap-4"
+      class="fixed left-1/2 -translate-x-1/2 bg-blue-800 text-white px-6 py-3 rounded shadow-lg z-[9500] flex items-center gap-4"
+      :class="isMobile ? 'bottom-6' : 'bottom-24'"
       id="install-prompt"
     >
-      <span>Instale o Dev Room no seu dispositivo para acesso rápido!</span>
+      <span>Instale o CentralOS no seu dispositivo para acesso rápido!</span>
       <button @click="installApp" class="cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold" id="install-prompt-install-btn">Instalar</button>
       <button @click="showInstallPrompt = false" class="cursor-pointer ml-2 text-blue-200 hover:text-white" id="install-prompt-close-btn">Fechar</button>
     </div>
@@ -1214,7 +1327,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
     <transition name="fade">
       <div v-if="showLoginModal" class="fixed inset-0 z-[999] flex items-center justify-center"
         style="background: rgba(0,0,0,0.85);">
-        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-full"
+        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)] overflow-y-auto"
           :style="{ borderColor: 'var(--accent)' }">
           <font-awesome-icon icon="fa-brands fa-github" class="text-5xl mb-4 text-gray-300" />
           <h2 class="text-2xl font-bold mb-4 text-center">Login via GitHub</h2>
@@ -1245,7 +1358,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
     <transition name="fade">
       <div v-if="showLogoutModal" class="fixed inset-0 z-[999] flex items-center justify-center"
         style="background: rgba(0,0,0,0.85);">
-        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-full"
+        <div class="bg-gray-900 border-4 rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-md w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)] overflow-y-auto"
           :style="{ borderColor: 'var(--accent)' }">
           <font-awesome-icon icon="fa-solid fa-arrow-right-from-bracket" class="text-5xl mb-4 text-red-400" />
           <h2 class="text-2xl font-bold mb-4 text-center">Sair da sincronização</h2>
@@ -1300,7 +1413,82 @@ body {
    o estilo é aplicado diretamente ao body */
 
 #roomContent {
-  padding-bottom: 120px;
+  padding-bottom: 72px;
+}
+
+#dock {
+  transform: translateX(-50%);
+  transition: transform 240ms cubic-bezier(.22, 1, .36, 1), opacity 180ms ease;
+  will-change: transform, opacity;
+}
+
+#dock.dock-auto-hidden {
+  transform: translate(-50%, calc(100% + 1.5rem));
+  opacity: 0;
+  pointer-events: none;
+}
+
+#desktop-dock-icons {
+  scrollbar-width: none;
+}
+
+#desktop-dock-icons::-webkit-scrollbar {
+  display: none;
+}
+
+.dock-item {
+  transition: transform 180ms cubic-bezier(.22, 1, .36, 1), background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.dock-item:hover,
+.dock-item-chosen {
+  transform: translateY(-5px) scale(1.12);
+  background: var(--accent-soft);
+}
+
+.dock-item-active {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--glass-border);
+}
+
+.dock-item-active::after {
+  content: "";
+  position: absolute;
+  bottom: 0.15rem;
+  left: 50%;
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+.dock-item-ghost {
+  opacity: 0.28;
+  transform: scale(0.9);
+}
+
+.dock-item-icon {
+  transition: transform 180ms ease, filter 180ms ease;
+}
+
+.dock-item:hover .dock-item-icon {
+  filter: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.24));
+}
+
+@media (max-width: 900px) and (min-width: 769px) {
+  .dock-item {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+
+  .dock-item-icon {
+    font-size: 0.95rem !important;
+  }
+
+  #dock {
+    padding: 0.35rem !important;
+  }
 }
 
 .dock-tooltip {
@@ -1308,12 +1496,15 @@ body {
   bottom: 3rem;
   left: 50%;
   transform: translateX(-50%);
-  background: #111827;
+  background: var(--surface-strong);
   font-size: 0.75rem;
-  color: #f3f4f6;
+  color: var(--text-main);
   padding: 0.25rem 0.75rem;
   border-radius: 0.375rem;
-  box-shadow: 0 2px 8px 0 rgb(0 0 0 / 0.15);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s;
