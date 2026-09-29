@@ -1,32 +1,32 @@
 {
-  "name": "noma",
+  "name": "dev-room",
   "private": true,
-  "version": "2.0.0",
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "test": "node --test tests/core.test.js",
-    "test:e2e": "playwright test",
-    "format": "prettier --write \"src/**/*.{js,vue,css}\" \"tests/**/*.js\" \"*.{js,json,html,md}\" \"public/manifest.webmanifest\""
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@faker-js/faker": "^10.6.0",
-    "@supabase/supabase-js": "^2.116.0",
+    "@faker-js/faker": "^9.8.0",
+    "@fortawesome/fontawesome-svg-core": "^6.7.2",
+    "@fortawesome/free-brands-svg-icons": "^6.7.2",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
+    "@fortawesome/vue-fontawesome": "^3.0.8",
+    "@octokit/rest": "^21.1.1",
+    "@tailwindcss/vite": "^4.1.7",
+    "@vercel/analytics": "^1.5.0",
+    "@vercel/speed-insights": "^1.2.0",
     "highlight.js": "^11.11.1",
+    "interactjs": "^1.10.27",
+    "tailwindcss": "^4.1.7",
     "vue": "^3.5.13",
+    "vue-router": "^4.5.1",
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.8",
-    "@playwright/test": "^1.63.0",
     "@vitejs/plugin-vue": "^5.2.1",
-    "fake-indexeddb": "^6.2.5",
-    "prettier": "^3.9.7",
     "vite": "^6.2.0"
-  },
-  "engines": {
-    "node": ">=22.13.0"
   }
 }

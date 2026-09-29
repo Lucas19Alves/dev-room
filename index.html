@@ -1,68 +1,77 @@
 <!doctype html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/png" href="/icons/n-logo.png" />
-    <title>Noma — Um Flow para o que você quer realizar</title>
-    <meta
-      name="description"
-      content="Diga o que você quer realizar. O Noma organiza o caminho, preserva o contexto e mostra o próximo passo. Experimente sem custo."
-    />
-    <link rel="canonical" href="https://usenoma.vercel.app/" />
-    <meta name="robots" content="index,follow" />
-    <meta property="og:url" content="https://usenoma.vercel.app/" />
-    <meta property="og:site_name" content="Noma" />
-    <meta property="og:title" content="Noma — Encontre seu Flow" />
-    <meta
-      property="og:description"
-      content="Escolha seu objetivo. Personalize seu espaço. Continue de onde parou."
-    />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="/icons/noma-logo.png" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta
-      name="twitter:title"
-      content="Noma — Um objetivo. Um próximo passo."
-    />
-    <meta
-      name="twitter:description"
-      content="Diga o que você quer realizar. O Noma organiza o caminho e mostra o próximo passo."
-    />
-    <meta name="twitter:image" content="/icons/noma-logo.png" />
-    <meta name="theme-color" content="#294a38" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/icons/n-logo.png" />
-    <script>
-      (function () {
-        try {
-          var saved = localStorage.getItem("noma-theme");
-          var prefersDark = window.matchMedia(
-            "(prefers-color-scheme: dark)",
-          ).matches;
-          var theme =
-            saved === "dark" || saved === "light"
-              ? saved
-              : saved === "system" || !saved
-                ? prefersDark
-                  ? "dark"
-                  : "light"
-                : "light";
-          document.documentElement.dataset.theme = theme;
-          document.documentElement.style.colorScheme = theme;
-          var metaTheme = document.querySelector('meta[name="theme-color"]');
-          if (metaTheme) {
-            metaTheme.setAttribute(
-              "content",
-              theme === "dark" ? "#0c1412" : "#294a38",
-            );
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <title>Dev Room</title>
+
+  <!-- Meta tags essenciais -->
+  <meta name="description" content="Dev Room: seu ambiente integrado de produtividade para desenvolvedores. Organize tarefas, notas, timers, snippets e muito mais em um só lugar!">
+  <meta name="keywords" content="dev, produtividade, tarefas, notas, snippets, timer, pomodoro, checklist, desenvolvedor, ferramentas, workspace, código">
+  <meta name="author" content="Lucas Alves">
+
+  <!-- Open Graph para compartilhamento em redes sociais -->
+  <meta property="og:title" content="Dev Room">
+  <meta property="og:description" content="Ambiente integrado de produtividade para desenvolvedores.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://dev-room-three.vercel.app/">
+  <meta property="og:image" content="https://dev-room-three.vercel.app/images/og-image.png">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Dev Room">
+  <meta name="twitter:description" content="Ambiente integrado de produtividade para desenvolvedores.">
+  <meta name="twitter:image" content="https://dev-room-three.vercel.app/images/og-image.png">
+
+  <!-- PWA e Sugestão de instalação -->
+  <meta name="theme-color" content="#18181b">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Dev Room">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+
+  <!-- Script para papel de parede (executa antes de qualquer coisa) -->
+  <script>
+    (function() {
+      // Tenta restaurar o papel de parede o mais cedo possível
+      const WALLPAPER_KEY = 'dev-room-wallpaper';
+      const savedWallpaper = localStorage.getItem(WALLPAPER_KEY);
+      
+      if (savedWallpaper) {
+        // Cria um estilo inline para aplicar imediatamente
+        const style = document.createElement('style');
+        style.textContent = `
+          html, body {
+            background-image: url('${savedWallpaper}') !important;
+            background-size: cover !important;
+            background-position: center center !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
           }
-        } catch (e) {}
-      })();
-    </script>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+          html.has-wallpaper, body.has-wallpaper {
+            background-image: url('${savedWallpaper}') !important;
+            background-size: cover !important;
+            background-position: center center !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
+          }
+        `;
+        style.id = 'wallpaper-style';
+        document.head.appendChild(style);
+        
+        // Adicionar classe para CSS
+        document.documentElement.classList.add('has-wallpaper');
+      }
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
 </html>

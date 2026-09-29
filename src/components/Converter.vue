@@ -1,121 +1,123 @@
-<script setup>
-import { computed, ref } from "vue";
-import { useFlowComponentStorage } from "../composables/useFlowComponentStorage";
-import ToolLayout from "./ui/ToolLayout.vue";
-
-const currencies = ["BRL", "USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF"];
-const props = defineProps({
-  storageKey: { type: String, default: "converter" },
-  componentConfig: { type: Object, default: () => ({}) },
-  flow: { type: Object, default: null },
-});
-const { state: converter } = useFlowComponentStorage(
-  props.storageKey,
-  {
-    amount: 1,
-    from: "USD",
-    to: "BRL",
-    result: null,
-    convertedAt: null,
-  },
-  250,
-  "converter",
-);
-const status = ref("idle");
-const message = ref("");
-const formatted = computed(() =>
-  converter.value.result === null
-    ? "—"
-    : new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 }).format(
-        converter.value.result,
-      ),
-);
-
-async function convert() {
-  const amount = Number(converter.value.amount);
-  if (!Number.isFinite(amount) || amount < 0) return;
-  if (converter.value.from === converter.value.to) {
-    converter.value.result = amount;
-    converter.value.convertedAt = new Date().toISOString();
-    status.value = "success";
-    return;
-  }
-  status.value = "loading";
-  message.value = "";
-  try {
-    const response = await fetch(
-      `https://api.frankfurter.app/latest?amount=${encodeURIComponent(amount)}&from=${converter.value.from}&to=${converter.value.to}`,
-    );
-    if (!response.ok) throw new Error("Serviço temporariamente indisponível.");
-    const payload = await response.json();
-    converter.value.result = payload.rates?.[converter.value.to] ?? null;
-    converter.value.convertedAt = new Date().toISOString();
-    status.value = "success";
-  } catch {
-    status.value = navigator.onLine ? "error" : "offline";
-    message.value = navigator.onLine
-      ? "Não foi possível obter a cotação. Tente novamente."
-      : "A conversão precisa de conexão. O último resultado continua salvo neste Flow.";
-  }
-}
-</script>
 <template>
-  <ToolLayout
-    caption="Cotações de referência atualizadas no momento da conversão."
-    id="currency-main"
-  >
-    <form class="converter-form" @submit.prevent="convert">
-      <label class="tool-field"
-        >Valor<input
-          v-model.number="converter.amount"
-          type="number"
-          min="0"
-          step="any"
-          aria-label="Valor para converter"
-      /></label>
-      <label class="tool-field"
-        >De<select v-model="converter.from" aria-label="Moeda de origem">
-          <option v-for="currency in currencies" :key="currency">
-            {{ currency }}
+  <!-- Container principal do Conversor de Moedas -->
+  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[180px] min-h-[180px]"
+    id="currency-main">
+    <h2 class="text-xl font-bold mb-4 text-green-300" id="currency-title">conversor de moedas</h2>
+
+    <!-- Seletor de moedas e valor -->
+    <form @submit.prevent class="flex flex-col gap-2 w-full max-w-sm" id="currency-form">
+      <input v-model.number="amount" type="number" placeholder="Valor"
+        class="px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
+        id="currency-amount" />
+
+      <div class="flex gap-2">
+        <select v-model="selectedFrom"
+          class="flex-1 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none">
+          <option v-for="c in currencies" :key="c.code" :value="c.code">
+            {{ c.code }}
           </option>
-        </select></label
-      >
-      <button
-        type="button"
-        class="converter-swap"
-        aria-label="Trocar moedas"
-        @click="[converter.from, converter.to] = [converter.to, converter.from]"
-      >
-        ⇄
-      </button>
-      <label class="tool-field"
-        >Para<select v-model="converter.to" aria-label="Moeda de destino">
-          <option v-for="currency in currencies" :key="currency">
-            {{ currency }}
+        </select>
+
+        <span class="text-gray-400 flex items-center">→</span>
+
+        <select v-model="selectedTo"
+          class="flex-1 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none">
+          <option v-for="c in currencies" :key="c.code" :value="c.code">
+            {{ c.code }}
           </option>
-        </select></label
-      >
-      <button class="dark-button" :disabled="status === 'loading'">
-        {{ status === "loading" ? "Convertendo…" : "Converter" }}
+        </select>
+      </div>
+
+      <button @click="convertCurrency"
+        class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded transition mt-2" id="currency-convert-btn">
+        Converter
       </button>
     </form>
-    <div class="converter-result" aria-live="polite">
-      <small>RESULTADO</small
-      ><strong
-        >{{ formatted }} <span>{{ converter.to }}</span></strong
-      >
-      <p v-if="converter.convertedAt">
-        Última conversão:
-        {{ new Date(converter.convertedAt).toLocaleString("pt-BR") }}
-      </p>
+
+    <!-- Resultado da conversão -->
+    <div v-if="result !== null" class="mt-4 text-lg text-white font-medium" id="currency-result">
+      {{ amount }} {{ fromCurrency }} = {{ result }} {{ toCurrency }}
     </div>
-    <p
-      v-if="message"
-      class="tool-feedback"
-      :class="{ 'tool-feedback--error': status === 'error' }"
-      role="status"
-    >
-      {{ message }}
-    </p>
-  </ToolLayout>
+  </div>
 </template>
+
+<script setup>
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { getDevRoomData, setDevRoomData } from '../utils/storage'
+
+// Estado salvo
+const allData = getDevRoomData()
+
+// Campos fixos 
+const amount = ref(allData.currencyAmount || 1)
+const fromCurrency = ref(allData.currencyFrom || 'USD')
+const toCurrency = ref(allData.currencyTo || 'BRL')
+
+// Campos temporários 
+const selectedFrom = ref(fromCurrency.value)
+const selectedTo = ref(toCurrency.value)
+
+const result = ref(null)
+
+const currencies = ref([])
+
+async function loadCurrencies() {
+  try {
+    const res = await fetch('https://api.frankfurter.app/currencies')
+    const data = await res.json()
+    currencies.value = Object.entries(data).map(([code, name]) => ({ code, name }))
+  } catch (err) {
+    console.error('Erro ao buscar moedas:', err)
+  }
+}
+
+// Converter
+async function convertCurrency() {
+  if (selectedFrom.value === selectedTo.value) {
+    result.value = amount.value
+    fromCurrency.value = selectedFrom.value
+    toCurrency.value = selectedTo.value
+    return
+  }
+
+  try {
+    const res = await fetch(`https://api.frankfurter.app/latest?amount=${amount.value}&from=${selectedFrom.value}&to=${selectedTo.value}`)
+    const data = await res.json()
+    result.value = data.rates[selectedTo.value].toFixed(2)
+
+    // Só atualiza os nomes quando realmente converter
+    fromCurrency.value = selectedFrom.value
+    toCurrency.value = selectedTo.value
+  } catch (e) {
+    result.value = 'Erro ao converter'
+  }
+}
+
+watch([amount, fromCurrency, toCurrency], () => {
+  const data = getDevRoomData()
+  data.currencyAmount = amount.value
+  data.currencyFrom = fromCurrency.value
+  data.currencyTo = toCurrency.value
+  setDevRoomData(data)
+})
+
+function syncFromStorage(e) {
+  if (e.key === 'dev-room-data') {
+    const data = getDevRoomData()
+    amount.value = data.currencyAmount || 1
+    fromCurrency.value = data.currencyFrom || 'USD'
+    toCurrency.value = data.currencyTo || 'BRL'
+    selectedFrom.value = fromCurrency.value
+    selectedTo.value = toCurrency.value
+  }
+}
+
+onMounted(() => {
+  loadCurrencies()
+  window.addEventListener('storage', syncFromStorage)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('storage', syncFromStorage)
+})
+</script>

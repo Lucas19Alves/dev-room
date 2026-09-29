@@ -1,34 +1,46 @@
-# Noma
+# Dev Room
 
-O Noma transforma um objetivo em um **Flow** preparado para execução. Cada Flow reúne contexto, componentes, metas, etapas, sessões e histórico de progresso sem perder a experiência local imediata.
+Um ambiente de produtividade para desenvolvedores, inspirado em um "desktop virtual", feito em Vue 3 + Vite.  
+Tenha tudo o que precisa para organizar seu dia de trabalho em um só lugar: notas rápidas, checklist de deploy, snippets de código, player de música lo-fi, Pomodoro, temas customizáveis, integração com IA e muito mais!
 
-## Desenvolvimento
+## ✨ Novidades
 
-Requisitos: Node.js 22.13 ou mais recente.
+- **Login e Sincronização via GitHub:** Salve e sincronize seus dados de forma segura no seu próprio repositório privado, acessando o Dev Room em qualquer dispositivo.
+- **Integração com IA (ChatGPT via API):** Converse com a IA diretamente do app, basta inserir sua chave da OpenAI.
+- **Design aprimorado:** Interface mais moderna, responsiva e intuitiva.
+- **Correções de bugs e melhorias de performance.
 
-```bash
-npm install
-npm run dev
-```
+## ⚡ Funcionalidades
 
-Crie `.env.local` a partir de `.env.example` e informe somente a URL e a chave pública/publishable do Supabase. Nunca use `service_role` no frontend.
+- **Janelas flutuantes:** Abra, mova, redimensione e feche apps como em um desktop.
+- **Notas rápidas:** Sticky notes coláveis e editáveis.
+- **To-Do List:** Gerencie suas tarefas do dia.
+- **Checklist de Deploy:** Não esqueça nenhum passo antes de publicar!
+- **Snippets de Código:** Salve, edite, pesquise e copie trechos de código com syntax highlight.
+- **Player de Música Lo-Fi:** Playlist relaxante para foco, com controles completos.
+- **Pomodoro:** Timer para ciclos de foco e pausa.
+- **Timer:** Cronômetro simples para medir tempo de atividades.
+- **Lembrete de Água:** Defina intervalos para ser lembrado de beber água.
+- **Busca:** Pesquise rapidamente entre suas notas, tarefas e códigos.
+- **Temas:** Vários temas escuros e claros, totalmente customizáveis.
+- **Persistência:** Tudo salvo automaticamente no localStorage e/ou GitHub.
+- **Barra de status e dock:** Acesso rápido a todos os apps.
+- **ChatGPT (API):** Converse com a IA usando sua própria chave da OpenAI.
 
-## Verificação
+## 🖥️ Acesse em
 
-```bash
-npm run format
-npm test
-npm run test:e2e
-npm run build
-```
+[DevRoom](https://dev-room-three.vercel.app/)
 
-Os testes E2E usam `.env.e2e` para uma sessão local sintética. Esse modo não é ativado em builds normais.
 
-## Arquitetura
+## 🛠️ Tecnologias
 
-- [Arquitetura e persistência](docs/architecture.md)
-- [Auditoria da fase de maturação](docs/audit.md)
-- [Design System interno](docs/design-system.md)
-- [Auditoria e estrutura dos Flows oficiais](docs/official-flows.md)
+- [Vue 3](https://vuejs.org/)
+- [Vite](https://vitejs.dev/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [highlight.js](https://highlightjs.org/) (para snippets)
+- [Font Awesome](https://fontawesome.com/) (ícones)
 
-As migrações do banco ficam em `supabase/migrations`. Elas devem ser revisadas e aplicadas ao projeto Supabase de forma explícita; o build do frontend não executa migrações.
+
+---
+
+Feito com 💙 para devs que gostam de produtividade e organização!

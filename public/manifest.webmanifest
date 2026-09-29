@@ -1,18 +1,22 @@
 {
-  "name": "Noma",
-  "short_name": "Noma",
-  "description": "Um Flow preparado para o que você quer realizar.",
+  "name": "Dev Room",
+  "short_name": "Dev Room",
+  "description": "Seu ambiente integrado de produtividade para desenvolvedores.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8faf8",
-  "theme_color": "#294a38",
+  "background_color": "#18181b",
+  "theme_color": "#18181b",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icons/n-logo.png",
-      "sizes": "2000x2000",
-      "type": "image/png",
-      "purpose": "any"
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ]
 }
