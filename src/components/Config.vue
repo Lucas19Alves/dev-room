@@ -110,7 +110,7 @@
         <div v-if="docTab === 'Visão Geral'" id="config-doc-intro">
           <div class="mb-3">
             <font-awesome-icon icon="fa-solid fa-lightbulb" class="text-yellow-400 mr-2" />
-            <b>CentralOS</b> é seu ambiente digital para produtividade, organização e foco, feito especialmente para devs!
+            <b>Dev Room</b> é seu ambiente digital para produtividade, organização e foco, feito especialmente para devs!
           </div>
           <ul class="list-disc ml-5 mt-2 space-y-1" id="config-doc-intro-list">
             <li>
@@ -131,9 +131,9 @@
           </ul>
           <div class="mt-4 p-3 rounded bg-gray-800 border border-pink-500 flex flex-col gap-2 items-center text-center">
             <span class="font-bold text-pink-300 text-base">🌟 Contribua ou acompanhe o projeto no GitHub:</span>
-            <a href="https://github.com/Lucas19Alves/CentralOS" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-project-github">
+            <a href="https://github.com/Lucas19Alves/dev-room" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-project-github">
               <font-awesome-icon icon="fa-brands fa-github" />
-              Repositório do CentralOS
+              Repositório do Dev Room
             </a>
             <span class="text-xs text-gray-400">Pull requests, issues e sugestões são bem-vindos!</span>
           </div>
@@ -153,7 +153,7 @@
             <li><b>Pomodoro:</b> Técnica de produtividade baseada em ciclos de foco e pausa.</li>
             <li><b>Lembrete de Água:</b> Defina intervalos para ser lembrado de beber água.</li>
             <li><b>Busca:</b> Pesquise rapidamente entre suas notas, tarefas e códigos.</li>
-            <li><b>Temas:</b> Personalize as cores e o visual do CentralOS.</li>
+            <li><b>Temas:</b> Personalize as cores e o visual do Dev Room.</li>
             <li><b>Player de Música:</b> Ouça músicas para relaxar ou focar durante o trabalho.</li>
             <li><b>Gerador de Dados:</b> Gere dados fake para testes de desenvolvimento.</li>
           </ul>
@@ -179,9 +179,9 @@
           <div class="mt-4 p-3 rounded bg-gray-800 border border-pink-500 flex flex-col gap-2 items-center text-center">
             <span class="font-bold text-pink-300 text-base">⭐ Projeto Open Source</span>
             <span class="text-xs text-gray-400">Acesse, contribua ou compartilhe:</span>
-            <a href="https://github.com/Lucas19Alves/CentralOS" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-project-github">
+            <a href="https://github.com/Lucas19Alves/dev-room" target="_blank" class="hover:underline text-pink-200 flex items-center gap-2 text-sm font-mono" id="config-doc-about-project-github">
               <font-awesome-icon icon="fa-brands fa-github" />
-              Repositório do CentralOS
+              Repositório do Dev Room
             </a>
           </div>
         </div>

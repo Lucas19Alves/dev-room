@@ -2,10 +2,12 @@
   <div class="p-4 h-full overflow-auto" id="github-features-main">
     <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
       <font-awesome-icon icon="fa-brands fa-github" class="text-gray-400 text-2xl" />
-      GitHub Features
+      GitHub
     </h2>
+    <p v-if="error" role="alert" class="mb-3">{{ error }}</p>
+    <p v-if="loading" role="status">Carregando repositório…</p>
     <div v-if="!githubToken">
-      <p>Faça login com o GitHub para acessar suas features.</p>
+      <p>Conecte sua conta pelo botão Entrar para acompanhar seus repositórios.</p>
     </div>
     <div v-else>
       <label class="block mb-2 font-semibold text-gray-300">Repositório:</label>
@@ -69,32 +71,46 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { Octokit } from '@octokit/rest'
-
-const githubToken = ref(localStorage.getItem('github_token') || '')
-const octokit = computed(() => githubToken.value ? new Octokit({ auth: githubToken.value }) : null)
-
+const props = defineProps({ token: { type: String, default: '' } })
+const githubToken = computed(() => props.token)
 const repos = ref([])
 const selectedRepo = ref('')
 const issues = ref([])
 const pullRequests = ref([])
 const commits = ref([])
-
-onMounted(async () => {
-  if (octokit.value) {
-    const { data } = await octokit.value.repos.listForAuthenticatedUser()
+const error = ref('')
+const loading = ref(false)
+let requestId = 0
+watch(githubToken, async token => {
+  requestId++
+  repos.value = []; selectedRepo.value = ''; issues.value = []; pullRequests.value = []; commits.value = []
+  if (!token) return
+  const id = requestId
+  try {
+    const data = await new Octokit({ auth: token }).paginate('GET /user/repos', { per_page: 100, sort: 'updated' })
+    if (id !== requestId) return
     repos.value = data
-    if (data.length) selectedRepo.value = data[0].full_name
-  }
-})
-
-watch(selectedRepo, async (repo) => {
-  if (repo && octokit.value) {
-    const [owner, repoName] = repo.split('/')
-    issues.value = (await octokit.value.issues.listForRepo({ owner, repo: repoName })).data
-    pullRequests.value = (await octokit.value.pulls.list({ owner, repo: repoName })).data
-    commits.value = (await octokit.value.repos.listCommits({ owner, repo: repoName, per_page: 10 })).data
-  }
+    selectedRepo.value = data[0]?.full_name || ''
+  } catch { if (id === requestId) error.value = 'Não foi possível carregar seus repositórios.' }
+}, { immediate: true })
+watch(selectedRepo, async fullName => {
+  const id = ++requestId
+  error.value = ''; issues.value = []; pullRequests.value = []; commits.value = []
+  if (!fullName || !githubToken.value) { loading.value = false; return }
+  loading.value = true
+  const [owner, repo] = fullName.split('/')
+  const client = new Octokit({ auth: githubToken.value })
+  try {
+    const results = await Promise.allSettled([
+      client.issues.listForRepo({ owner, repo }), client.pulls.list({ owner, repo }), client.repos.listCommits({ owner, repo, per_page: 10 })
+    ])
+    if (id !== requestId) return
+    issues.value = results[0].status === 'fulfilled' ? results[0].value.data.filter(issue => !issue.pull_request) : []
+    pullRequests.value = results[1].status === 'fulfilled' ? results[1].value.data : []
+    commits.value = results[2].status === 'fulfilled' ? results[2].value.data : []
+    if (results.some(r => r.status === 'rejected')) error.value = 'Algumas informações não puderam ser carregadas. O repositório pode estar vazio ou temporariamente indisponível.'
+  } finally { if (id === requestId) loading.value = false }
 })
 </script>

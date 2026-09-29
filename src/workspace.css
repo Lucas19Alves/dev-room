@@ -1,0 +1,80 @@
+/* Shared workspace shell. Tool-specific layouts stay in their own components. */
+.theme-default {
+  --desktop-bg: radial-gradient(ellipse at 90% 5%, #dce4fd 0, transparent 48%), linear-gradient(135deg, #f7f8fc, #edf0f8);
+  --accent: #3159df;
+  --accent-soft: #3159df14;
+  --name: #3159df;
+  --bg-panel: rgba(255,255,255,.92);
+  --text-main: #202c46;
+  --text-secondary: #536079;
+  --text-muted: #67748c;
+  --glass-border: #dde3ee;
+  --window-header: #f7f8fc;
+  --glass-shadow: 0 16px 55px #23315d12;
+}
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+button, [role=button], a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+:is(button, [role=button], a, input, select, textarea):focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+button:disabled { opacity: .55; cursor: wait; }
+#statusBar { min-height: 68px; padding: 12px 28px; box-shadow: none; border-bottom: 1px solid var(--glass-border); }
+#status-bar-brand { margin-right: 20px; letter-spacing: -.035em; }
+#status-bar-brand img { width: 34px; height: 34px; }
+#status-bar-brand span { font-size: 19px; }
+#status-bar-user { flex-wrap: wrap; }
+#status-bar-user h1 { font-size: 13px; }
+#status-bar-user { color: var(--text-main); }
+.account-status { font-size: 11px; color: var(--text-muted); border-left: 1px solid var(--glass-border); padding-left: 10px; margin-left: 6px; }
+#status-bar-clock { font-size: 12px; color: var(--text-secondary); }
+#support-btn, #pause-btn-desktop { box-shadow: none; border-width: 1px !important; font-weight: 500; padding: 7px 12px; font-size: 12px; }
+#support-btn { background: var(--accent-soft) !important; color: var(--accent) !important; border-color: transparent !important; }
+#roomContent { height: calc(100dvh - 68px); }
+.workspace-welcome { max-width: 830px; margin: 0 auto; padding: clamp(44px, 10vh, 108px) 30px 110px; color: var(--text-main); }
+.workspace-eyebrow { display: flex; gap: 8px; align-items: center; font-size: 10px; font-weight: 650; letter-spacing: .16em; color: var(--text-muted); }
+.workspace-eyebrow > span { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
+.workspace-welcome h1 { font-size: clamp(32px, 4vw, 52px); line-height: 1.15; font-weight: 650; letter-spacing: -.055em; margin: 20px 0; }
+.workspace-welcome h1 span { color: var(--accent); }
+.workspace-welcome > p { font-size: 14px; line-height: 1.8; color: var(--text-secondary); max-width: 480px; }
+.workspace-shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-top: 38px; }
+.workspace-shortcuts button { display: flex; align-items: center; gap: 16px; text-align: left; padding: 20px; border: 1px solid var(--glass-border); border-radius: 14px; background: var(--bg-panel); color: var(--text-main); transition: border-color .15s, transform .15s; cursor: pointer; }
+.workspace-shortcuts button:hover { border-color: var(--accent); transform: translateY(-2px); }
+.workspace-shortcuts svg { width: 20px; height: 20px; padding: 13px; box-sizing: content-box; border-radius: 12px; background: var(--accent-soft); color: var(--accent); }
+.workspace-shortcuts button > span { font-size: 13px; font-weight: 600; }
+.workspace-shortcuts small { display: block; font-size: 11px; font-weight: 400; color: var(--text-muted); margin-top: 5px; }
+.workspace-shortcuts .shortcut-arrow { margin-left: auto; font-size: 18px; color: var(--text-muted); }
+.workspace-footnote { margin-top: 28px; font-size: 11px; color: var(--text-muted); }
+#dock { border-radius: 18px !important; background: var(--bg-panel) !important; padding: 10px 12px !important; box-shadow: 0 12px 40px #23315d16 !important; max-width: calc(100vw - 24px); }
+#desktop-dock-icons { gap: 6px !important; }
+.dock-item { width: 40px !important; height: 42px !important; border-radius: 10px !important; }
+.dock-item-active { background: var(--accent-soft) !important; }
+.dock-item-icon { color: var(--text-secondary) !important; }
+.dock-item:hover .dock-item-icon, .dock-item-active .dock-item-icon { color: var(--accent) !important; }
+.window { border-radius: 16px !important; box-shadow: 0 20px 60px #1c2f541d !important; }
+.window-header { border-bottom: 1px solid var(--glass-border); }
+.window-content { background: var(--bg-panel); }
+.welcome-overlay { position: fixed; inset: 0; z-index: 20000; display: grid; place-items: center; padding: 24px; overflow-y: auto; background: radial-gradient(ellipse at 10% 10%, #e0e8ff, transparent 65%), #eef1f8; }
+.welcome-card { width: 100%; max-width: 440px; padding: 36px; border-radius: 24px; border: 1px solid #dde4ef; background: #fff; box-shadow: 0 20px 80px #23315d12; color: #202c46; }
+.welcome-card .workspace-eyebrow { margin-top: 26px; font-size: 9px; }
+.welcome-card h1 { font-size: 38px; font-weight: 650; letter-spacing: -.05em; line-height: 1.15; margin: 12px 0 18px; }
+.welcome-card p { color: #536079; font-size: 13px; line-height: 1.7; }
+.welcome-card form { margin-top: 26px; }
+.welcome-card label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 8px; }
+.welcome-card input { display: block; width: 100%; color: #202c46; border: 1px solid #dce2ef; background: #f8f9fc; border-radius: 10px; padding: 12px 14px; font-size: 13px; }
+.welcome-card button { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; font-size: 13px; font-weight: 600; padding: 13px 16px; border-radius: 10px; cursor: pointer; }
+.welcome-card .welcome-primary { background: #3159df; color: white; margin-top: 14px; }
+.welcome-primary span { margin-left: auto; }
+.welcome-card .welcome-github { border: 1px solid #dce2ef; color: #202c46; margin-top: 10px; background: white; }
+.welcome-card small { display: block; color: #67748c; font-size: 10px; line-height: 1.7; text-align: center; margin-top: 20px; }
+.account-notice { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 21000; width: min(520px, calc(100% - 32px)); background: var(--bg-panel, #fff); color: var(--text-main, #202c46); border: 1px solid var(--glass-border, #dde3ee); border-radius: 14px; box-shadow: 0 12px 40px #23315d20; padding: 16px 18px; display: flex; gap: 20px; font-size: 13px; line-height: 1.5; }
+.account-notice button { margin-left: auto; font-size: 22px; cursor: pointer; }
+#mobile-main { height: calc(100dvh - 64px); }
+#mobile-topbar { height: 64px; box-shadow: none; border-color: var(--glass-border) !important; }
+#mobile-menu-open-btn { color: white !important; box-shadow: none !important; border-width: 1px !important; }
+#mobile-dock-support-btn { color: var(--accent) !important; background: var(--accent-soft) !important; border-color: transparent !important; box-shadow: none !important; font-size: 12px !important; }
+#mobile-menu-tabs .font-bold { color: white !important; }
+:is(#mobile-content, .window-content) :is(#todo-add-btn, #deploy-add-btn) { background: var(--accent) !important; color: white !important; }
+#mobile-menu { background: var(--bg-panel) !important; backdrop-filter: blur(24px); }
+#mobile-content { padding-bottom: env(safe-area-inset-bottom); }
+@media (max-width: 900px) { .account-status { display: none; } #statusBar { padding-inline: 16px; } #status-bar-brand { margin-right: 6px; } }
+@media (max-height: 750px) { .workspace-welcome { padding-top: 38px; } .workspace-welcome h1 { font-size: 38px; } .workspace-shortcuts { margin-top: 22px; } .workspace-shortcuts button { padding: 14px; } }
+@media (max-width: 520px) { .welcome-card { padding: 26px; } .welcome-card h1 { font-size: 33px; } .welcome-overlay { padding: 16px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

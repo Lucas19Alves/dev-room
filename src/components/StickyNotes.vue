@@ -76,6 +76,7 @@ let offsetX = 0
 let offsetY = 0
 
 function startDrag(note, event) {
+  if (event.target.closest('textarea, button, input')) return
   draggingNote = note
   offsetX = event.clientX - note.x
   offsetY = event.clientY - note.y
@@ -111,6 +112,7 @@ onMounted(() => {
   window.addEventListener('storage', syncFromStorage)
 })
 onUnmounted(() => {
+  stopDrag()
   window.removeEventListener('storage', syncFromStorage)
 })
 

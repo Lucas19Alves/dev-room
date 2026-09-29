@@ -9,12 +9,14 @@ async function createOctokit(githubToken) {
 // Garante que o repositório existe, senão cria
 export async function ensureRepo(octokit, userLogin) {
   try {
-    await octokit.repos.get({ owner: userLogin, repo: REPO_NAME })
-  } catch {
+    const { data } = await octokit.repos.get({ owner: userLogin, repo: REPO_NAME })
+    if (!data.private) throw new Error('O repositório dev-room-data precisa ser privado para sincronizar seus dados.')
+  } catch (error) {
+    if (error.status !== 404) throw error
     await octokit.repos.createForAuthenticatedUser({
       name: REPO_NAME,
       private: true,
-      description: 'Backup dos dados do CentralOS'
+      description: 'Backup dos dados do Dev Room'
     })
   }
 }
@@ -27,7 +29,7 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
   // Parse local data e atualize lastModified
   let parsed
   try { parsed = JSON.parse(data) } catch { parsed = {} }
-  parsed.lastModified = Date.now()
+  parsed.lastModified = Number(parsed.lastModified || 0)
   data = JSON.stringify(parsed)
 
   // 1. Sempre busque o remoto antes de salvar
@@ -57,7 +59,7 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
       owner: userLogin,
       repo: REPO_NAME,
       path: FILE_PATH,
-      message: 'Atualizando dados do CentralOS',
+      message: 'Atualizando dados do Dev Room',
       content: btoa(unescape(encodeURIComponent(data))),
       sha
     })
@@ -82,7 +84,7 @@ export async function saveDataToRepo(githubToken, userLogin, data) {
         owner: userLogin,
         repo: REPO_NAME,
         path: FILE_PATH,
-        message: 'Atualizando dados do CentralOS',
+        message: 'Atualizando dados do Dev Room',
         content: btoa(unescape(encodeURIComponent(data))),
         sha: fileData.sha
       })

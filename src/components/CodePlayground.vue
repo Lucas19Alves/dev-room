@@ -25,7 +25,7 @@ import { ref } from 'vue'
 import { useAppStorage } from '../composables/useAppStorage'
 
 const { state: playground } = useAppStorage('codePlayground', {
-  html: '<main>\n  <h1>Olá, CentralOS!</h1>\n  <button id="hello">Clique aqui</button>\n</main>',
+  html: '<main>\n  <h1>Olá, Dev Room!</h1>\n  <button id="hello">Clique aqui</button>\n</main>',
   css: 'body { font-family: system-ui; padding: 2rem; }\nh1 { color: #0a84ff; }',
   js: "document.querySelector('#hello').onclick = () => alert('Funcionou!')"
 })

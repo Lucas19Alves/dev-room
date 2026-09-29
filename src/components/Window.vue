@@ -24,7 +24,6 @@
         background: 'var(--window-header)',
         color: 'var(--text-main)'
       }"
-      id="window-header"
     >
       <span class="font-semibold window-title text-sm" id="window-title">{{ title }}</span>
       <div class="flex items-center gap-0.5 ml-2 window-actions" id="window-actions">
@@ -115,6 +114,8 @@ let windowInteractable = null
 
 watch(() => props.x, val => (pos.value.x = val))
 watch(() => props.y, val => (pos.value.y = val))
+watch(() => props.width, val => (size.value.width = val))
+watch(() => props.height, val => (size.value.height = val))
 
 function bringToFront() {
   emit('bringToFront')

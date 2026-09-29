@@ -1,43 +1,38 @@
-# CentralOS
+# Dev Room
 
-Um ambiente de produtividade para desenvolvedores, inspirado em um "desktop virtual", feito em Vue 3 + Vite.  
-Tenha tudo o que precisa para organizar seu dia de trabalho em um só lugar: notas rápidas, checklist de deploy, snippets de código, player de música lo-fi, Pomodoro, temas customizáveis, integração com IA e muito mais!
+Um desktop de produtividade para desenvolvedores, feito com Vue 3 e Vite. Reúne tarefas, Kanban, notas, snippets, timers, Pomodoro, música, checklist de deploy, playground e ferramentas do GitHub.
 
-<img width="1713" height="941" alt="centralos" src="https://github.com/user-attachments/assets/5dd813d7-bfe4-455b-9bda-78a9af351f70" />
+[Usar o Dev Room](https://dev-room-three.vercel.app/) · [Repositório](https://github.com/Lucas19Alves/dev-room)
 
-## ⚡ Funcionalidades
+## Desenvolvimento
 
-- **Janelas flutuantes:** Abra, mova, redimensione e feche apps como em um desktop.
-- **Notas rápidas:** Sticky notes coláveis e editáveis.
-- **To-Do List:** Gerencie suas tarefas do dia.
-- **Checklist de Deploy:** Não esqueça nenhum passo antes de publicar!
-- **Snippets de Código:** Salve, edite, pesquise e copie trechos de código com syntax highlight.
-- **Player de Música Lo-Fi:** Playlist relaxante para foco, com controles completos.
-- **Pomodoro:** Timer para ciclos de foco e pausa.
-- **Timer:** Cronômetro simples para medir tempo de atividades.
-- **Lembrete de Água:** Defina intervalos para ser lembrado de beber água.
-- **Busca:** Pesquise rapidamente entre suas notas, tarefas e códigos.
-- **Temas:** Vários temas escuros e claros, totalmente customizáveis.
-- **Persistência:** Tudo salvo automaticamente no localStorage e/ou GitHub.
-- **Barra de status e dock:** Acesso rápido a todos os apps.
-- **ChatGPT (API):** Converse com a IA usando sua própria chave da OpenAI.
+```sh
+npm ci
+npm run dev
+npm test
+npm run build
+```
 
-## 🖥️ Acesse em
+O Vite serve a interface e as rotas OAuth em desenvolvimento. Para testar o login, copie `.env.example` para `.env.local` e configure seu OAuth App. O callback e `GITHUB_REDIRECT_URI` devem corresponder exatamente à origem utilizada.
 
-[CentralOS](https://centralos-main.vercel.app/)
+## Login GitHub na Vercel
 
-[Repositório no GitHub](https://github.com/Lucas19Alves/CentralOS)
+Configure em Production:
 
+- `GITHUB_CLIENT_ID`: Client ID do OAuth App Dev Room.
+- `GITHUB_CLIENT_SECRET`: client secret, armazenado como Secret, sem prefixo VITE.
+- `GITHUB_REDIRECT_URI`: `https://dev-room-three.vercel.app/` (padrão se omitido).
 
-## 🛠️ Tecnologias
+No GitHub, registre a mesma URL em Redirect URIs. Faça um novo deployment após alterar as variáveis.
 
-- [Vue 3](https://vuejs.org/)
-- [Vite](https://vitejs.dev/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [highlight.js](https://highlightjs.org/) (para snippets)
-- [Font Awesome](https://fontawesome.com/) (ícones)
+A autorização usa state de uso único e PKCE S256; a troca do código ocorre no servidor. O token de usuário permanece na sessão da aba, nunca em armazenamento local persistente. Fechar a aba encerra essa sessão; Sair remove o token sem apagar os dados locais. A autorização solicita `repo` porque o backup precisa criar e atualizar um repositório privado. O secret do aplicativo nunca é enviado à interface.
 
+## Persistência e backup
 
----
+As ferramentas salvam no navegador. Com uma conta conectada, o backup usa `dev-room-data/dev-room-data.json` no GitHub, somente em repositório privado. Uma sincronização por vez compara a data das alterações; a versão mais recente vence. Falhas preservam os dados locais e são repetidas. Alterações simultâneas em dispositivos diferentes não são mescladas campo a campo.
 
-Feito com 💙 para devs que gostam de produtividade e organização!
+As chaves antigas de armazenamento foram preservadas para manter os dados existentes. O estado da conta fica em `src/composables/useGitHubAccount.js`, o OAuth em `src/utils/oauth.js`, a persistência em `src/utils/storage.js` e a recuperação de janelas em `src/utils/windowState.js`.
+
+## Validação
+
+`npm test` cobre OAuth/PKCE, rejeição de callbacks inválidos, timestamps de persistência, repos privados e recuperação de janelas corrompidas ou fora da tela. Os testes de autenticação usam respostas simuladas e não criam credenciais nem repositórios reais.

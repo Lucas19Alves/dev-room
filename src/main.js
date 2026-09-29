@@ -37,6 +37,7 @@
 
 import { createApp } from 'vue'
 import './style.css'
+import './workspace.css'
 import App from './App.vue'
 import { library } from '@fortawesome/fontawesome-svg-core'
 import {
