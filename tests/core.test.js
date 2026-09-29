@@ -73,12 +73,14 @@ test('Callback handles successful exchange and GitHub refusal without leaking se
   const originalFetch = globalThis.fetch
   const oldId = process.env.GITHUB_CLIENT_ID
   const oldSecret = process.env.GITHUB_CLIENT_SECRET
-  process.env.GITHUB_CLIENT_ID = 'test-client'
-  process.env.GITHUB_CLIENT_SECRET = 'test-secret'
+  process.env.GITHUB_CLIENT_ID = ' test-client\n'
+  process.env.GITHUB_CLIENT_SECRET = ' test-secret\n'
   try {
     globalThis.fetch = async (_url, options) => {
       const body = JSON.parse(options.body)
       assert.equal(body.code_verifier, 'a'.repeat(64))
+      assert.equal(body.client_id, 'test-client')
+      assert.equal(body.client_secret, 'test-secret')
       return { ok: true, json: async () => ({ access_token: 'test-token', scope: 'repo' }) }
     }
     const req = { method: 'POST', body: { code: 'test-code', verifier: 'a'.repeat(64), redirectUri: 'https://dev-room-three.vercel.app/' } }
@@ -89,6 +91,12 @@ test('Callback handles successful exchange and GitHub refusal without leaking se
     const failure = response()
     await callback(req, failure)
     assert.equal(failure.statusCode, 401)
+    assert.equal(failure.body.errorCode, 'bad_verification_code')
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ error: 'incorrect_client_credentials', error_description: 'sensitive upstream data' }) })
+    const invalidCredentials = response()
+    await callback(req, invalidCredentials)
+    assert.equal(invalidCredentials.body.errorCode, 'incorrect_client_credentials')
+    assert.equal(JSON.stringify(invalidCredentials.body).includes('sensitive upstream data'), false)
     const configured = response()
     config({ method: 'GET' }, configured)
     assert.equal(configured.body.clientId, 'test-client')

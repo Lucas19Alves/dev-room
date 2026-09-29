@@ -116,7 +116,7 @@ export function useGitHubAccount({ onUser, onRemote, onLogin }) {
     } finally {
       authBusy.value = false
       if (hasCallback) {
-        for (const key of ['code', 'state', 'error', 'error_description', 'error_uri']) params.delete(key)
+        for (const key of ['code', 'state', 'iss', 'error', 'error_description', 'error_uri']) params.delete(key)
         window.history.replaceState({}, '', `${window.location.pathname}${params.size ? `?${params}` : ''}${window.location.hash}`)
       }
       if (!disposed) interval = window.setInterval(synchronize, 30000)
