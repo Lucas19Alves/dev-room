@@ -451,7 +451,7 @@ function deactivatePauseMode() {
 // Conta e backup ficam separados da gestão do desktop.
 const { githubToken, githubUserLogin, isSyncing, authBusy, accountError, syncStatus,
   loginWithGitHub, logoutGitHub, initializeGithub, synchronize } = useGitHubAccount({
-  onUser: name => { if (!userName.value) setNome(name) },
+  onUser: name => setNome(name),
   onRemote: applyRemoteData,
   onLogin: endOnboarding
 })
