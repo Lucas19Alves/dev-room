@@ -9,7 +9,7 @@ export const tools = [
   { type: 'GithubFeatures', label: 'GitHub', icon: 'fa-brands fa-github' },
   { type: 'DeployChecklist', label: 'Checklist de Deploy', icon: 'fa-solid fa-rocket' },
   { type: 'Pomodoro', label: 'Pomodoro', icon: 'fa-solid fa-clock' },
-  { type: 'ChatGPTApi', label: 'IA (ChatGPT)', icon: 'fa-solid fa-robot' },
+  { type: 'ChatGPTApi', label: 'Assistente IA', icon: 'fa-solid fa-robot' },
   { type: 'Search', label: 'Busca', icon: 'fa-solid fa-magnifying-glass' },
   { type: 'WaterReminder', label: 'Lembrete de Água', icon: 'fa-solid fa-droplet' },
   { type: 'FakeDataGenerator', label: 'Gerador de Dados', icon: 'fa-solid fa-database' },

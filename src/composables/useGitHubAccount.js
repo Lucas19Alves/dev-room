@@ -1,7 +1,13 @@
-import { ref, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { createOAuthRequest, consumeOAuthRequest } from '../utils/oauth'
-import { getDevRoomData, setDevRoomData } from '../utils/storage'
-import { loadDataFromRepo, saveDataToRepo } from '../utils/githubSync'
+import { CHANGE_EVENT, LOCAL_ONLY_KEYS } from '../utils/storage'
+import { createGitHubClient, getUser } from '../utils/githubSync'
+import { syncWithGitHub, flushToGitHub, hasPendingChanges, loadSyncState } from '../utils/syncEngine'
+
+const POLL_INTERVAL = 60000
+const PUSH_DELAY = 2500
+const PUSH_MAX_WAIT = 15000
+const MAX_BACKOFF = 300000
 
 export function useGitHubAccount({ onUser, onRemote, onLogin }) {
   const githubToken = ref(sessionStorage.getItem('github_token') || localStorage.getItem('github_token') || '')
@@ -11,20 +17,49 @@ export function useGitHubAccount({ onUser, onRemote, onLogin }) {
   const isSyncing = ref(false)
   const authBusy = ref(false)
   const accountError = ref('')
-  const syncStatus = ref('Salvo neste navegador')
-  let lastUploaded = ''
-  let interval
+  const syncState = ref('local') // local | pending | syncing | synced | offline | error
+  const lastSyncedAt = ref(0)
+  const syncStatus = computed(() => ({
+    local: 'Salvo neste navegador',
+    pending: 'Alterações pendentes',
+    syncing: 'Sincronizando…',
+    synced: 'Sincronizado',
+    offline: 'Offline — salvo localmente',
+    error: 'Backup pendente'
+  })[syncState.value])
+
+  let api = null
+  let session = {}
+  let pollTimer = 0
+  let pushTimer = 0
+  let retryTimer = 0
+  let firstPendingAt = 0
+  let retryAt = 0
+  let failures = 0
+  let rerun = false
   let disposed = false
   let generation = 0
 
-  function logoutGitHub() {
+  const connected = () => Boolean(githubToken.value && githubUserLogin.value && api)
+
+  function resetSession() {
     generation++
+    api = null
+    session = {}
+    clearTimeout(pushTimer)
+    clearTimeout(retryTimer)
+    firstPendingAt = 0
+    failures = 0
+    retryAt = 0
+  }
+
+  function logoutGitHub() {
+    resetSession()
     githubToken.value = ''
     githubUserLogin.value = ''
     sessionStorage.removeItem('github_token')
     localStorage.removeItem('github_token')
-    lastUploaded = ''
-    syncStatus.value = 'Salvo neste navegador'
+    syncState.value = 'local'
   }
 
   async function loginWithGitHub() {
@@ -43,44 +78,74 @@ export function useGitHubAccount({ onUser, onRemote, onLogin }) {
     }
   }
 
-  async function synchronize() {
-    if (!githubToken.value || !githubUserLogin.value || isSyncing.value || document.hidden) return
+  async function synchronize({ force = false } = {}) {
+    if (!connected() || disposed) return
+    if (isSyncing.value) { rerun = true; return }
+    if (!navigator.onLine) { syncState.value = 'offline'; return }
+    if (!force && Date.now() < retryAt) return
+    clearTimeout(pushTimer)
+    firstPendingAt = 0
     isSyncing.value = true
+    syncState.value = 'syncing'
     const currentGeneration = generation
-    const token = githubToken.value
-    const login = githubUserLogin.value
     try {
-      const content = await loadDataFromRepo(token, login)
-      if (disposed || currentGeneration !== generation) return
-      const remote = JSON.parse(content || '{}')
-      if (!remote || typeof remote !== 'object' || Array.isArray(remote)) throw new Error('Backup inválido no GitHub.')
-      const local = getDevRoomData()
-      if (Number(remote.lastModified || 0) > Number(local.lastModified || 0)) {
-        setDevRoomData(remote, { remote: true })
-        await onRemote(remote)
-        lastUploaded = localStorage.getItem('dev-room-data') || '{}'
-      } else {
-        const snapshot = localStorage.getItem('dev-room-data') || '{}'
-        if (snapshot !== lastUploaded) {
-          const saved = await saveDataToRepo(token, login, snapshot)
-          if (saved && currentGeneration === generation) lastUploaded = snapshot
-          else if (!saved) throw new Error('Há uma versão mais recente no GitHub. A sincronização será repetida.')
-        }
-      }
-      if (currentGeneration === generation) {
-        syncStatus.value = 'Sincronizado com GitHub'
-        accountError.value = ''
-      }
+      await syncWithGitHub(api, githubUserLogin.value, { applyRemote: onRemote, session })
+      if (currentGeneration !== generation || disposed) return
+      failures = 0
+      retryAt = 0
+      accountError.value = ''
+      lastSyncedAt.value = Date.now()
+      syncState.value = hasPendingChanges(githubUserLogin.value) ? 'pending' : 'synced'
     } catch (error) {
       if (currentGeneration !== generation || disposed) return
       if (error.status === 401) {
         logoutGitHub()
         accountError.value = 'Sua sessão expirou. Entre novamente com GitHub.'
-      } else {
-        syncStatus.value = 'Backup pendente'
-        accountError.value = error.message || 'Falha na sincronização. Seus dados continuam salvos neste navegador.'
+        return
       }
-    } finally { isSyncing.value = false }
+      failures++
+      retryAt = Date.now() + (error.retryAfter || Math.min(MAX_BACKOFF, 5000 * 2 ** (failures - 1)))
+      syncState.value = navigator.onLine ? 'error' : 'offline'
+      if (failures === 1 || error.retryAfter || failures % 4 === 0) accountError.value = error.message || 'Falha na sincronização. Seus dados continuam salvos neste navegador.'
+      clearTimeout(retryTimer)
+      retryTimer = window.setTimeout(() => synchronize(), retryAt - Date.now())
+    } finally {
+      if (currentGeneration === generation) isSyncing.value = false
+      if (rerun && !disposed && currentGeneration === generation) {
+        rerun = false
+        schedulePush()
+      }
+    }
+  }
+
+  // Agrupa alterações seguidas em uma única gravação, com espera máxima.
+  function schedulePush() {
+    if (!connected()) return
+    syncState.value = isSyncing.value ? 'syncing' : 'pending'
+    const now = Date.now()
+    firstPendingAt ||= now
+    clearTimeout(pushTimer)
+    pushTimer = window.setTimeout(() => synchronize(), Math.max(0, Math.min(PUSH_DELAY, firstPendingAt + PUSH_MAX_WAIT - now)))
+  }
+
+  function handleLocalChange(event) {
+    const keys = event.detail?.keys || []
+    if (keys.some(key => !LOCAL_ONLY_KEYS.has(key))) schedulePush()
+  }
+
+  function handleVisibility() {
+    if (!connected()) return
+    if (document.visibilityState === 'hidden') {
+      if (hasPendingChanges(githubUserLogin.value)) flushToGitHub(api, githubUserLogin.value)
+    } else synchronize()
+  }
+
+  function handleOnline() { if (connected()) synchronize({ force: true }) }
+  function handleOffline() { if (connected()) syncState.value = 'offline' }
+
+  function startSyncLoop() {
+    clearInterval(pollTimer)
+    pollTimer = window.setInterval(() => { if (document.visibilityState === 'visible') synchronize() }, POLL_INTERVAL)
   }
 
   async function initializeGithub() {
@@ -102,12 +167,15 @@ export function useGitHubAccount({ onUser, onRemote, onLogin }) {
         sessionStorage.setItem('github_token', data.access_token)
       }
       if (githubToken.value) {
-        const { Octokit } = await import('@octokit/rest')
-        const { data } = await new Octokit({ auth: githubToken.value }).users.getAuthenticated()
+        const client = createGitHubClient(githubToken.value)
+        const user = await getUser(client)
         if (disposed) return
-        githubUserLogin.value = data.login
-        await synchronize()
-        onUser(data.name || data.login)
+        resetSession()
+        api = client
+        githubUserLogin.value = user.login
+        lastSyncedAt.value = loadSyncState(user.login).syncedAt || 0
+        await synchronize({ force: true })
+        onUser(user.name || user.login)
         onLogin()
       }
     } catch (error) {
@@ -119,9 +187,28 @@ export function useGitHubAccount({ onUser, onRemote, onLogin }) {
         for (const key of ['code', 'state', 'iss', 'error', 'error_description', 'error_uri']) params.delete(key)
         window.history.replaceState({}, '', `${window.location.pathname}${params.size ? `?${params}` : ''}${window.location.hash}`)
       }
-      if (!disposed) interval = window.setInterval(synchronize, 30000)
+      if (!disposed) startSyncLoop()
     }
   }
-  onUnmounted(() => { disposed = true; clearInterval(interval) })
-  return { githubToken, githubUserLogin, isSyncing, authBusy, accountError, syncStatus, loginWithGitHub, logoutGitHub, initializeGithub, synchronize }
+
+  window.addEventListener(CHANGE_EVENT, handleLocalChange)
+  document.addEventListener('visibilitychange', handleVisibility)
+  window.addEventListener('online', handleOnline)
+  window.addEventListener('offline', handleOffline)
+
+  onUnmounted(() => {
+    disposed = true
+    clearInterval(pollTimer)
+    clearTimeout(pushTimer)
+    clearTimeout(retryTimer)
+    window.removeEventListener(CHANGE_EVENT, handleLocalChange)
+    document.removeEventListener('visibilitychange', handleVisibility)
+    window.removeEventListener('online', handleOnline)
+    window.removeEventListener('offline', handleOffline)
+  })
+
+  return {
+    githubToken, githubUserLogin, isSyncing, authBusy, accountError, syncStatus, syncState, lastSyncedAt,
+    loginWithGitHub, logoutGitHub, initializeGithub, synchronize: () => synchronize({ force: true })
+  }
 }

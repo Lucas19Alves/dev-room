@@ -23,7 +23,17 @@ button:disabled { opacity: .55; cursor: wait; }
 #status-bar-user { flex-wrap: wrap; }
 #status-bar-user h1 { font-size: 13px; }
 #status-bar-user { color: var(--text-main); }
-.account-status { font-size: 11px; color: var(--text-muted); border-left: 1px solid var(--glass-border); padding-left: 10px; margin-left: 6px; }
+.account-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); border: 1px solid var(--glass-border); border-radius: 999px; padding: 3px 10px; margin-left: 6px; background: var(--bg-panel-secondary); white-space: nowrap; transition: color .15s, border-color .15s; }
+button.account-status { cursor: pointer; }
+button.account-status:hover:not(:disabled) { color: var(--text-main); border-color: var(--accent); }
+button.account-status:disabled { cursor: progress; }
+.account-status-mobile { margin-left: 0; align-self: flex-start; font-size: 12px; padding: 5px 12px; }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); flex: none; }
+.sync-synced .sync-dot { background: #30d158; }
+.sync-pending .sync-dot { background: #ffbd2e; }
+.sync-syncing .sync-dot { background: var(--accent); animation: sync-pulse 1s ease-in-out infinite; }
+.sync-error .sync-dot, .sync-offline .sync-dot { background: #ff5f57; }
+@keyframes sync-pulse { 50% { opacity: .3; transform: scale(.7); } }
 #status-bar-clock { font-size: 12px; color: var(--text-secondary); }
 #support-btn, #pause-btn-desktop { box-shadow: none; border-width: 1px !important; font-weight: 500; padding: 7px 12px; font-size: 12px; }
 #support-btn { background: var(--accent-soft) !important; color: var(--accent) !important; border-color: transparent !important; }
@@ -74,7 +84,21 @@ button:disabled { opacity: .55; cursor: wait; }
 :is(#mobile-content, .window-content) :is(#todo-add-btn, #deploy-add-btn) { background: var(--accent) !important; color: white !important; }
 #mobile-menu { background: var(--bg-panel) !important; backdrop-filter: blur(24px); }
 #mobile-content { padding-bottom: env(safe-area-inset-bottom); }
-@media (max-width: 900px) { .account-status { display: none; } #statusBar { padding-inline: 16px; } #status-bar-brand { margin-right: 6px; } }
+.launcher-trigger { display: inline-flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-radius: 999px; font-size: 12px; color: var(--text-secondary); background: var(--bg-panel-secondary); border: 1px solid var(--glass-border); cursor: pointer; transition: border-color .15s, color .15s; }
+.launcher-trigger:hover { color: var(--text-main); border-color: var(--accent); }
+.launcher-trigger kbd, .launcher-search kbd { font: 600 10px/1 inherit; padding: 4px 6px; border-radius: 6px; background: var(--surface-soft); border: 1px solid var(--glass-border); color: var(--text-muted); }
+.launcher-overlay { position: fixed; inset: 0; z-index: 20000; background: rgba(10, 14, 24, .35); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; }
+.launcher { width: min(560px, 100%); background: var(--surface-strong); color: var(--text-main); border: 1px solid var(--glass-border); border-radius: 18px; box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); overflow: hidden; }
+.launcher-search { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--glass-border); color: var(--text-muted); }
+.launcher-search input { flex: 1; background: transparent !important; border: 0 !important; box-shadow: none !important; outline: none; font-size: 15px; color: var(--text-main); }
+.launcher-list { max-height: min(420px, 60vh); overflow-y: auto; padding: 6px; }
+.launcher-list button { width: 100%; transform: none !important; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; font-size: 14px; text-align: left; color: var(--text-main); cursor: pointer; }
+.launcher-list button svg { width: 18px; color: var(--accent); }
+.launcher-list button.active { background: var(--accent-soft); }
+.launcher-list small { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+.launcher-empty { padding: 16px; text-align: center; font-size: 13px; color: var(--text-muted); }
+@media (max-width: 1100px) { .launcher-trigger span, .launcher-trigger kbd { display: none; } .launcher-trigger { padding: 7px 10px; } }
+@media (max-width: 900px) { .account-status:not(.account-status-mobile) { display: none; } #statusBar { padding-inline: 16px; } #status-bar-brand { margin-right: 6px; } }
 @media (max-height: 750px) { .workspace-welcome { padding-top: 38px; } .workspace-welcome h1 { font-size: 38px; } .workspace-shortcuts { margin-top: 22px; } .workspace-shortcuts button { padding: 14px; } }
 @media (max-width: 520px) { .welcome-card { padding: 26px; } .welcome-card h1 { font-size: 33px; } .welcome-overlay { padding: 16px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

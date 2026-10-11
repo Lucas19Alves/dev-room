@@ -1,114 +1,102 @@
-const REPO_NAME = 'dev-room-data'
-const FILE_PATH = 'dev-room-data.json'
+// Backup no GitHub via REST, sem SDK: requisições condicionais (ETag) tornam a
+// verificação periódica gratuita no limite de taxa, e o `sha` conhecido permite
+// gravar com uma única chamada.
+export const REPO_NAME = 'dev-room-data'
+export const FILE_PATH = 'dev-room-data.json'
+const API = 'https://api.github.com'
 
-async function createOctokit(githubToken) {
-  const { Octokit } = await import('@octokit/rest')
-  return new Octokit({ auth: githubToken })
+export class GitHubError extends Error {
+  constructor(status, message, retryAfter = 0) {
+    super(message)
+    this.status = status
+    this.retryAfter = retryAfter
+  }
 }
 
-// Garante que o repositório existe, senão cria
-export async function ensureRepo(octokit, userLogin) {
+function retryDelay(response) {
+  const retry = Number(response.headers.get('retry-after'))
+  if (retry > 0) return retry * 1000
+  const reset = Number(response.headers.get('x-ratelimit-reset'))
+  if (response.headers.get('x-ratelimit-remaining') === '0' && reset) return Math.max(0, reset * 1000 - Date.now())
+  return 0
+}
+
+export function createGitHubClient(token, fetcher = (...args) => globalThis.fetch(...args)) {
+  return async function request(method, path, { body, etag, raw = false, keepalive = false } = {}) {
+    const headers = {
+      Accept: raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json',
+      Authorization: `Bearer ${token}`,
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+    if (etag) headers['If-None-Match'] = etag
+    if (body) headers['Content-Type'] = 'application/json'
+    const response = await fetcher(`${API}${path}`, {
+      method, headers, cache: 'no-store', keepalive,
+      body: body ? JSON.stringify(body) : undefined
+    })
+    if (response.status === 304) return { status: 304, etag }
+    const text = await response.text()
+    let data = text
+    if (!raw) { try { data = text ? JSON.parse(text) : null } catch { data = null } }
+    if (!response.ok) {
+      const limited = (response.status === 403 || response.status === 429) && (retryDelay(response) || /rate limit/i.test(data?.message || ''))
+      throw new GitHubError(response.status, limited ? 'Limite de uso do GitHub atingido. O backup será retomado em instantes.' : (data?.message || `GitHub respondeu ${response.status}.`), limited ? retryDelay(response) || 60000 : 0)
+    }
+    return { status: response.status, data, etag: response.headers.get('etag') || '' }
+  }
+}
+
+export function encodeBase64(text) {
+  const bytes = new TextEncoder().encode(text)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(binary)
+}
+
+export function decodeBase64(base64) {
+  const binary = atob(base64.replace(/\s/g, ''))
+  return new TextDecoder().decode(Uint8Array.from(binary, char => char.charCodeAt(0)))
+}
+
+export async function getUser(api) {
+  return (await api('GET', '/user')).data
+}
+
+// Garante um repositório privado; nunca cria após erros de permissão.
+export async function ensureRepo(api, login) {
   try {
-    const { data } = await octokit.repos.get({ owner: userLogin, repo: REPO_NAME })
+    const { data } = await api('GET', `/repos/${login}/${REPO_NAME}`)
     if (!data.private) throw new Error('O repositório dev-room-data precisa ser privado para sincronizar seus dados.')
   } catch (error) {
     if (error.status !== 404) throw error
-    await octokit.repos.createForAuthenticatedUser({
-      name: REPO_NAME,
-      private: true,
-      description: 'Backup dos dados do Dev Room'
-    })
+    await api('POST', '/user/repos', { body: { name: REPO_NAME, private: true, auto_init: false, description: 'Backup dos dados do Dev Room' } })
   }
 }
 
-// Salva os dados no repositório do usuário
-export async function saveDataToRepo(githubToken, userLogin, data) {
-  const octokit = await createOctokit(githubToken)
-  await ensureRepo(octokit, userLogin)
-
-  // Parse local data e atualize lastModified
-  let parsed
-  try { parsed = JSON.parse(data) } catch { parsed = {} }
-  parsed.lastModified = Number(parsed.lastModified || 0)
-  data = JSON.stringify(parsed)
-
-  // 1. Sempre busque o remoto antes de salvar
-  let sha, remoteLastModified = 0, remoteContent = '{}'
+// Lê o backup. `notModified` indica que nada mudou desde o ETag informado.
+export async function readBackup(api, login, etag) {
+  const path = `/repos/${login}/${REPO_NAME}/contents/${FILE_PATH}`
   try {
-    const { data: fileData } = await octokit.repos.getContent({
-      owner: userLogin,
-      repo: REPO_NAME,
-      path: FILE_PATH
-    })
-    sha = fileData.sha
-    remoteContent = decodeURIComponent(escape(atob(fileData.content)))
-    try { remoteLastModified = JSON.parse(remoteContent).lastModified || 0 } catch {}
-  } catch (err) {
-    if (err.status !== 404) throw err
-  }
-
-  // 2. Se o remoto for mais novo, use ele como base (last-write-wins)
-  if (remoteLastModified > parsed.lastModified) {
-    // Opcional: merge inteligente aqui, se quiser
-    return false // Não salva, pois o remoto é mais novo
-  }
-
-  // 3. Tente salvar normalmente
-  try {
-    await octokit.repos.createOrUpdateFileContents({
-      owner: userLogin,
-      repo: REPO_NAME,
-      path: FILE_PATH,
-      message: 'Atualizando dados do Dev Room',
-      content: btoa(unescape(encodeURIComponent(data))),
-      sha
-    })
-    return true
-  } catch (err) {
-    // 4. Se der 409, busque o remoto de novo, faça merge e tente salvar
-    if (err.status === 409) {
-      const { data: fileData } = await octokit.repos.getContent({
-        owner: userLogin,
-        repo: REPO_NAME,
-        path: FILE_PATH
-      })
-      const remoteContent = decodeURIComponent(escape(atob(fileData.content)))
-      let remoteParsed
-      try { remoteParsed = JSON.parse(remoteContent) } catch { remoteParsed = {} }
-      // Merge: sempre vence o lastModified mais recente
-      if ((remoteParsed.lastModified || 0) > parsed.lastModified) {
-        // Opcional: merge mais avançado aqui
-        return false
-      }
-      await octokit.repos.createOrUpdateFileContents({
-        owner: userLogin,
-        repo: REPO_NAME,
-        path: FILE_PATH,
-        message: 'Atualizando dados do Dev Room',
-        content: btoa(unescape(encodeURIComponent(data))),
-        sha: fileData.sha
-      })
-      return true
-    } else {
-      throw err
-    }
+    const response = await api('GET', path, { etag })
+    if (response.status === 304) return { notModified: true, etag }
+    const file = response.data
+    // Acima de 1 MB a API não inclui o conteúdo; busca a versão bruta.
+    const text = file.encoding === 'base64' && file.content ? decodeBase64(file.content) : (await api('GET', path, { raw: true })).data
+    let data
+    try { data = JSON.parse(text || '{}') } catch { throw new Error('Backup inválido no GitHub.') }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Backup inválido no GitHub.')
+    return { data, sha: file.sha, etag: response.etag }
+  } catch (error) {
+    if (error.status === 404) return { missing: true }
+    throw error
   }
 }
 
-// Carrega os dados do repositório do usuário
-export async function loadDataFromRepo(githubToken, userLogin) {
-  const octokit = await createOctokit(githubToken)
-  try {
-    const { data: fileData } = await octokit.repos.getContent({
-      owner: userLogin,
-      repo: REPO_NAME,
-      path: FILE_PATH
-    })
-    return decodeURIComponent(escape(atob(fileData.content)))
-  } catch (err) {
-    if (err.status === 404) {
-      return '{}'
-    }
-    throw err
-  }
+// Grava o backup. Retorna o novo sha; erros 409/422 indicam versão desatualizada.
+export async function writeBackup(api, login, text, sha, { keepalive = false } = {}) {
+  const { data } = await api('PUT', `/repos/${login}/${REPO_NAME}/contents/${FILE_PATH}`, {
+    keepalive,
+    body: { message: 'Sincroniza dados do Dev Room', content: encodeBase64(text), ...(sha ? { sha } : {}) }
+  })
+  return data.content.sha
 }

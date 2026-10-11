@@ -449,11 +449,15 @@ function deactivatePauseMode() {
 }
 
 // Conta e backup ficam separados da gestão do desktop.
-const { githubToken, githubUserLogin, isSyncing, authBusy, accountError, syncStatus,
+const { githubToken, githubUserLogin, isSyncing, authBusy, accountError, syncStatus, syncState, lastSyncedAt,
   loginWithGitHub, logoutGitHub, initializeGithub, synchronize } = useGitHubAccount({
   onUser: name => setNome(name),
   onRemote: applyRemoteData,
   onLogin: endOnboarding
+})
+const syncTitle = computed(() => {
+  const when = lastSyncedAt.value ? `Último backup: ${new Date(lastSyncedAt.value).toLocaleString('pt-BR')}` : 'Nenhum backup ainda'
+  return `${when} · Clique para sincronizar agora`
 })
 const showLoginModal = ref(false)
 const showLogoutModal = ref(false)
@@ -481,8 +485,42 @@ function handleInstallPrompt(event) {
   deferredPrompt = event
   showInstallPrompt.value = true
 }
+// Lançador rápido de ferramentas (Ctrl/Cmd + K)
+const showLauncher = ref(false)
+const launcherQuery = ref('')
+const launcherIndex = ref(0)
+const launcherInput = ref(null)
+const normalize = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+const launcherResults = computed(() => {
+  const query = normalize(launcherQuery.value.trim())
+  return dockTabs.value.filter(tool => !query || normalize(`${tool.label} ${tool.type}`).includes(query))
+})
+watch(launcherQuery, () => { launcherIndex.value = 0 })
+function openLauncher() {
+  launcherQuery.value = ''
+  launcherIndex.value = 0
+  showLauncher.value = true
+  nextTick(() => launcherInput.value?.focus())
+}
+function launch(tool) {
+  if (!tool) return
+  showLauncher.value = false
+  openWindow(tool.type)
+}
+function handleLauncherKey(event) {
+  const total = launcherResults.value.length
+  if (event.key === 'ArrowDown') { event.preventDefault(); launcherIndex.value = (launcherIndex.value + 1) % Math.max(total, 1) }
+  else if (event.key === 'ArrowUp') { event.preventDefault(); launcherIndex.value = (launcherIndex.value - 1 + total) % Math.max(total, 1) }
+  else if (event.key === 'Enter') { event.preventDefault(); launch(launcherResults.value[launcherIndex.value]) }
+}
 function handleKeyboard(event) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    showLauncher.value ? (showLauncher.value = false) : openLauncher()
+    return
+  }
   if (event.key === 'Escape') {
+    showLauncher.value = false
     showLoginModal.value = false
     showLogoutModal.value = false
     mobileMenuOpen.value = false
@@ -640,9 +678,9 @@ const showPixToast = ref(false) // <-- Adicione esta linha
             </button>
           </div>
           <!-- GitHub Login/Logout -->
-          <div class="mb-4 w-full flex flex-col items-stretch">
-            <span v-if="isSyncing" class="ml-2 text-yellow-400">Sincronizando...</span>
-          </div>
+          <button v-if="githubToken" type="button" class="account-status account-status-mobile mb-4" :class="`sync-${syncState}`" :title="syncTitle" @click="synchronize" :disabled="isSyncing">
+            <span class="sync-dot" aria-hidden="true"></span>{{ syncStatus }}
+          </button>
           <!-- Abas do menu mobile -->
           <div class="flex flex-col mb-12 gap-3" id="mobile-menu-tabs">
             <button v-for="tab in mobileTabs" :key="tab.type"
@@ -705,12 +743,22 @@ const showPixToast = ref(false) // <-- Adicione esta linha
             <font-awesome-icon icon="fa-solid fa-mug-hot" class="text-orange-400" />
             Pausa
           </button>
+          <button type="button" class="launcher-trigger" @click="openLauncher" title="Abrir ferramenta (Ctrl+K)" id="launcher-btn">
+            <font-awesome-icon icon="fa-solid fa-magnifying-glass" />
+            <span>Ferramentas</span>
+            <kbd>Ctrl K</kbd>
+          </button>
         </div>
         <div id="status-bar-user" class="flex items-center gap-1.5 text-sm">
           <h1>
             Olá, <span class="font-semibold" :style="{color: 'var(--name)'}">{{ userName }}</span>
           </h1>
-          <span class="account-status" :title="syncStatus" aria-live="polite">{{ isSyncing ? "Sincronizando…" : syncStatus }}</span>
+          <button v-if="githubToken" type="button" class="account-status" :class="`sync-${syncState}`" :title="syncTitle" aria-live="polite" @click="synchronize" :disabled="isSyncing" id="status-bar-sync-btn">
+            <span class="sync-dot" aria-hidden="true"></span>{{ syncStatus }}
+          </button>
+          <button v-else type="button" class="account-status sync-local" title="Entre com GitHub para fazer backup entre dispositivos" @click="showLoginModal = true">
+            <span class="sync-dot" aria-hidden="true"></span>{{ syncStatus }}
+          </button>
           <!-- Botão de login na statusbar -->
           <button
             v-if="!githubToken"
@@ -1028,6 +1076,28 @@ const showPixToast = ref(false) // <-- Adicione esta linha
           >
             Cancelar
           </button>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="fade">
+      <div v-if="showLauncher" class="launcher-overlay" @click.self="showLauncher = false" id="launcher">
+        <div class="launcher" role="dialog" aria-label="Abrir ferramenta">
+          <div class="launcher-search">
+            <font-awesome-icon icon="fa-solid fa-magnifying-glass" />
+            <input ref="launcherInput" v-model="launcherQuery" placeholder="Buscar ferramenta…" @keydown="handleLauncherKey" aria-label="Buscar ferramenta" id="launcher-input" />
+            <kbd>Esc</kbd>
+          </div>
+          <ul class="launcher-list">
+            <li v-for="(tool, index) in launcherResults" :key="tool.type">
+              <button type="button" :class="{ active: index === launcherIndex }" @mouseenter="launcherIndex = index" @click="launch(tool)">
+                <font-awesome-icon :icon="tool.icon" />
+                <span>{{ tool.label }}</span>
+                <small v-if="openWindows.some(w => w.type === tool.type)">aberta</small>
+              </button>
+            </li>
+            <li v-if="!launcherResults.length" class="launcher-empty">Nenhuma ferramenta encontrada.</li>
+          </ul>
         </div>
       </div>
     </transition>

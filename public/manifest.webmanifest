@@ -1,22 +1,20 @@
 {
+  "id": "/",
   "name": "Dev Room",
   "short_name": "Dev Room",
   "description": "Seu ambiente integrado de produtividade para desenvolvedores.",
+  "lang": "pt-BR",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#18181b",
-  "theme_color": "#18181b",
-  "orientation": "portrait",
+  "theme_color": "#3159df",
+  "orientation": "any",
+  "categories": ["productivity", "developer tools"],
   "icons": [
-    {
-      "src": "/icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/icons/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "/icons/dev-room-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

@@ -72,7 +72,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
-import { Octokit } from '@octokit/rest'
+import { createGitHubClient } from '../utils/githubSync'
 const props = defineProps({ token: { type: String, default: '' } })
 const githubToken = computed(() => props.token)
 const repos = ref([])
@@ -89,7 +89,13 @@ watch(githubToken, async token => {
   if (!token) return
   const id = requestId
   try {
-    const data = await new Octokit({ auth: token }).paginate('GET /user/repos', { per_page: 100, sort: 'updated' })
+    const client = createGitHubClient(token)
+    const data = []
+    for (let page = 1; page <= 10; page++) {
+      const { data: batch } = await client('GET', `/user/repos?per_page=100&sort=updated&page=${page}`)
+      data.push(...batch)
+      if (batch.length < 100) break
+    }
     if (id !== requestId) return
     repos.value = data
     selectedRepo.value = data[0]?.full_name || ''
@@ -101,10 +107,11 @@ watch(selectedRepo, async fullName => {
   if (!fullName || !githubToken.value) { loading.value = false; return }
   loading.value = true
   const [owner, repo] = fullName.split('/')
-  const client = new Octokit({ auth: githubToken.value })
+  const client = createGitHubClient(githubToken.value)
+  const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
   try {
     const results = await Promise.allSettled([
-      client.issues.listForRepo({ owner, repo }), client.pulls.list({ owner, repo }), client.repos.listCommits({ owner, repo, per_page: 10 })
+      client('GET', `${base}/issues?per_page=30`), client('GET', `${base}/pulls?per_page=30`), client('GET', `${base}/commits?per_page=10`)
     ])
     if (id !== requestId) return
     issues.value = results[0].status === 'fulfilled' ? results[0].value.data.filter(issue => !issue.pull_request) : []

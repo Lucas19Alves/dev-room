@@ -1,143 +1,322 @@
 <template>
-  <div class="flex flex-col h-full w-full p-4 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-lg shadow-lg" id="chatgptapi-main">
-    <!-- Configuração da API -->
-    <div class="mb-4 flex flex-col gap-2 bg-gray-800/80 p-4 rounded-lg border border-gray-700" id="chatgptapi-config">
-      <label for="chatgptapi-key" class="font-semibold text-blue-300 flex items-center gap-2">
-        <font-awesome-icon icon="fa-solid fa-key" class="text-blue-400" />
-        Sua chave da OpenAI (API Key)
-      </label>
-      <input
-        v-model="apiKey"
-        type="password"
-        placeholder="Cole sua chave secreta da OpenAI aqui..."
-        class="px-3 py-2 rounded bg-gray-900 text-gray-100 border border-gray-700 focus:outline-none"
-        id="chatgptapi-key"
-        autocomplete="off"
-      />
-      <div class="flex items-center gap-2 text-xs text-gray-400 mt-1">
-        <font-awesome-icon icon="fa-solid fa-circle-info" class="text-blue-400" />
-        <span>
-          Sua chave nunca é enviada para terceiros. <a href="https://platform.openai.com/api-keys" target="_blank" class="underline text-blue-300">Obtenha sua chave aqui</a>.
-        </span>
+  <div class="ai-chat" id="chatgptapi-main">
+    <!-- Provedor e modelo -->
+    <div class="ai-toolbar">
+      <select v-model="settings.provider" class="ai-field ai-provider" aria-label="Provedor" id="ai-provider">
+        <option v-for="(item, id) in providers" :key="id" :value="id">{{ item.label }}</option>
+      </select>
+      <div class="ai-model">
+        <input v-model.trim="model" :list="`ai-models-${settings.provider}`" class="ai-field" placeholder="Modelo" aria-label="Modelo" id="ai-model" spellcheck="false" />
+        <datalist :id="`ai-models-${settings.provider}`">
+          <option v-for="item in modelOptions" :key="item" :value="item" />
+        </datalist>
+        <button type="button" class="ai-icon-btn" :disabled="loadingModels || (!apiKey && !provider.optionalKey)" @click="refreshModels" title="Buscar modelos disponíveis para sua chave" aria-label="Buscar modelos">
+          <font-awesome-icon icon="fa-solid fa-repeat" :spin="loadingModels" />
+        </button>
       </div>
-    </div>
-
-    <!-- Histórico de mensagens -->
-    <div class="flex-1 w-full overflow-auto rounded border border-gray-700 bg-gray-900 p-4 mb-3" id="chatgptapi-messages">
-      <div v-if="messages.length === 0" class="text-gray-400 text-center mt-8">
-        <font-awesome-icon icon="fa-solid fa-robot" class="text-4xl mb-2 text-blue-400" />
-        <div>Converse com a IA! Digite sua pergunta abaixo.</div>
-      </div>
-      <div v-for="(msg, idx) in messages" :key="idx" class="mb-6">
-        <div v-if="msg.role === 'user'" class="flex items-start gap-2 mb-1">
-          <font-awesome-icon icon="fa-solid fa-user-astronaut" class="text-blue-300 mt-1" />
-          <div>
-            <div class="font-bold text-blue-300">Você:</div>
-            <div class="whitespace-pre-line bg-blue-950/60 rounded px-3 py-2 mt-1">{{ msg.content }}</div>
-          </div>
-        </div>
-        <div v-if="msg.role === 'assistant'" class="flex items-start gap-2 mb-1">
-          <font-awesome-icon icon="fa-solid fa-robot" class="text-green-400 mt-1" />
-          <div>
-            <div class="font-bold text-green-300">IA:</div>
-            <div class="whitespace-pre-line bg-green-950/60 rounded px-3 py-2 mt-1">{{ msg.content }}</div>
-          </div>
-        </div>
-      </div>
-      <div v-if="loading" class="text-gray-400 flex items-center gap-2">
-        <font-awesome-icon icon="fa-solid fa-spinner" spin />
-        Pensando...
-      </div>
-      <div v-if="error" class="text-red-400 mt-2">{{ error }}</div>
-    </div>
-
-    <!-- Formulário de envio -->
-    <form @submit.prevent="sendMessage" class="flex gap-2" id="chatgptapi-form">
-      <input
-        v-model="userInput"
-        type="text"
-        placeholder="Pergunte algo para a IA..."
-        class="flex-1 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
-        id="chatgptapi-input"
-        autocomplete="off"
-        :disabled="!apiKey"
-      />
-      <button
-        type="submit"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition font-bold"
-        :disabled="loading || !userInput.trim() || !apiKey"
-        id="chatgptapi-send-btn"
-      >
-        <font-awesome-icon icon="fa-solid fa-paper-plane" />
-        Enviar
+      <button type="button" class="ai-icon-btn" :class="{ active: showSettings || needsSetup }" @click="showSettings = !showSettings" title="Configurações" aria-label="Configurações" id="ai-settings-toggle">
+        <font-awesome-icon icon="fa-solid fa-gear" />
       </button>
-      <button
-        type="button"
-        class="bg-gray-700 hover:bg-gray-800 text-gray-200 px-4 py-2 rounded transition font-bold"
-        @click="clearMessages"
-        :disabled="loading || messages.length === 0"
-        id="chatgptapi-clear-btn"
-      >
+    </div>
+
+    <!-- Configurações -->
+    <div v-if="showSettings || needsSetup" class="ai-settings" id="chatgptapi-config">
+      <label class="ai-label" for="chatgptapi-key">
+        <font-awesome-icon icon="fa-solid fa-key" /> Chave de API · {{ provider.label }}
+        <span v-if="provider.optionalKey" class="ai-muted">(opcional)</span>
+      </label>
+      <input v-model.trim="apiKey" type="password" class="ai-field" :placeholder="`Cole sua chave ${provider.label}`" id="chatgptapi-key" autocomplete="off" spellcheck="false" />
+      <template v-if="provider.editableUrl">
+        <label class="ai-label" for="ai-base-url">URL base</label>
+        <input v-model.trim="baseUrl" class="ai-field" :placeholder="provider.baseUrl || 'https://seu-servidor/v1'" id="ai-base-url" spellcheck="false" />
+      </template>
+      <label class="ai-label" for="ai-system">Instruções do assistente</label>
+      <textarea v-model="settings.system" rows="2" class="ai-field" placeholder="Ex.: Responda em português, de forma objetiva, com exemplos de código." id="ai-system"></textarea>
+      <p class="ai-muted ai-hint">
+        <font-awesome-icon icon="fa-solid fa-circle-info" />
+        A chave fica só neste navegador e é enviada apenas ao provedor escolhido.
+        <a v-if="provider.keyUrl" :href="provider.keyUrl" target="_blank" rel="noopener">Obter chave</a>
+        <span v-if="provider.help"> {{ provider.help }}</span>
+      </p>
+    </div>
+
+    <!-- Conversa -->
+    <div ref="scroller" class="ai-messages" id="chatgptapi-messages" aria-live="polite">
+      <div v-if="!messages.length" class="ai-empty">
+        <font-awesome-icon icon="fa-solid fa-robot" class="ai-empty-icon" />
+        <p>{{ needsSetup ? 'Configure uma chave para começar.' : `Converse com ${model || 'a IA'}.` }}</p>
+        <div v-if="!needsSetup" class="ai-suggestions">
+          <button v-for="item in suggestions" :key="item" type="button" @click="useSuggestion(item)">{{ item }}</button>
+        </div>
+      </div>
+      <div v-for="(msg, idx) in messages" :key="idx" class="ai-msg" :class="msg.role">
+        <div class="ai-bubble">
+          <template v-for="(part, p) in splitContent(msg.content)" :key="p">
+            <div v-if="part.code !== undefined" class="ai-code">
+              <div class="ai-code-head">
+                <span>{{ part.lang || 'código' }}</span>
+                <button type="button" @click="copy(part.code, `${idx}-${p}`)">{{ copied === `${idx}-${p}` ? 'Copiado!' : 'Copiar' }}</button>
+              </div>
+              <pre><code>{{ part.code }}</code></pre>
+            </div>
+            <div v-else class="ai-text">{{ part.text }}</div>
+          </template>
+          <span v-if="loading && idx === messages.length - 1 && msg.role === 'assistant'" class="ai-caret" aria-hidden="true"></span>
+        </div>
+        <div v-if="msg.role === 'assistant' && msg.content && !(loading && idx === messages.length - 1)" class="ai-meta">
+          <span>{{ msg.model }}</span>
+          <button type="button" @click="copy(msg.content, idx)">{{ copied === idx ? 'Copiado!' : 'Copiar' }}</button>
+        </div>
+        <div v-if="msg.notice" class="ai-notice">{{ msg.notice }}</div>
+      </div>
+      <div v-if="error" class="ai-error" role="alert">{{ error }}</div>
+    </div>
+
+    <!-- Envio -->
+    <form @submit.prevent="sendMessage" class="ai-composer" id="chatgptapi-form">
+      <textarea
+        ref="input"
+        v-model="userInput"
+        rows="1"
+        class="ai-field"
+        :placeholder="needsSetup ? 'Configure a chave acima' : 'Pergunte algo… (Enter envia, Shift+Enter quebra linha)'"
+        id="chatgptapi-input"
+        :disabled="needsSetup"
+        @keydown.enter.exact.prevent="sendMessage"
+        @input="autosize"
+      ></textarea>
+      <button v-if="loading" type="button" class="ai-send stop" @click="stop" title="Parar" id="chatgptapi-stop-btn">
+        <font-awesome-icon icon="fa-solid fa-pause" />
+      </button>
+      <button v-else type="submit" class="ai-send" :disabled="!userInput.trim() || needsSetup || !model" title="Enviar" id="chatgptapi-send-btn">
+        <font-awesome-icon icon="fa-solid fa-paper-plane" />
+      </button>
+      <button type="button" class="ai-icon-btn" @click="clearMessages" :disabled="loading || !messages.length" title="Nova conversa" id="chatgptapi-clear-btn">
         <font-awesome-icon icon="fa-solid fa-trash" />
-        Limpar
       </button>
     </form>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
+import { providers, streamChat, listModels } from '../utils/aiProviders'
 
-// Chave da API do usuário (armazenada apenas localmente)
-const apiKey = ref(localStorage.getItem('chatgpt_api_key') || '')
-const userInput = ref('')
-const messages = ref([])
-const loading = ref(false)
-const error = ref('')
+const SETTINGS_KEY = 'dev-room-ai'
+const CHAT_KEY = 'dev-room-ai-chat'
 
-// Salva a chave da API localmente sempre que mudar
-watch(apiKey, (val) => {
-  localStorage.setItem('chatgpt_api_key', val)
-})
-
-// Envia mensagem para a API do ChatGPT
-async function sendMessage() {
-  if (!userInput.value.trim() || !apiKey.value) return
-  error.value = ''
-  loading.value = true
-  messages.value.push({ role: 'user', content: userInput.value })
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey.value}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: messages.value.map(m => ({ role: m.role, content: m.content })),
-        max_tokens: 512,
-        temperature: 0.7
-      })
-    })
-    const data = await response.json()
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      messages.value.push({ role: 'assistant', content: data.choices[0].message.content.trim() })
-    } else if (data.error && data.error.message) {
-      error.value = 'Erro: ' + data.error.message
-    } else {
-      error.value = 'Erro ao obter resposta da IA.'
-    }
-  } catch (e) {
-    error.value = 'Erro de conexão com a API.'
-  }
-  userInput.value = ''
-  loading.value = false
+function readJSON(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback }
 }
 
-// Limpa o histórico de mensagens
+// Configurações locais (chaves nunca vão para o backup do GitHub).
+const saved = readJSON(SETTINGS_KEY, {})
+const settings = reactive({
+  provider: providers[saved.provider] ? saved.provider : 'openai',
+  keys: saved.keys || {},
+  models: saved.models || {},
+  baseUrls: saved.baseUrls || {},
+  fetchedModels: saved.fetchedModels || {},
+  system: saved.system || ''
+})
+const legacyKey = localStorage.getItem('chatgpt_api_key')
+if (legacyKey && !settings.keys.openai) settings.keys.openai = legacyKey
+localStorage.removeItem('chatgpt_api_key')
+watch(settings, value => localStorage.setItem(SETTINGS_KEY, JSON.stringify(value)), { deep: true, immediate: true })
+
+const provider = computed(() => providers[settings.provider])
+const apiKey = computed({
+  get: () => settings.keys[settings.provider] || '',
+  set: value => { settings.keys[settings.provider] = value }
+})
+const model = computed({
+  get: () => settings.models[settings.provider] ?? provider.value.models[0] ?? '',
+  set: value => { settings.models[settings.provider] = value }
+})
+const baseUrl = computed({
+  get: () => settings.baseUrls[settings.provider] || '',
+  set: value => { settings.baseUrls[settings.provider] = value }
+})
+const modelOptions = computed(() => [...new Set([...provider.value.models, ...(settings.fetchedModels[settings.provider] || [])])])
+const needsSetup = computed(() => (!apiKey.value && !provider.value.optionalKey) || (provider.value.editableUrl && !provider.value.baseUrl && !baseUrl.value))
+
+const messages = ref(readJSON(CHAT_KEY, []).filter(m => m && typeof m.content === 'string'))
+watch(messages, value => {
+  try { localStorage.setItem(CHAT_KEY, JSON.stringify(value.slice(-60))) } catch {}
+}, { deep: true })
+
+const userInput = ref('')
+const loading = ref(false)
+const loadingModels = ref(false)
+const error = ref('')
+const showSettings = ref(false)
+const copied = ref(null)
+const scroller = ref(null)
+const input = ref(null)
+let controller = null
+
+const suggestions = [
+  'Explique este erro e como corrigi-lo:',
+  'Escreva testes para a função:',
+  'Revise este código e sugira melhorias:',
+  'Gere uma regex que valide'
+]
+
+function useSuggestion(text) {
+  userInput.value = `${text} `
+  nextTick(() => { input.value?.focus(); autosize() })
+}
+
+function autosize() {
+  const el = input.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+}
+
+function scrollToEnd() {
+  nextTick(() => { if (scroller.value) scroller.value.scrollTop = scroller.value.scrollHeight })
+}
+
+// Separa blocos ```código``` do texto para exibição e cópia.
+function splitContent(content) {
+  const parts = []
+  const regex = /```([\w+#.-]*)\n?([\s\S]*?)(```|$)/g
+  let last = 0
+  let match
+  while ((match = regex.exec(content))) {
+    if (match.index > last) parts.push({ text: content.slice(last, match.index).trim() })
+    parts.push({ lang: match[1], code: match[2].replace(/\n$/, '') })
+    last = regex.lastIndex
+    if (!match[0]) break
+  }
+  if (last < content.length) parts.push({ text: content.slice(last).trim() })
+  return parts.filter(part => part.code !== undefined || part.text)
+}
+
+async function copy(text, id) {
+  try {
+    await navigator.clipboard.writeText(text)
+    copied.value = id
+    setTimeout(() => { if (copied.value === id) copied.value = null }, 1500)
+  } catch { error.value = 'Não foi possível copiar.' }
+}
+
+async function refreshModels() {
+  loadingModels.value = true
+  error.value = ''
+  try {
+    const ids = await listModels(settings.provider, { apiKey: apiKey.value, baseUrl: baseUrl.value })
+    settings.fetchedModels[settings.provider] = ids.slice(0, 300)
+    if (!ids.length) error.value = 'Nenhum modelo retornado pelo provedor.'
+  } catch (e) {
+    error.value = e.message || 'Não foi possível listar os modelos.'
+  } finally {
+    loadingModels.value = false
+  }
+}
+
+async function sendMessage() {
+  const text = userInput.value.trim()
+  if (!text || loading.value || needsSetup.value || !model.value) return
+  error.value = ''
+  userInput.value = ''
+  nextTick(autosize)
+  messages.value.push({ role: 'user', content: text })
+  const history = messages.value
+    .filter(m => m.content)
+    .slice(-30)
+    .map(m => ({ role: m.role, content: m.content }))
+  messages.value.push({ role: 'assistant', content: '', model: model.value })
+  const reply = messages.value[messages.value.length - 1]
+  loading.value = true
+  controller = new AbortController()
+  scrollToEnd()
+  try {
+    const result = await streamChat(settings.provider, {
+      apiKey: apiKey.value,
+      baseUrl: baseUrl.value,
+      model: model.value,
+      system: settings.system.trim(),
+      messages: history,
+      signal: controller.signal,
+      onText: chunk => { reply.content += chunk; scrollToEnd() }
+    })
+    if (result?.notice) reply.notice = result.notice
+  } catch (e) {
+    if (e.name === 'AbortError') reply.notice = 'Resposta interrompida.'
+    else if (e instanceof TypeError) error.value = 'Falha de conexão. Verifique a rede, a URL ou se o provedor permite acesso pelo navegador.'
+    else error.value = e.message || 'Erro ao obter resposta da IA.'
+  } finally {
+    if (!reply.content && !reply.notice) messages.value.splice(messages.value.indexOf(reply), 1)
+    loading.value = false
+    controller = null
+    scrollToEnd()
+  }
+}
+
+function stop() {
+  controller?.abort()
+}
+
 function clearMessages() {
   messages.value = []
   error.value = ''
 }
+
+watch(() => settings.provider, () => { error.value = '' })
+onMounted(() => { scrollToEnd(); if (needsSetup.value) showSettings.value = true })
 </script>
+
+<style scoped>
+.ai-chat button { min-height: 0 !important; padding: 0 !important; font-weight: 500 !important; letter-spacing: 0 !important; }
+.ai-chat .ai-suggestions button { padding: 6px 10px !important; }
+.ai-chat { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; padding: 14px; color: var(--text-main); }
+.ai-toolbar { display: flex; gap: 8px; align-items: center; }
+.ai-provider { flex: 0 1 190px; min-width: 0; }
+.ai-model { display: flex; gap: 6px; flex: 1; min-width: 0; }
+.ai-model input { flex: 1; min-width: 0; }
+.ai-field { width: 100%; padding: 8px 10px; border-radius: var(--radius-control, 10px); background: var(--input-bg); color: var(--text-main); border: 1px solid var(--glass-border); font-size: 13px; outline: none; transition: border-color .15s, box-shadow .15s; }
+.ai-field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+textarea.ai-field { resize: none; line-height: 1.45; font-family: inherit; }
+.ai-icon-btn { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: var(--radius-control, 10px); border: 1px solid var(--glass-border); background: var(--bg-panel-secondary); color: var(--text-secondary); cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+.ai-icon-btn:hover:not(:disabled), .ai-icon-btn.active { color: var(--accent); border-color: var(--accent); }
+.ai-icon-btn:disabled { opacity: .45; cursor: not-allowed; }
+.ai-settings { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 14px; background: var(--bg-panel-secondary); border: 1px solid var(--glass-border); }
+.ai-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.ai-muted { color: var(--text-muted); font-weight: 400; }
+.ai-hint { font-size: 11.5px; line-height: 1.5; margin-top: 2px; }
+.ai-hint a { color: var(--accent); text-decoration: underline; }
+.ai-messages { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 4px 2px; }
+.ai-empty { margin: auto; text-align: center; color: var(--text-muted); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ai-empty-icon { font-size: 34px; color: var(--accent); }
+.ai-suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 460px; }
+.ai-suggestions button { font-size: 12px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--bg-panel-secondary); color: var(--text-secondary); cursor: pointer; }
+.ai-suggestions button:hover { border-color: var(--accent); color: var(--accent); }
+.ai-msg { display: flex; flex-direction: column; gap: 4px; max-width: 92%; }
+.ai-msg.user { align-self: flex-end; align-items: flex-end; }
+.ai-msg.assistant { align-self: flex-start; }
+.ai-bubble { padding: 10px 13px; border-radius: 16px; font-size: 13.5px; line-height: 1.55; display: flex; flex-direction: column; gap: 8px; overflow-wrap: anywhere; }
+.user .ai-bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 5px; }
+.assistant .ai-bubble { background: var(--surface-strong); border: 1px solid var(--glass-border); border-bottom-left-radius: 5px; min-width: 48px; }
+.ai-text { white-space: pre-wrap; }
+.ai-code { border-radius: 10px; overflow: hidden; background: #0d1117; color: #e6edf3; border: 1px solid rgba(255,255,255,.08); }
+.ai-code-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; font-size: 11px; color: #8b949e; background: rgba(255,255,255,.04); }
+.ai-code-head button { color: #8b949e; cursor: pointer; }
+.ai-code-head button:hover { color: #fff; }
+.ai-code pre { margin: 0; padding: 10px; overflow-x: auto; font-size: 12.5px; line-height: 1.5; }
+.ai-meta { display: flex; gap: 10px; font-size: 11px; color: var(--text-muted); padding-left: 4px; }
+.ai-meta button { cursor: pointer; color: inherit; }
+.ai-meta button:hover { color: var(--accent); }
+.ai-notice { font-size: 11.5px; color: var(--text-muted); font-style: italic; padding-left: 4px; }
+.ai-error { font-size: 12.5px; color: #ff5f57; background: rgba(255, 95, 87, .1); border: 1px solid rgba(255, 95, 87, .3); padding: 8px 12px; border-radius: 10px; }
+.ai-caret { display: inline-block; width: 7px; height: 14px; background: var(--accent); border-radius: 2px; animation: ai-blink 1s steps(2) infinite; }
+@keyframes ai-blink { 50% { opacity: 0; } }
+.ai-composer { display: flex; gap: 8px; align-items: flex-end; }
+.ai-composer textarea { flex: 1; max-height: 160px; }
+.ai-send { flex: none; width: 38px; height: 38px; border-radius: 12px; background: var(--accent); color: #fff; display: grid; place-items: center; cursor: pointer; transition: opacity .15s, transform .15s; }
+.ai-send:hover:not(:disabled) { transform: translateY(-1px); }
+.ai-send:disabled { opacity: .4; cursor: not-allowed; }
+.ai-send.stop { background: #ff5f57; }
+@media (max-width: 480px) { .ai-toolbar { flex-wrap: wrap; } .ai-provider { flex: 1 1 100%; } }
+</style>
