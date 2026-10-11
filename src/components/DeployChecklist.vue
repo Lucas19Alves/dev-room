@@ -1,300 +1,152 @@
 <template>
-  <div class="flex flex-col items-center justify-center w-full h-full p-4" id="deploy-main">
-    <h2 class="text-xl font-bold mb-4 text-green-400" id="deploy-title">Checklist de Deploy</h2>
-    <!-- Formulário para adicionar novo item -->
-    <form @submit.prevent="addItem(newItem)" class="flex gap-2 mb-4 w-full" id="deploy-form">
-      <input
-        v-model="newItem"
-        type="text"
-        autocomplete="off"
-        placeholder="Adicionar item..."
-        class="flex-1 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
-        id="deploy-input"
-      />
-      <button
-        type="submit"
-        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition"
-        id="deploy-add-btn"
-        :disabled="newItem.trim() === ''"
-      >
-        <font-awesome-icon icon="fa-solid fa-plus" />
-      </button>
-    </form>
-    <!-- Filtros -->
-    <div class="flex gap-2 mb-2 w-full justify-end">
-      <button
-        class="px-2 py-1 rounded text-xs font-bold"
-        :class="filter === 'all' ? 'bg-green-700 text-white' : 'bg-gray-700 text-gray-200'"
-        @click="filter = 'all'"
-      >Todos</button>
-      <button
-        class="px-2 py-1 rounded text-xs font-bold"
-        :class="filter === 'open' ? 'bg-green-700 text-white' : 'bg-gray-700 text-gray-200'"
-        @click="filter = 'open'"
-      >Pendentes</button>
-      <button
-        class="px-2 py-1 rounded text-xs font-bold"
-        :class="filter === 'done' ? 'bg-green-700 text-white' : 'bg-gray-700 text-gray-200'"
-        @click="filter = 'done'"
-      >Concluídos</button>
-    </div>
-    <!-- Lista de itens da checklist -->
-    <ul class="w-full space-y-2 flex-1 overflow-y-auto max-h-full min-h-[40px]" id="deploy-list">
-      <li
-        v-for="(item, idx) in filteredItems"
-        :key="item.id"
-        class="flex items-center justify-between bg-gray-800 px-3 py-2 rounded deploy-item"
-        :id="`deploy-item-${item.id}`"
-      >
-        <label class="flex items-center gap-2 w-full cursor-pointer deploy-label" :id="`deploy-label-${item.id}`">
-          <input
-            type="checkbox"
-            v-model="item.done"
-            @change="saveItems"
-            class="deploy-checkbox"
-            :id="`deploy-checkbox-${item.id}`"
-          />
-          <span
-            v-if="editingId !== item.id"
-            :class="{ 'line-through text-gray-400': item.done }"
-            class="flex-1 deploy-text"
-            :id="`deploy-text-${item.id}`"
-            @dblclick="startEdit(item)"
-            title="Clique duplo para editar"
-            style="cursor: pointer;"
-          >{{ item.text }}</span>
-          <input
-            v-else
-            v-model="editText"
-            @keyup.enter="saveEdit(item)"
-            @blur="saveEdit(item)"
-            class="flex-1 px-2 py-1 rounded bg-gray-900 text-gray-100 border border-gray-700 focus:outline-none"
-            ref="editInput"
-            :id="`deploy-edit-input-${item.id}`"
-            autocomplete="off"
-          />
-        </label>
-        <button
-          @click="removeItem(item.id)"
-          class="ml-2 text-red-400 hover:text-red-600 transition deploy-remove-btn"
-          title="Remover"
-          :id="`deploy-remove-btn-${item.id}`"
-        >
-          <font-awesome-icon icon="fa-solid fa-trash" />
-        </button>
-      </li>
-      <li v-if="filteredItems.length === 0" class="text-gray-400 text-center" id="deploy-empty">
-        Nenhum item na checklist.
-      </li>
-    </ul>
-    <!-- Progresso -->
-    <div class="w-full mt-4">
-      <div class="flex justify-between text-xs mb-1">
-        <span>Progresso</span>
-        <span>{{ doneCount }}/{{ checklist.length }} concluídos</span>
+  <div class="tool" style="--app-accent-rgb: 52, 199, 89" id="deploy-main">
+    <div class="tool-head">
+      <div>
+        <h2 class="tool-title">Checklist de Deploy</h2>
+        <p class="tool-sub">{{ doneCount }}/{{ checklist.length }} concluídos{{ allDone ? ' — pronto para publicar! 🚀' : '' }}</p>
       </div>
-      <div class="w-full bg-gray-700 rounded h-2 overflow-hidden">
-        <div
-          class="bg-green-500 h-2 transition-all"
-          :style="{ width: progress + '%' }"
-        ></div>
+      <div class="seg" role="group" aria-label="Filtro">
+        <button v-for="f in filters" :key="f.id" type="button" :class="{ on: filter === f.id }" @click="filter = f.id">{{ f.label }}</button>
       </div>
     </div>
-    <!-- Botões de reset e restaurar padrão -->
-    <div class="flex gap-2 mt-6 flex-wrap" id="deploy-actions">
-      <button
-        class="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded transition"
-        @click="resetChecklist"
-        :disabled="checklist.length === 0"
-        id="deploy-reset-btn"
-      >
-        Resetar
-      </button>
-      <button
-        class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded transition"
-        @click="restoreDefault"
-        id="deploy-restore-btn"
-      >
-        Restaurar padrão
-      </button>
-      <button
-        class="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded transition"
-        @click="exportChecklist"
-        :disabled="checklist.length === 0"
-        id="deploy-export-btn"
-      >
-        Exportar
-      </button>
-      <label
-        class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded transition cursor-pointer"
-        id="deploy-import-btn"
-      >
-        Importar
-        <input type="file" accept=".json" class="hidden" @change="importChecklist" />
-      </label>
+
+    <div class="progress"><span :style="{ width: `${progress}%` }"></span></div>
+
+    <div class="tool-row">
+      <input v-model="newItem" type="text" autocomplete="off" placeholder="Adicionar item… (Enter)" class="tool-grow" @keydown.enter="addItem" id="deploy-input" />
+      <button type="button" class="btn btn-primary" :disabled="!newItem.trim()" @click="addItem" id="deploy-add-btn"><font-awesome-icon icon="fa-solid fa-plus" /></button>
+    </div>
+
+    <draggable v-model="checklist" item-key="id" tag="ul" class="tool-list" handle=".handle" :disabled="filter !== 'all'" id="deploy-list">
+      <template #item="{ element: item }">
+        <li v-show="matches(item)" class="tool-item" :class="{ done: item.done }">
+          <span v-if="filter === 'all'" class="handle" title="Arraste para reordenar">⋮⋮</span>
+          <input type="checkbox" v-model="item.done" :aria-label="item.text" />
+          <input v-if="editingId === item.id" v-model="editText" class="tool-grow edit" @keydown.enter="saveEdit(item)" @keydown.esc="editingId = null" @blur="saveEdit(item)" :id="`deploy-edit-${item.id}`" />
+          <span v-else class="tool-grow text" @dblclick="startEdit(item)">{{ item.text }}</span>
+          <button type="button" class="icon-btn" @click="startEdit(item)" title="Editar"><font-awesome-icon icon="fa-solid fa-pen" /></button>
+          <button type="button" class="icon-btn danger" @click="removeItem(item.id)" title="Remover"><font-awesome-icon icon="fa-solid fa-trash" /></button>
+        </li>
+      </template>
+      <template #footer>
+        <li v-if="!checklist.some(matches)" class="tool-empty">Nenhum item aqui.</li>
+      </template>
+    </draggable>
+
+    <div class="tool-row footer">
+      <button type="button" class="btn btn-sm" @click="resetChecklist" :disabled="!doneCount" id="deploy-reset-btn"><font-awesome-icon icon="fa-solid fa-rotate-left" /> Desmarcar tudo</button>
+      <select v-model="template" class="template" aria-label="Carregar modelo" @change="loadTemplate">
+        <option value="">Carregar modelo…</option>
+        <option v-for="(items, name) in templates" :key="name" :value="name">{{ name }}</option>
+      </select>
+      <button type="button" class="btn btn-sm" @click="exportChecklist" :disabled="!checklist.length" title="Exportar JSON"><font-awesome-icon icon="fa-solid fa-download" /></button>
+      <label class="btn btn-sm" title="Importar JSON"><font-awesome-icon icon="fa-solid fa-upload" /><input type="file" accept=".json,application/json" class="hidden" @change="importChecklist" /></label>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import { getDevRoomData, setDevRoomData } from '../utils/storage'
+import { computed, nextTick, ref, watch } from 'vue'
+import draggable from 'vuedraggable'
+import { useAppStorage } from '../composables/useAppStorage'
+import { toast } from '../utils/notify'
 
-const allData = getDevRoomData()
-const checklist = ref(allData.deployChecklist || [])
-
-watch(checklist, (val) => {
-  const data = getDevRoomData()
-  data.deployChecklist = val
-  setDevRoomData(data)
-}, { deep: true })
-
+const { state: checklist } = useAppStorage('deployChecklist', [])
 const newItem = ref('')
 const editingId = ref(null)
 const editText = ref('')
 const filter = ref('all')
+const template = ref('')
+const filters = [{ id: 'all', label: 'Todos' }, { id: 'open', label: 'Pendentes' }, { id: 'done', label: 'Feitos' }]
+const newId = () => Date.now() + Math.random()
 
-// Adiciona novo item
-function addItem(text) {
-  checklist.value.push({ text, done: false, id: Date.now() + Math.random() })
+const templates = {
+  'Geral': ['Testes automatizados passaram', 'Variáveis de ambiente revisadas', 'Build gerado em modo produção', 'Backup realizado', 'Documentação atualizada', 'Time avisado'],
+  'Frontend': ['Lint e testes passaram', 'Build sem avisos', 'Lighthouse revisado (performance e acessibilidade)', 'Testado em mobile e desktop', 'Meta tags e favicon conferidos', 'Variáveis públicas sem segredos', 'Cache/CDN invalidado'],
+  'Backend / API': ['Testes e cobertura ok', 'Migrações de banco revisadas', 'Backup do banco feito', 'Segredos no cofre, não no código', 'Logs e alertas configurados', 'Plano de rollback definido', 'Health check respondendo'],
+  'Release mobile': ['Versão e build incrementados', 'Changelog escrito', 'Testado em Android e iOS', 'Screenshots da loja atualizadas', 'Crash reporting ativo', 'Envio para revisão da loja']
 }
 
-// Remove item pelo id
+const doneCount = computed(() => checklist.value.filter(i => i.done).length)
+const progress = computed(() => checklist.value.length ? Math.round(doneCount.value / checklist.value.length * 100) : 0)
+const allDone = computed(() => checklist.value.length > 0 && doneCount.value === checklist.value.length)
+const matches = item => filter.value === 'all' || (filter.value === 'done' ? item.done : !item.done)
+
+function addItem() {
+  const text = newItem.value.trim()
+  if (!text) return
+  checklist.value.push({ id: newId(), text, done: false })
+  newItem.value = ''
+}
+
 function removeItem(id) {
   checklist.value = checklist.value.filter(i => i.id !== id)
 }
 
-// Reseta todos os itens para não concluídos
 function resetChecklist() {
-  checklist.value.forEach(item => (item.done = false))
+  checklist.value.forEach(item => { item.done = false })
 }
 
-// Restaura checklist padrão
-function restoreDefault() {
-  checklist.value = [
-    { text: 'Testes automatizados passaram', done: false, id: Date.now() + Math.random() },
-    { text: 'Variáveis de ambiente revisadas', done: false, id: Date.now() + Math.random() },
-    { text: 'Build gerado em modo produção', done: false, id: Date.now() + Math.random() },
-    { text: 'Backup realizado', done: false, id: Date.now() + Math.random() },
-    { text: 'Documentação atualizada', done: false, id: Date.now() + Math.random() },
-    { text: 'Notificações enviadas para o time', done: false, id: Date.now() + Math.random() }
-  ]
+function loadTemplate() {
+  const items = templates[template.value]
+  template.value = ''
+  if (!items) return
+  if (checklist.value.length && !confirm('Substituir a checklist atual pelo modelo?')) return
+  checklist.value = items.map(text => ({ id: newId(), text, done: false }))
 }
 
-// Edita item
 function startEdit(item) {
   editingId.value = item.id
   editText.value = item.text
-  nextTick(() => {
-    const input = document.getElementById(`deploy-edit-input-${item.id}`)
-    if (input) input.focus()
-  })
+  nextTick(() => document.getElementById(`deploy-edit-${item.id}`)?.focus())
 }
 
 function saveEdit(item) {
-  if (editingId.value === item.id) {
-    item.text = editText.value.trim() || item.text
-    editingId.value = null
-    editText.value = ''
-  }
+  if (editingId.value !== item.id) return
+  if (editText.value.trim()) item.text = editText.value.trim()
+  editingId.value = null
 }
 
-// Exporta checklist para arquivo JSON
 function exportChecklist() {
-  const data = JSON.stringify(checklist.value, null, 2)
-  const blob = new Blob([data], { type: 'application/json' })
+  const blob = new Blob([JSON.stringify(checklist.value, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'deploy-checklist.json'
+  const a = Object.assign(document.createElement('a'), { href: url, download: 'deploy-checklist.json' })
   a.click()
   URL.revokeObjectURL(url)
 }
 
-// Importa checklist de arquivo JSON
-function importChecklist(e) {
-  const file = e.target.files[0]
+function importChecklist(event) {
+  const file = event.target.files[0]
+  event.target.value = ''
   if (!file) return
-  const reader = new FileReader()
-  reader.onload = (evt) => {
-    try {
-      const imported = JSON.parse(evt.target.result)
-      if (Array.isArray(imported) && imported.every(i => i.text)) {
-        const seen = new Set()
-        let duplicatedCount = 0
-        const sanitized = imported.filter(item => {
-          if (seen.has(item.id)) {
-            duplicatedCount++
-            return false 
-          }
-          seen.add(item.id)
-          return true
-        }).map(item => ({
-          ...item,
-          id: item.id || Date.now() + Math.random(),
-          done: !!item.done
-        }))
-        checklist.value = sanitized
-        if (duplicatedCount > 0) {
-          showToast(`${duplicatedCount} item(ns) com ID duplicado foram ignorados ao importar.`)
-        }
-      } else {
-        alert('Arquivo inválido.')
-      }
-    } catch {
-      alert('Erro ao importar checklist.')
-    }
-  }
-  reader.readAsText(file)
+  file.text().then(text => {
+    const imported = JSON.parse(text)
+    if (!Array.isArray(imported) || !imported.every(i => typeof i?.text === 'string')) throw new Error()
+    const seen = new Set()
+    checklist.value = imported.map(item => {
+      let id = item.id ?? newId()
+      if (seen.has(id)) id = newId()
+      seen.add(id)
+      return { id, text: item.text, done: Boolean(item.done) }
+    })
+    toast(`${checklist.value.length} itens importados.`)
+  }).catch(() => toast('Arquivo inválido. Use um JSON exportado pela checklist.', 'error'))
 }
 
-// Exibe toast de feedback
-function showToast(msg) {
-  const toast = document.createElement('div')
-  toast.textContent = msg
-  toast.style.position = 'fixed'
-  toast.style.bottom = '32px'
-  toast.style.left = '50%'
-  toast.style.transform = 'translateX(-50%)'
-  toast.style.background = '#222'
-  toast.style.color = '#fff'
-  toast.style.padding = '12px 24px'
-  toast.style.borderRadius = '8px'
-  toast.style.zIndex = 9999
-  toast.style.boxShadow = '0 2px 8px #0006'
-  document.body.appendChild(toast)
-  setTimeout(() => {
-    toast.remove()
-  }, 3500)
-}
-
-const filteredItems = computed(() => {
-  if (filter.value === 'all') return checklist.value
-  if (filter.value === 'open') return checklist.value.filter(i => !i.done)
-  if (filter.value === 'done') return checklist.value.filter(i => i.done)
-  return checklist.value
-})
-
-const doneCount = computed(() => checklist.value.filter(i => i.done).length)
-const progress = computed(() => checklist.value.length ? Math.round((doneCount.value / checklist.value.length) * 100) : 0)
-
-// Atualiza checklist ao detectar alteração no localStorage
-function syncFromStorage(e) {
-  if (e.key === 'dev-room-data') {
-    const allData = getDevRoomData()
-    checklist.value = allData.deployChecklist || []
-  }
-}
-onMounted(() => {
-  window.addEventListener('storage', syncFromStorage)
-})
-onUnmounted(() => {
-  window.removeEventListener('storage', syncFromStorage)
+let celebrated = allDone.value
+watch(allDone, done => {
+  if (done && !celebrated) toast('Checklist completa — bom deploy! 🚀')
+  celebrated = done
 })
 </script>
 
 <style scoped>
-.drag-handle {
-  cursor: move;
-}
+.tool-list { flex: 1; }
+.handle { cursor: grab; color: var(--text-muted); letter-spacing: -2px; user-select: none; }
+.text { overflow-wrap: anywhere; font-size: 14px; }
+.done .text { text-decoration: line-through; color: var(--text-muted); }
+.edit { min-height: 30px !important; }
+.footer { gap: 6px; }
+.template { flex: 1; min-width: 140px; min-height: 30px !important; font-size: 12.5px; }
+.hidden { display: none; }
 </style>

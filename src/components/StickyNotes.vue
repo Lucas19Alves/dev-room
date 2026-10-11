@@ -1,120 +1,70 @@
 <template>
-  <!-- Exibe apenas notas móveis (floating) -->
+  <!-- Notas fixadas na área de trabalho (desktop) -->
   <div>
     <div
-      v-for="(note, idx) in floatingNotes"
+      v-for="note in floatingNotes"
       :key="note.id"
-      class="fixed z-[9998] bg-yellow-100 rounded-lg shadow p-3 min-h-[80px] flex flex-col quicknotes-sticky"
-      :style="{
-        left: note.x + 'px',
-        top: note.y + 'px',
-        minWidth: '180px',
-        maxWidth: '320px',
-        background: noteColors[idx % noteColors.length]
-      }"
-      :id="`sticky-note-${note.id}`"
-      @mousedown="startDrag(note, $event)"
+      class="sticky-note"
+      :style="{ left: `${note.x}px`, top: `${note.y}px`, background: noteColor(note, notes.indexOf(note)) }"
+      @pointerdown="startDrag(note, $event)"
     >
-      <textarea
-        v-model="note.text"
-        @input="saveNotes"
-        class="bg-transparent resize-none border-none text-gray-800 font-medium w-full h-full focus:outline-none quicknotes-textarea"
-        rows="4"
-        :id="`sticky-note-textarea-${note.id}`"
-      />
-      <!-- Botão para fixar de volta ao QuickNotes -->
-      <button
-        @click="unfloatNote(note)"
-        class="absolute top-2 left-2 text-blue-400 hover:text-blue-600 transition quicknotes-float-btn"
-        title="Fixar de volta"
-        :id="`sticky-note-unfloat-btn-${note.id}`"
-      >
-        <font-awesome-icon icon="fa-solid fa-down-left-and-up-right-to-center" />
-      </button>
-      <!-- Botão para remover nota móvel -->
-      <button
-        @click="removeNoteById(note.id)"
-        class="absolute top-2 right-2 text-red-400 hover:text-red-600 transition quicknotes-remove-btn"
-        title="Remover"
-        :id="`sticky-note-remove-btn-${note.id}`"
-      >
-        <font-awesome-icon icon="fa-solid fa-trash" />
-      </button>
+      <div class="sticky-bar">
+        <span class="grip" aria-hidden="true">⋮⋮</span>
+        <button type="button" @click="note.floating = false" title="Recolher para Notas Rápidas"><font-awesome-icon icon="fa-solid fa-down-left-and-up-right-to-center" /></button>
+        <button type="button" class="danger" @click="removeNote(note)" title="Remover"><font-awesome-icon icon="fa-solid fa-trash" /></button>
+      </div>
+      <textarea v-model="note.text" rows="5" aria-label="Texto da nota"></textarea>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, watch } from 'vue'
-import { notes, loadNotes, saveNotes, STORAGE_KEY } from '../stores/notesStore'
-
-const noteColors = [
-  '#FEF3C7', '#FDE68A', '#FCD34D', '#FFD6A5',
-  '#E0BBE4', '#B5EAD7', '#C7CEEA',
-]
+import { computed, onUnmounted } from 'vue'
+import { notes } from '../stores/notesStore'
+import { noteColor } from '../utils/noteColors'
 
 const floatingNotes = computed(() => notes.value.filter(n => n.floating))
 
-// Remove nota móvel pelo id
-function removeNoteById(id) {
-  const idx = notes.value.findIndex(n => n.id === id)
-  if (idx !== -1) {
-    notes.value.splice(idx, 1)
-    saveNotes()
-  }
+function removeNote(note) {
+  if (note.text?.trim() && !confirm('Remover esta nota?')) return
+  notes.value = notes.value.filter(n => n.id !== note.id)
 }
 
-// Volta a nota para o QuickNotes
-function unfloatNote(note) {
-  note.floating = false
-  saveNotes()
-}
-
-// Drag & drop para notas móveis
-let draggingNote = null
+// Arrastar com mouse ou toque, limitado à janela.
+let dragging = null
 let offsetX = 0
 let offsetY = 0
 
 function startDrag(note, event) {
-  if (event.target.closest('textarea, button, input')) return
-  draggingNote = note
+  if (event.target.closest('textarea, button')) return
+  dragging = note
   offsetX = event.clientX - note.x
   offsetY = event.clientY - note.y
-  document.addEventListener('mousemove', onDrag)
-  document.addEventListener('mouseup', stopDrag)
+  window.addEventListener('pointermove', onDrag)
+  window.addEventListener('pointerup', stopDrag)
 }
 
 function onDrag(event) {
-  if (draggingNote) {
-    draggingNote.x = event.clientX - offsetX
-    draggingNote.y = event.clientY - offsetY
-    draggingNote.x = Math.max(0, Math.min(window.innerWidth - 200, draggingNote.x))
-    draggingNote.y = Math.max(0, Math.min(window.innerHeight - 80, draggingNote.y))
-    saveNotes()
-  }
+  if (!dragging) return
+  dragging.x = Math.round(Math.max(0, Math.min(window.innerWidth - 200, event.clientX - offsetX)))
+  dragging.y = Math.round(Math.max(0, Math.min(window.innerHeight - 80, event.clientY - offsetY)))
 }
 
 function stopDrag() {
-  draggingNote = null
-  document.removeEventListener('mousemove', onDrag)
-  document.removeEventListener('mouseup', stopDrag)
+  dragging = null
+  window.removeEventListener('pointermove', onDrag)
+  window.removeEventListener('pointerup', stopDrag)
 }
 
-// Sincroniza notas ao detectar alteração no localStorage
-function syncFromStorage(e) {
-  if (e.key === STORAGE_KEY || e.key === 'dev-room-data') {
-    loadNotes()
-  }
-}
-
-onMounted(() => {
-  loadNotes()
-  window.addEventListener('storage', syncFromStorage)
-})
-onUnmounted(() => {
-  stopDrag()
-  window.removeEventListener('storage', syncFromStorage)
-})
-
-watch(notes, saveNotes, { deep: true })
+onUnmounted(stopDrag)
 </script>
+
+<style scoped>
+.sticky-note { position: fixed; z-index: 9998; width: 230px; padding: 6px 10px 10px; border-radius: 14px; box-shadow: 0 14px 36px rgba(0, 0, 0, .22); color: #222; touch-action: none; cursor: grab; }
+.sticky-bar { display: flex; align-items: center; gap: 2px; }
+.grip { flex: 1; color: rgba(0, 0, 0, .35); letter-spacing: -2px; user-select: none; }
+.sticky-bar button { padding: 3px 5px; color: rgba(0, 0, 0, .45); font-size: 12px; cursor: pointer; background: transparent; }
+.sticky-bar button:hover { color: rgba(0, 0, 0, .85); }
+.sticky-bar button.danger:hover { color: #d70015; }
+.sticky-note textarea { width: 100%; background: transparent !important; border: 0 !important; box-shadow: none !important; color: #222 !important; resize: vertical; font-size: 13.5px; line-height: 1.5; padding: 0 !important; outline: none; cursor: text; }
+</style>

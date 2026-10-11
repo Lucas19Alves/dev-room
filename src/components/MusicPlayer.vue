@@ -14,7 +14,7 @@
 
     <!-- Elemento de áudio -->
     <audio ref="audio" :src="currentTrack?.src" @ended="onEnded" @timeupdate="onTimeUpdate"
-      @loadedmetadata="onLoadedMetadata" :autoplay="autoplay" id="musicplayer-audio"></audio>
+      @loadedmetadata="onLoadedMetadata" @play="playing = true" @pause="playing = false" :autoplay="autoplay" id="musicplayer-audio"></audio>
 
     <!-- Barra de progresso -->
     <div class="w-full flex flex-col items-center mb-2" id="musicplayer-progress">
@@ -66,7 +66,7 @@
         <font-awesome-icon icon="fa-solid fa-music" />
         <font-awesome-icon class="text-xs" icon="fa-solid fa-plus" />
       </label>
-      <input id="file-input" type="file" accept="audio/mp3,audio/mpeg" multiple @change="handleFileUpload"
+      <input id="file-input" type="file" accept="audio/*" multiple @change="handleFileUpload"
         class="hidden" />
     </div>
 
@@ -91,7 +91,7 @@
           </div>
           <button v-if="track.isUploaded" @click.stop="removeUploadedTrack(track.id)"
             class="text-red-400 hover:text-red-300 text-xs ml-2" title="Remover música">
-            <font-awesome-icon icon="fa-solid fa-times" />
+            <font-awesome-icon icon="fa-solid fa-xmark" />
           </button>
         </li>
       </ul>
@@ -160,7 +160,7 @@ async function handleFileUpload(event) {
   const files = Array.from(event.target.files)
 
   for (const file of files) {
-    if (file.type === 'audio/mpeg' || file.type === 'audio/mp3') {
+    if (file.type.startsWith('audio/')) {
       const existingTrack = uploadedTracks.value.find(track => track.fileName === file.name)
       if (existingTrack) {
         continue 
@@ -226,17 +226,13 @@ function clearUploadedTracks() {
 }
 
 function play() {
-  if (audio.value && currentTrack.value.src) {
-    audio.value.play()
-    playing.value = true
+  if (audio.value && currentTrack.value?.src) {
+    audio.value.play().catch(() => { playing.value = false })
   }
 }
 
 function pause() {
-  if (audio.value) {
-    audio.value.pause()
-    playing.value = false
-  }
+  audio.value?.pause()
 }
 
 function togglePlay() {
@@ -352,22 +348,46 @@ watch([currentIndex, autoplay], ([, auto]) => {
 
 watch(volume, () => setVolume())
 
+// Preferências locais do player.
+const PREFS_KEY = 'dev-room-music'
+try {
+  const prefs = JSON.parse(localStorage.getItem(PREFS_KEY)) || {}
+  if (Number.isFinite(prefs.volume)) volume.value = prefs.volume
+  repeat.value = Boolean(prefs.repeat)
+  shuffle.value = Boolean(prefs.shuffle)
+  if (Number.isInteger(prefs.index) && prefs.index < defaultPlaylist.length) currentIndex.value = prefs.index
+} catch {}
+watch([volume, repeat, shuffle, currentIndex], () => {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify({ volume: volume.value, repeat: repeat.value, shuffle: shuffle.value, index: currentIndex.value < defaultPlaylist.length ? currentIndex.value : 0 })) } catch {}
+})
+
+// Teclas de mídia do sistema e controles na tela de bloqueio.
+function updateMediaSession() {
+  if (!('mediaSession' in navigator) || !currentTrack.value) return
+  navigator.mediaSession.metadata = new MediaMetadata({ title: currentTrack.value.title, artist: currentTrack.value.artist, album: 'Dev Room', artwork: [{ src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' }] })
+}
+watch(currentTrack, updateMediaSession)
+
+function onBreakPause() {
+  wasPlayingBeforePause.value = playing.value
+  pause()
+}
+function onBreakResume() {
+  if (wasPlayingBeforePause.value) play()
+}
+
 onMounted(async () => {
-  console.log('🎵 Inicializando player...')
   await nextTick()
   setVolume()
-  pause()
-
-  window.addEventListener('devroom-music-pause', () => {
-    wasPlayingBeforePause.value = playing.value
-    pause()
-  })
-
-  window.addEventListener('devroom-music-resume', () => {
-    if (wasPlayingBeforePause.value) {
-      play()
+  updateMediaSession()
+  if ('mediaSession' in navigator) {
+    const handlers = { play, pause, previoustrack: prev, nexttrack: next }
+    for (const [action, handler] of Object.entries(handlers)) {
+      try { navigator.mediaSession.setActionHandler(action, handler) } catch {}
     }
-  })
+  }
+  window.addEventListener('devroom-music-pause', onBreakPause)
+  window.addEventListener('devroom-music-resume', onBreakResume)
 })
 
 onUnmounted(() => {
@@ -377,7 +397,12 @@ onUnmounted(() => {
     }
   })
 
-  window.removeEventListener('devroom-music-pause', pause)
-  window.removeEventListener('devroom-music-resume', play)
+  window.removeEventListener('devroom-music-pause', onBreakPause)
+  window.removeEventListener('devroom-music-resume', onBreakResume)
+  if ('mediaSession' in navigator) {
+    for (const action of ['play', 'pause', 'previoustrack', 'nexttrack']) {
+      try { navigator.mediaSession.setActionHandler(action, null) } catch {}
+    }
+  }
 })
 </script>

@@ -1,140 +1,60 @@
 <template>
-  <!-- Container principal dos snippets -->
-  <div class="flex flex-col w-full h-full p-4" id="codesnippets-main">
-    <!-- Título -->
-    <h2 class="text-xl font-bold mb-4 text-fuchsia-400" id="codesnippets-title">Snippets de Código</h2>
-    <!-- Formulário para adicionar novo snippet -->
-    <form @submit.prevent="addSnippet(newSnippet)" class="flex flex-col sm:flex-row gap-2 mb-4" id="codesnippets-form">
-      <input
-        v-model="newSnippet.title"
-        type="text"
-        placeholder="Título"
-        class="flex-1 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
-        required
-        id="codesnippets-input-title"
-      />
-      <select
-        v-model="newSnippet.language"
-        class="px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
-        required
-        id="codesnippets-select-language"
-      >
-        <option disabled value="">Linguagem</option>
-        <option v-for="lang in languages" :key="lang" :value="lang" :id="`codesnippets-option-${lang}`">{{ lang }}</option>
-      </select>
-      <button
-        type="submit"
-        class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-4 py-2 rounded transition"
-        id="codesnippets-add-btn"
-      >
-        Adicionar
-      </button>
-    </form>
-    <!-- Área para digitar o código do novo snippet -->
-    <textarea
-      v-model="newSnippet.code"
-      placeholder="Cole ou digite seu código aqui..."
-      class="w-full mb-4 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none font-mono"
-      rows="3"
-      required
-      id="codesnippets-input-code"
-    ></textarea>
-    <!-- Campo de busca -->
-    <input
-      v-model="search"
-      type="text"
-      placeholder="Buscar por título ou linguagem..."
-      class="mb-4 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
-      id="codesnippets-search"
-    />
-    <!-- Lista de snippets -->
-    <div class="overflow-y-auto flex-1 w-full min-h-[40px]" id="codesnippets-list">
-      <div
-        v-for="snippet in filteredSnippets"
-        :key="snippet.id"
-        class="mb-4 p-4 rounded-lg shadow bg-gray-800 border border-fuchsia-900 relative codesnippets-item"
-        :id="`codesnippets-item-${snippet.id}`"
-      >
-        <div class="flex justify-between items-center mb-2" :id="`codesnippets-header-${snippet.id}`">
-          <div>
-            <span class="font-bold text-fuchsia-300" :id="`codesnippets-title-${snippet.id}`">{{ snippet.title }}</span>
-            <span class="ml-2 px-2 py-1 rounded text-xs bg-fuchsia-900 text-fuchsia-200" :id="`codesnippets-language-${snippet.id}`">{{ snippet.language }}</span>
-          </div>
-          <div class="flex gap-2" :id="`codesnippets-actions-${snippet.id}`">
-            <button
-              @click="copyCode(snippet.code)"
-              class="text-green-400 hover:text-green-200 transition codesnippets-copy-btn"
-              title="Copiar código"
-              :id="`codesnippets-copy-btn-${snippet.id}`"
-            >
-              <font-awesome-icon icon="fa-solid fa-copy" />
-            </button>
-            <button
-              @click="editSnippet(snippet.id)"
-              class="text-yellow-400 hover:text-yellow-200 transition codesnippets-edit-btn"
-              title="Editar"
-              :id="`codesnippets-edit-btn-${snippet.id}`"
-            >
-              <font-awesome-icon icon="fa-solid fa-pen" />
-            </button>
-            <button
-              @click="removeSnippet(snippet.id)"
-              class="text-red-400 hover:text-red-600 transition codesnippets-remove-btn"
-              title="Remover"
-              :id="`codesnippets-remove-btn-${snippet.id}`"
-            >
-              <font-awesome-icon icon="fa-solid fa-trash" />
-            </button>
-          </div>
-        </div>
-        <!-- Exibição do código com highlight -->
-        <pre class="rounded bg-gray-900 p-3 overflow-x-auto codesnippets-code" :id="`codesnippets-code-${snippet.id}`">
-          <code :class="`language-${snippet.language}`" v-html="highlight(snippet.code, snippet.language)"></code>
-        </pre>
+  <div class="tool" style="--app-accent-rgb: 191, 90, 242" id="codesnippets-main">
+    <div class="tool-head">
+      <div>
+        <h2 class="tool-title">Snippets de Código</h2>
+        <p class="tool-sub">{{ snippets.length }} snippet{{ snippets.length === 1 ? '' : 's' }} salvos</p>
       </div>
-      <!-- Mensagem caso não haja snippets -->
-      <div v-if="filteredSnippets.length === 0" class="text-gray-400 text-center mt-8" id="codesnippets-empty">
-        Nenhum snippet encontrado.
+      <button type="button" class="btn btn-sm" :class="{ 'btn-primary': !formOpen }" @click="formOpen ? closeForm() : openForm()">
+        <font-awesome-icon :icon="formOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-plus'" /> {{ formOpen ? 'Fechar' : 'Novo snippet' }}
+      </button>
+    </div>
+
+    <div v-if="formOpen" class="tool-card form">
+      <div class="tool-row">
+        <input v-model="draft.title" placeholder="Título" class="tool-grow" id="codesnippets-input-title" />
+        <select v-model="draft.language" aria-label="Linguagem" id="codesnippets-select-language">
+          <option v-for="lang in languages" :key="lang.id" :value="lang.id">{{ lang.label }}</option>
+        </select>
+      </div>
+      <textarea v-model="draft.code" class="code-area" rows="7" spellcheck="false" placeholder="Cole ou digite seu código…" @keydown.tab.prevent="insertTab" id="codesnippets-input-code"></textarea>
+      <div class="tool-row">
+        <span v-if="formError" class="tool-error">{{ formError }}</span>
+        <span class="tool-grow"></span>
+        <button type="button" class="btn btn-primary btn-sm" @click="saveDraft" id="codesnippets-add-btn">{{ editingId ? 'Salvar alterações' : 'Adicionar' }}</button>
       </div>
     </div>
-    <!-- Modal de edição de snippet -->
-    <div v-if="editingIdx !== null" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" id="codesnippets-edit-modal">
-      <div class="bg-gray-900 border border-fuchsia-700 rounded-lg p-6 w-full max-w-lg" id="codesnippets-edit-modal-content">
-        <h3 class="text-lg font-bold mb-4 text-fuchsia-300" id="codesnippets-edit-title">Editar Snippet</h3>
-        <input
-          v-model="editSnippetData.title"
-          type="text"
-          placeholder="Título"
-          class="w-full mb-2 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
-          id="codesnippets-edit-input-title"
-        />
-        <select
-          v-model="editSnippetData.language"
-          class="w-full mb-2 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
-          id="codesnippets-edit-select-language"
-        >
-          <option disabled value="">Linguagem</option>
-          <option v-for="lang in languages" :key="lang" :value="lang" :id="`codesnippets-edit-option-${lang}`">{{ lang }}</option>
-        </select>
-        <textarea
-          v-model="editSnippetData.code"
-          class="w-full mb-2 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none font-mono"
-          rows="5"
-          id="codesnippets-edit-input-code"
-        ></textarea>
-        <div class="flex gap-2 justify-end" id="codesnippets-edit-actions">
-          <button @click="saveEdit" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-4 py-2 rounded" id="codesnippets-edit-save-btn">Salvar</button>
-          <button @click="cancelEdit" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded" id="codesnippets-edit-cancel-btn">Cancelar</button>
-        </div>
-      </div>
+
+    <div class="tool-row">
+      <input v-model="search" type="search" placeholder="Buscar por título, linguagem ou código…" class="tool-grow" id="codesnippets-search" />
+      <select v-model="languageFilter" aria-label="Filtrar linguagem" class="lang-filter">
+        <option value="">Todas</option>
+        <option v-for="lang in usedLanguages" :key="lang" :value="lang">{{ labelOf(lang) }}</option>
+      </select>
+    </div>
+
+    <div class="tool-list list" id="codesnippets-list">
+      <article v-for="snippet in filteredSnippets" :key="snippet.id" class="snippet">
+        <header class="snippet-head">
+          <strong class="tool-grow title">{{ snippet.title }}</strong>
+          <span class="chip">{{ labelOf(snippet.language) }}</span>
+          <button type="button" class="icon-btn" @click="copy(snippet.code, snippet.id)" :title="copied === snippet.id ? 'Copiado!' : 'Copiar código'"><font-awesome-icon :icon="copied === snippet.id ? 'fa-solid fa-check' : 'fa-solid fa-copy'" /></button>
+          <button type="button" class="icon-btn" @click="openForm(snippet)" title="Editar"><font-awesome-icon icon="fa-solid fa-pen" /></button>
+          <button type="button" class="icon-btn danger" @click="removeSnippet(snippet)" title="Remover"><font-awesome-icon icon="fa-solid fa-trash" /></button>
+        </header>
+        <pre class="code" :class="{ collapsed: isLong(snippet) && !expanded[snippet.id] }"><code class="hljs" v-html="highlight(snippet.code, snippet.language)"></code></pre>
+        <button v-if="isLong(snippet)" type="button" class="btn btn-sm more" @click="expanded[snippet.id] = !expanded[snippet.id]">{{ expanded[snippet.id] ? 'Mostrar menos' : `Mostrar tudo (${lineCount(snippet)} linhas)` }}</button>
+      </article>
+      <p v-if="!filteredSnippets.length" class="tool-empty">{{ snippets.length ? 'Nenhum snippet encontrado.' : 'Guarde aqui os trechos que você sempre procura.' }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import hljs from 'highlight.js/lib/core'
 import javascript from 'highlight.js/lib/languages/javascript'
+import typescript from 'highlight.js/lib/languages/typescript'
 import python from 'highlight.js/lib/languages/python'
 import bash from 'highlight.js/lib/languages/bash'
 import json from 'highlight.js/lib/languages/json'
@@ -143,102 +63,102 @@ import css from 'highlight.js/lib/languages/css'
 import sql from 'highlight.js/lib/languages/sql'
 import markdown from 'highlight.js/lib/languages/markdown'
 import java from 'highlight.js/lib/languages/java'
+import go from 'highlight.js/lib/languages/go'
+import rust from 'highlight.js/lib/languages/rust'
+import php from 'highlight.js/lib/languages/php'
+import csharp from 'highlight.js/lib/languages/csharp'
+import yaml from 'highlight.js/lib/languages/yaml'
+import dockerfile from 'highlight.js/lib/languages/dockerfile'
 import 'highlight.js/styles/github-dark.css'
-import { getDevRoomData, setDevRoomData } from '../utils/storage'
+import { useAppStorage } from '../composables/useAppStorage'
+import { useCopy } from '../utils/clipboard'
 
-// Registra linguagens suportadas
-hljs.registerLanguage('javascript', javascript)
-hljs.registerLanguage('python', python)
-hljs.registerLanguage('bash', bash)
-hljs.registerLanguage('json', json)
-hljs.registerLanguage('xml', xml)
-hljs.registerLanguage('css', css)
-hljs.registerLanguage('sql', sql)
-hljs.registerLanguage('markdown', markdown)
-hljs.registerLanguage('java', java)
-
+const languageDefs = { javascript, typescript, python, bash, json, xml, css, sql, markdown, java, go, rust, php, csharp, yaml, dockerfile }
+for (const [name, def] of Object.entries(languageDefs)) hljs.registerLanguage(name, def)
 const languages = [
-  'javascript', 'python', 'bash', 'json', 'xml', 'css', 'sql', 'markdown', 'java'
+  { id: 'javascript', label: 'JavaScript' }, { id: 'typescript', label: 'TypeScript' }, { id: 'python', label: 'Python' },
+  { id: 'bash', label: 'Shell' }, { id: 'json', label: 'JSON' }, { id: 'xml', label: 'HTML/XML' }, { id: 'css', label: 'CSS' },
+  { id: 'sql', label: 'SQL' }, { id: 'markdown', label: 'Markdown' }, { id: 'java', label: 'Java' }, { id: 'go', label: 'Go' },
+  { id: 'rust', label: 'Rust' }, { id: 'php', label: 'PHP' }, { id: 'csharp', label: 'C#' }, { id: 'yaml', label: 'YAML' },
+  { id: 'dockerfile', label: 'Dockerfile' }, { id: 'plaintext', label: 'Texto' }
 ]
+const labelOf = id => languages.find(l => l.id === id)?.label || id
 
-const allData = getDevRoomData()
-const snippets = ref(allData.snippets || [])
+const { state: snippets } = useAppStorage('snippets', [])
+const { copied, copy } = useCopy()
 const search = ref('')
-const newSnippet = ref({ title: '', language: '', code: '' })
-const editingIdx = ref(null)
-const editSnippetData = ref({ title: '', language: '', code: '' })
+const languageFilter = ref('')
+const formOpen = ref(false)
+const editingId = ref(null)
+const formError = ref('')
+const draft = reactive({ title: '', language: 'javascript', code: '' })
+const expanded = reactive({})
 
-// Salva snippets no localStorage ao alterar
-watch(snippets, (val) => {
-  const data = getDevRoomData()
-  data.snippets = val
-  setDevRoomData(data)
-}, { deep: true })
-
-function addSnippet(snippet) {
-  if (!snippet.title.trim() || !snippet.language || !snippet.code.trim()) return
-  snippet.id = Date.now() + Math.random()
-  snippets.value.push(snippet)
-  newSnippet.value = { title: '', language: '', code: '' }
-}
-
-function removeSnippet(id) {
-  snippets.value = snippets.value.filter(s => s.id !== id)
-}
-
-function editSnippet(id) {
-  const snippet = snippets.value.find(s => s.id === id)
-  if (snippet) {
-    editingIdx.value = id
-    editSnippetData.value = { ...snippet }
-  }
-}
-
-function saveEdit() {
-  if (!editSnippetData.value.title.trim() || !editSnippetData.value.language || !editSnippetData.value.code.trim()) return
-  const idx = snippets.value.findIndex(s => s.id === editingIdx.value)
-  if (idx !== -1) {
-    snippets.value[idx] = { ...editSnippetData.value }
-    editingIdx.value = null
-  }
-}
-
-function cancelEdit() {
-  editingIdx.value = null
-}
-
-function copyCode(code) {
-  navigator.clipboard.writeText(code)
-}
-
+const usedLanguages = computed(() => [...new Set(snippets.value.map(s => s.language))])
 const filteredSnippets = computed(() => {
-  if (!search.value.trim()) return snippets.value
   const q = search.value.trim().toLowerCase()
-  return snippets.value.filter(
-    s =>
-      s.title.toLowerCase().includes(q) ||
-      s.language.toLowerCase().includes(q)
-  )
+  return [...snippets.value].reverse().filter(s =>
+    (!languageFilter.value || s.language === languageFilter.value) &&
+    (!q || `${s.title} ${labelOf(s.language)} ${s.code}`.toLowerCase().includes(q)))
 })
 
+const lineCount = s => (s.code || '').split('\n').length
+const isLong = s => lineCount(s) > 14
+
+function openForm(snippet = null) {
+  editingId.value = snippet?.id ?? null
+  Object.assign(draft, snippet ? { title: snippet.title, language: snippet.language, code: snippet.code } : { title: '', language: draft.language || 'javascript', code: '' })
+  formError.value = ''
+  formOpen.value = true
+}
+
+function closeForm() {
+  formOpen.value = false
+  editingId.value = null
+}
+
+function saveDraft() {
+  if (!draft.title.trim() || !draft.code.trim()) { formError.value = 'Preencha título e código.'; return }
+  const data = { title: draft.title.trim(), language: draft.language, code: draft.code.replace(/\s+$/, '') }
+  if (editingId.value) {
+    const index = snippets.value.findIndex(s => s.id === editingId.value)
+    if (index !== -1) snippets.value[index] = { ...snippets.value[index], ...data }
+  } else {
+    snippets.value.push({ id: Date.now() + Math.random(), ...data })
+  }
+  closeForm()
+}
+
+function removeSnippet(snippet) {
+  if (!confirm(`Remover o snippet "${snippet.title}"?`)) return
+  snippets.value = snippets.value.filter(s => s.id !== snippet.id)
+}
+
+function insertTab(event) {
+  const el = event.target
+  const { selectionStart: start, selectionEnd: end } = el
+  draft.code = `${draft.code.slice(0, start)}  ${draft.code.slice(end)}`
+  requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = start + 2 })
+}
+
+const escapeHtml = text => text.replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[ch])
 function highlight(code, lang) {
-  if (hljs.getLanguage(lang)) {
-    return hljs.highlight(code, { language: lang }).value
-  }
-  return hljs.highlightAuto(code).value
+  try {
+    if (hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value
+  } catch {}
+  return escapeHtml(code || '')
 }
-
-// Atualiza snippets ao detectar alteração no localStorage
-function syncFromStorage(e) {
-  if (e.key === 'dev-room-data') {
-    const allData = getDevRoomData()
-    snippets.value = allData.snippets || []
-  }
-}
-onMounted(() => {
-  window.addEventListener('storage', syncFromStorage)
-})
-onUnmounted(() => {
-  window.removeEventListener('storage', syncFromStorage)
-})
 </script>
+
+<style scoped>
+.form { display: flex; flex-direction: column; gap: 8px; }
+.lang-filter { width: 130px; }
+.list { flex: 1; gap: 10px; }
+.snippet { border: 1px solid var(--glass-border); border-radius: 14px; background: var(--bg-panel-secondary); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.snippet-head { display: flex; align-items: center; gap: 4px; }
+.title { overflow-wrap: anywhere; font-size: 14px; }
+.code { margin: 0; border-radius: 10px; background: #0d1117; overflow: auto; font-size: 12.5px; line-height: 1.5; max-height: 420px; }
+.code code { display: block; padding: 10px 12px; background: transparent; white-space: pre; }
+.code.collapsed { max-height: 230px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+.more { align-self: center; }
+</style>

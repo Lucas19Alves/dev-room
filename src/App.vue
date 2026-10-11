@@ -28,6 +28,12 @@ const GithubFeatures = defineAsyncComponent(() => import('./components/GithubFea
 const Kanban = defineAsyncComponent(() => import('./components/Kanban.vue'))
 const Converter = defineAsyncComponent(() => import('./components/Converter.vue'))
 const CodePlayground = defineAsyncComponent(() => import('./components/CodePlayground.vue'))
+const JsonTool = defineAsyncComponent(() => import('./components/JsonTool.vue'))
+const EncoderTool = defineAsyncComponent(() => import('./components/EncoderTool.vue'))
+const RegexTester = defineAsyncComponent(() => import('./components/RegexTester.vue'))
+const DiffTool = defineAsyncComponent(() => import('./components/DiffTool.vue'))
+const ColorTool = defineAsyncComponent(() => import('./components/ColorTool.vue'))
+const TimestampTool = defineAsyncComponent(() => import('./components/TimestampTool.vue'))
 
 const NOME_KEY = 'dev-room-nome'
 const THEME_KEY = 'dev-room-theme'
@@ -126,6 +132,8 @@ onMounted(async () => {
   window.addEventListener('resize', checkMobile)
   window.addEventListener('storage', handleStorageSync)
   window.addEventListener('keydown', handleKeyboard)
+  window.addEventListener('devroom-toast', handleToast)
+  window.addEventListener('devroom-open-tool', handleOpenTool)
 
   // Restaurar janelas abertas
   const savedWindows = localStorage.getItem('dev-room-windows')
@@ -172,6 +180,8 @@ onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
   window.removeEventListener('beforeinstallprompt', handleInstallPrompt)
   window.removeEventListener('keydown', handleKeyboard)
+  window.removeEventListener('devroom-toast', handleToast)
+  window.removeEventListener('devroom-open-tool', handleOpenTool)
 })
 
 const now = ref(new Date())
@@ -211,6 +221,12 @@ const windowComponents = {
   Kanban,
   Converter,
   CodePlayground,
+  JsonTool,
+  EncoderTool,
+  RegexTester,
+  DiffTool,
+  ColorTool,
+  TimestampTool,
 }
 
 const mobileActiveTab = ref('Timer')
@@ -234,6 +250,27 @@ function loadDockTabs() {
 }
 
 const dockTabs = ref(loadDockTabs())
+const DOCK_HIDDEN_KEY = 'dev-room-dock-hidden'
+const dockHidden = ref((() => {
+  try { const saved = JSON.parse(localStorage.getItem(DOCK_HIDDEN_KEY)); return Array.isArray(saved) ? saved : [] } catch { return [] }
+})())
+watch(dockHidden, value => localStorage.setItem(DOCK_HIDDEN_KEY, JSON.stringify(value)), { deep: true })
+// A dock mostra só as ferramentas fixadas; a ordem continua editável por arraste.
+const dockVisible = computed({
+  get: () => dockTabs.value.filter(tab => !dockHidden.value.includes(tab.type)),
+  set: list => {
+    const hidden = dockTabs.value.filter(tab => dockHidden.value.includes(tab.type))
+    dockTabs.value = [...list, ...hidden]
+  }
+})
+function toggleDockPin(type) {
+  dockHidden.value = dockHidden.value.includes(type) ? dockHidden.value.filter(t => t !== type) : [...dockHidden.value, type]
+}
+// Ícones encolhem quando há muitas ferramentas fixadas.
+const dockItemSize = computed(() => {
+  const available = Math.min(viewportSize.width * 0.94, 1180) - 70
+  return Math.max(26, Math.min(40, Math.floor(available / Math.max(1, dockVisible.value.length + 1)) - 4))
+})
 const dockDragging = ref(false)
 const dockReveal = ref(false)
 
@@ -295,6 +332,11 @@ function openWindow(type) {
 
   x = (maxWidth - width) / 2
   y = (maxHeight - height) / 2
+  // Janelas novas em cascata para não ficarem exatamente sobrepostas.
+  for (let step = 0; step < 8 && openWindows.some(w => !w.minimized && Math.abs(w.x - x) < 12 && Math.abs(w.y - y) < 12); step++) {
+    x = Math.min(maxWidth - width, x + 28)
+    y = Math.min(Math.max(0, maxHeight - height - 80), y + 28)
+  }
 
   openWindows.push({
     id: Date.now() + Math.random(),
@@ -376,7 +418,7 @@ function checkMobile() {
 const isDockObstructed = computed(() => {
   if (isMobile.value) return false
   const statusBarHeight = 50
-  const dockWidth = Math.min(viewportSize.width * 0.94, 860)
+  const dockWidth = (dockItemSize.value + 4) * (dockVisible.value.length + 1) + 40
   const dockLeft = (viewportSize.width - dockWidth) / 2
   const dockRight = dockLeft + dockWidth
   const dockTop = viewportSize.height - 82
@@ -485,6 +527,19 @@ function handleInstallPrompt(event) {
   deferredPrompt = event
   showInstallPrompt.value = true
 }
+// Avisos curtos dentro do app (substituem alert()).
+const toasts = ref([])
+function handleToast(event) {
+  const id = Date.now() + Math.random()
+  toasts.value = [...toasts.value.slice(-2), { id, ...event.detail }]
+  setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id) }, event.detail?.type === 'alert' ? 7000 : 3500)
+}
+function handleOpenTool(event) {
+  if (!event.detail?.type) return
+  mobileMenuOpen.value = false
+  openWindow(event.detail.type)
+}
+
 // Lançador rápido de ferramentas (Ctrl/Cmd + K)
 const showLauncher = ref(false)
 const launcherQuery = ref('')
@@ -493,7 +548,7 @@ const launcherInput = ref(null)
 const normalize = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 const launcherResults = computed(() => {
   const query = normalize(launcherQuery.value.trim())
-  return dockTabs.value.filter(tool => !query || normalize(`${tool.label} ${tool.type}`).includes(query))
+  return dockTabs.value.filter(tool => !query || normalize(`${tool.label} ${tool.type} ${tool.keywords || ''}`).includes(query))
 })
 watch(launcherQuery, () => { launcherIndex.value = 0 })
 function openLauncher() {
@@ -681,11 +736,14 @@ const showPixToast = ref(false) // <-- Adicione esta linha
           <button v-if="githubToken" type="button" class="account-status account-status-mobile mb-4" :class="`sync-${syncState}`" :title="syncTitle" @click="synchronize" :disabled="isSyncing">
             <span class="sync-dot" aria-hidden="true"></span>{{ syncStatus }}
           </button>
+          <button type="button" class="launcher-trigger mb-4 justify-start" @click="mobileMenuOpen = false; openLauncher()">
+            <font-awesome-icon icon="fa-solid fa-magnifying-glass" /> Buscar ferramenta
+          </button>
           <!-- Abas do menu mobile -->
-          <div class="flex flex-col mb-12 gap-3" id="mobile-menu-tabs">
+          <div class="flex flex-col pb-28 gap-1" id="mobile-menu-tabs">
             <button v-for="tab in mobileTabs" :key="tab.type"
               @click="mobileActiveTab = tab.type; mobileMenuOpen = false"
-              class="cursor-pointer flex items-center gap-3 px-3 py-2 rounded text-lg transition"
+              class="cursor-pointer flex items-center gap-3 px-3 py-2 rounded text-base text-left transition"
               :class="mobileActiveTab === tab.type ? 'bg-blue-800 text-blue-200 font-bold' : 'text-gray-300 hover:bg-gray-800'"
               :style="mobileActiveTab === tab.type ? { background: 'var(--accent)', color: 'var(--text-main)' } : {}"
               :id="`mobile-menu-tab-${tab.type}`"
@@ -826,6 +884,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
         class="p-2 flex justify-center items-center shadow-2xl fixed left-1/2 bottom-3 w-fit max-w-[94vw] border z-[9000]"
         :class="{ 'dock-auto-hidden': isDockObstructed && !dockReveal }"
         :style="{
+          '--dock-size': `${dockItemSize}px`,
           background: 'var(--bg-panel)',
           color: 'var(--text-main)',
           borderColor: 'var(--accent)'
@@ -834,7 +893,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
         @mouseleave="dockReveal = false"
       >
         <draggable
-          v-model="dockTabs"
+          v-model="dockVisible"
           item-key="type"
           tag="div"
           class="flex flex-nowrap gap-1 justify-start items-center overflow-visible px-1"
@@ -847,7 +906,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
         >
           <template #item="{ element: winTab }">
             <div
-              class="dock-item flex flex-col items-center justify-center group cursor-grab active:cursor-grabbing w-10 h-10 rounded-xl relative flex-none"
+              class="dock-item flex flex-col items-center justify-center group cursor-grab active:cursor-grabbing rounded-xl relative flex-none"
               :class="{
                 'dock-item-active': openWindows.some(w => w.type === winTab.type && !w.minimized),
                 'dock-item-minimized': openWindows.some(w => w.type === winTab.type && w.minimized)
@@ -858,25 +917,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
               :aria-label="winTab.label"
               :id="`desktop-dock-icon-${winTab.type}`"
             >
-              <font-awesome-icon :icon="winTab.icon" :class="[
-                winTab.type === 'Timer' ? 'text-blue-400 hover:text-blue-200' : '',
-                winTab.type === 'MusicPlayer' ? 'text-green-400 hover:text-green-200' : '',
-                winTab.type === 'TodoList' ? 'text-yellow-400 hover:text-yellow-200' : '',
-                winTab.type === 'Docs' ? 'text-pink-400 hover:text-pink-200' : '',
-                winTab.type === 'QuickNotes' ? 'text-orange-400 hover:text-orange-200' : '',
-                winTab.type === 'GithubFeatures' ? 'text-gray-400 hover:text-gray-200' : '',
-                winTab.type === 'CodeSnippets' ? 'text-purple-400 hover:text-purple-200' : '',
-                winTab.type === 'CodePlayground' ? 'text-orange-400 hover:text-orange-200' : '',
-                winTab.type === 'DeployChecklist' ? 'text-teal-400 hover:text-teal-200' : '',
-                winTab.type === 'Pomodoro' ? 'text-red-400 hover:text-red-200' : '',
-                winTab.type === 'Search' ? 'text-cyan-400 hover:text-cyan-200' : '',
-                winTab.type === 'Themes' ? 'text-fuchsia-400 hover:text-fuchsia-200' : '',
-                winTab.type === 'WaterReminder' ? 'text-sky-400 hover:text-sky-200' : '',
-                winTab.type === 'FakeDataGenerator' ? 'text-lime-400 hover:text-lime-200' : '',
-                winTab.type === 'ChatGPTApi' ? 'text-emerald-400 hover:text-emerald-200' : '',
-                winTab.type === 'Kanban' ? 'text-blue-400 hover:text-blue-200' : '',
-                winTab.type === 'Converter' ? 'text-blue-400 hover:text-blue-200' : '',
-              ]" class="text-xl dock-item-icon" />
+              <font-awesome-icon :icon="winTab.icon" :class="winTab.color" class="dock-item-icon" />
               <span class="dock-tooltip group-hover:opacity-100">{{ winTab.label }}</span>
               <span
                 v-if="openWindows.find(w => w.type === winTab.type && w.minimized)"
@@ -887,6 +928,11 @@ const showPixToast = ref(false) // <-- Adicione esta linha
             </div>
           </template>
         </draggable>
+        <span class="dock-divider" aria-hidden="true"></span>
+        <button type="button" class="dock-item dock-all flex items-center justify-center rounded-xl relative flex-none group" @click="openLauncher" title="Todas as ferramentas (Ctrl+K)" aria-label="Todas as ferramentas" id="dock-all-tools">
+          <font-awesome-icon icon="fa-solid fa-th-large" class="dock-item-icon" />
+          <span class="dock-tooltip group-hover:opacity-100">Todas as ferramentas</span>
+        </button>
       </div>
     </div>
 
@@ -1085,7 +1131,7 @@ const showPixToast = ref(false) // <-- Adicione esta linha
         <div class="launcher" role="dialog" aria-label="Abrir ferramenta">
           <div class="launcher-search">
             <font-awesome-icon icon="fa-solid fa-magnifying-glass" />
-            <input ref="launcherInput" v-model="launcherQuery" placeholder="Buscar ferramenta…" @keydown="handleLauncherKey" aria-label="Buscar ferramenta" id="launcher-input" />
+            <input ref="launcherInput" v-model="launcherQuery" placeholder="Buscar ferramenta… (📌 fixa na dock)" @keydown="handleLauncherKey" aria-label="Buscar ferramenta" id="launcher-input" />
             <kbd>Esc</kbd>
           </div>
           <ul class="launcher-list">
@@ -1095,12 +1141,24 @@ const showPixToast = ref(false) // <-- Adicione esta linha
                 <span>{{ tool.label }}</span>
                 <small v-if="openWindows.some(w => w.type === tool.type)">aberta</small>
               </button>
+              <button v-if="!isMobile" type="button" class="launcher-pin" :class="{ pinned: !dockHidden.includes(tool.type) }" @click.stop="toggleDockPin(tool.type)" :title="dockHidden.includes(tool.type) ? 'Fixar na dock' : 'Remover da dock'" :aria-label="dockHidden.includes(tool.type) ? `Fixar ${tool.label} na dock` : `Remover ${tool.label} da dock`">
+                <font-awesome-icon icon="fa-solid fa-thumbtack" />
+              </button>
             </li>
             <li v-if="!launcherResults.length" class="launcher-empty">Nenhuma ferramenta encontrada.</li>
           </ul>
         </div>
       </div>
     </transition>
+
+    <div class="toast-stack" aria-live="polite">
+      <transition-group name="fade">
+        <div v-for="item in toasts" :key="item.id" class="toast" :class="item.type" role="status">
+          <span>{{ item.message }}</span>
+          <button type="button" @click="toasts = toasts.filter(t => t.id !== item.id)" aria-label="Fechar aviso">×</button>
+        </div>
+      </transition-group>
+    </div>
 
     <div v-if="accountError" class="account-notice" role="alert">
       <span>{{ accountError }}</span><button @click="accountError = ''" aria-label="Fechar aviso">×</button>
@@ -1157,6 +1215,8 @@ body {
 }
 
 .dock-item {
+  width: var(--dock-size, 40px);
+  height: var(--dock-size, 40px);
   transition: transform 180ms cubic-bezier(.22, 1, .36, 1), background-color 180ms ease, box-shadow 180ms ease;
 }
 
@@ -1196,19 +1256,20 @@ body {
   filter: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.24));
 }
 
-@media (max-width: 900px) and (min-width: 769px) {
-  .dock-item {
-    width: 2rem !important;
-    height: 2rem !important;
-  }
+.dock-item-icon {
+  font-size: calc(var(--dock-size, 40px) * 0.5);
+}
 
-  .dock-item-icon {
-    font-size: 0.95rem !important;
-  }
+.dock-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 6px 4px;
+  background: var(--glass-border);
+}
 
-  #dock {
-    padding: 0.35rem !important;
-  }
+.dock-all {
+  color: var(--text-muted);
+  cursor: pointer;
 }
 
 .dock-tooltip {

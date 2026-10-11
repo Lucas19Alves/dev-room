@@ -85,6 +85,25 @@
       <Wallpaper :setWallpaper="setWallpaper" />
     </section>
 
+    <!-- Seção: Dados -->
+    <section class="rounded-lg p-4 flex flex-col gap-2" id="config-data-section">
+      <h2 class="text-lg font-bold mb-2" :style="{ color: 'var(--text-main)' }">
+        <font-awesome-icon icon="fa-solid fa-database" class="mr-2" />
+        Seus dados
+      </h2>
+      <p class="text-xs text-gray-400">Baixe uma cópia de tarefas, notas, snippets, quadros e configurações, ou restaure a partir de um arquivo. Chaves de API não são incluídas.</p>
+      <div class="flex gap-2 flex-wrap">
+        <button type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-xs font-bold" @click="exportData" id="config-export-btn">
+          <font-awesome-icon icon="fa-solid fa-download" /> Exportar backup
+        </button>
+        <label class="bg-gray-700 hover:bg-gray-800 px-3 py-2 rounded text-xs font-bold cursor-pointer" id="config-import-btn">
+          <font-awesome-icon icon="fa-solid fa-upload" /> Importar backup
+          <input type="file" accept=".json,application/json" class="hidden" @change="importData" />
+        </label>
+      </div>
+      <span v-if="dataMessage" class="text-xs" :class="dataError ? 'text-red-400' : 'text-green-400'">{{ dataMessage }}</span>
+    </section>
+
     <!-- Seção: Documentação -->
     <section class="rounded-lg p-4 flex flex-col gap-2" id="config-doc-section">
       <h2 class="text-lg font-bold mb-2 flex items-center gap-2" :style="{ color: 'var(--text-main)' }" id="config-doc-title">
@@ -114,7 +133,7 @@
           </div>
           <ul class="list-disc ml-5 mt-2 space-y-1" id="config-doc-intro-list">
             <li>
-              <b>Widgets modulares:</b> To-Do, Notas rápidas, Pomodoro, Timer, Snippets, Checklist de Deploy, Lembrete de água, Player de música, Gerador de dados fake e Busca inteligente.
+              <b>{{ toolCount }} ferramentas:</b> produtividade (tarefas, Kanban, notas, Pomodoro, timer) e utilitários de dev (JSON, Regex, Diff, codificador, cores, timestamps, playground e assistente de IA).
             </li>
             <li>
               <b>Personalização:</b> Escolha entre <span class="font-bold text-pink-300">10 temas translúcidos</span>, com opções claras e escuras.
@@ -144,19 +163,9 @@
             <b>Ferramentas disponíveis:</b>
           </div>
           <ul class="list-disc ml-5 space-y-1" id="config-doc-windows-list">
-            <li><b>Timer:</b> Cronômetro simples para medir tempo de atividades. Continua mesmo se a janela for fechada.</li>
-            <li><b>To-Do List:</b> Lista de tarefas com salvamento automático. Marque, edite ou exclua tarefas.</li>
-            <li><b>Notas Rápidas:</b> Bloco para anotações rápidas, ideias ou lembretes. Fixe ou desafixe notas.</li>
-            <li><b>Snippets de Código:</b> Salve e consulte trechos de código úteis.</li>
-            <li><b>Code Playground:</b> Experimente HTML, CSS e JavaScript em um ambiente isolado.</li>
-            <li><b>Checklist de Deploy:</b> Lista de verificação para garantir um deploy seguro. Personalize seus itens.</li>
-            <li><b>Pomodoro:</b> Técnica de produtividade baseada em ciclos de foco e pausa.</li>
-            <li><b>Lembrete de Água:</b> Defina intervalos para ser lembrado de beber água.</li>
-            <li><b>Busca:</b> Pesquise rapidamente entre suas notas, tarefas e códigos.</li>
-            <li><b>Temas:</b> Personalize as cores e o visual do Dev Room.</li>
-            <li><b>Player de Música:</b> Ouça músicas para relaxar ou focar durante o trabalho.</li>
-            <li><b>Gerador de Dados:</b> Gere dados fake para testes de desenvolvimento.</li>
+            <li v-for="tool in toolDocs" :key="tool.label"><b>{{ tool.label }}:</b> {{ tool.text }}</li>
           </ul>
+          <p class="mt-3 text-xs text-gray-400">Dica: <b>Ctrl+K</b> abre qualquer ferramenta; o alfinete fixa ou remove da dock.</p>
         </div>
         <div v-else-if="docTab === 'Sobre & Contato'" id="config-doc-about">
           <div class="mb-3 flex flex-col gap-2 items-center">
@@ -193,6 +202,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { getDevRoomData, setDevRoomData } from '../utils/storage'
+import { tools } from '../utils/tools'
 import Wallpaper from './Wallpaper.vue'
 
 const props = defineProps({
@@ -238,18 +248,70 @@ function setTheme(theme) {
 const docTabs = ['Visão Geral', 'Funcionalidades', 'Sobre & Contato']
 const docTab = ref('Visão Geral')
 
-const allData = getDevRoomData()
-const nome = ref(allData.nome || '')
-const tema = ref(allData.tema || 'theme-default')
+const toolCount = tools.length
+const toolDocs = [
+  { label: 'Timer', text: 'Contagem regressiva com atalhos e cronômetro com voltas. Continua contando com a janela fechada.' },
+  { label: 'To-Do List', text: 'Tarefas com prioridade, filtros, edição e progresso.' },
+  { label: 'Kanban', text: 'Quadro com colunas e cards arrastáveis, etiquetas coloridas e filtro.' },
+  { label: 'Notas Rápidas', text: 'Notas coloridas que podem ser fixadas na área de trabalho.' },
+  { label: 'Snippets', text: 'Trechos de código com destaque de sintaxe em 16 linguagens, busca e cópia.' },
+  { label: 'Code Playground', text: 'HTML, CSS e JavaScript isolados, com console e execução automática.' },
+  { label: 'JSON', text: 'Valida, formata, minifica, ordena chaves e gera tipos TypeScript.' },
+  { label: 'Codificador', text: 'Base64, URL, HTML, leitura de JWT e hashes SHA.' },
+  { label: 'Regex', text: 'Teste expressões com destaque, grupos e substituição.' },
+  { label: 'Diff', text: 'Compara dois textos linha a linha.' },
+  { label: 'Cores', text: 'Converte HEX, RGB e HSL, gera tons e mede contraste WCAG.' },
+  { label: 'Timestamp', text: 'Converte Unix e datas e mostra fusos horários.' },
+  { label: 'GitHub', text: 'Issues, PRs e commits dos seus repositórios.' },
+  { label: 'Checklist de Deploy', text: 'Modelos prontos, reordenação, progresso e exportação.' },
+  { label: 'Pomodoro', text: 'Foco, pausas curtas e longas, contagem diária e início automático.' },
+  { label: 'Assistente IA', text: 'Converse com modelos da OpenAI, Anthropic, Google e outros usando sua chave.' },
+  { label: 'Busca', text: 'Procura nos seus dados e abre pesquisas no Google, MDN, Stack Overflow e mais.' },
+  { label: 'Lembrete de Água', text: 'Meta diária, registros rápidos e histórico da semana.' },
+  { label: 'Gerador de Dados', text: 'Pessoas, CPF, CNPJ, UUID, senhas e mais, em lote, JSON ou CSV.' },
+  { label: 'Player de Música', text: 'Lo-fi para focar, com suas próprias músicas e teclas de mídia.' },
+  { label: 'Conversor de moedas', text: 'Cotações atualizadas entre dezenas de moedas.' }
+]
 
-watch(nome, (val) => {
-  const data = getDevRoomData()
-  data.nome = val
-  setDevRoomData(data)
-})
-watch(tema, (val) => {
-  const data = getDevRoomData()
-  data.tema = val
-  setDevRoomData(data)
-})
+// Backup manual em arquivo.
+const dataMessage = ref('')
+const dataError = ref(false)
+const LOCAL_KEYS = ['dev-room-nome', 'dev-room-theme', 'dev-room-dock-order', 'dev-room-dock-hidden', 'dev-room-music']
+
+function exportData() {
+  const backup = { app: 'dev-room', version: 1, exportedAt: new Date().toISOString(), data: getDevRoomData(), local: {} }
+  for (const key of LOCAL_KEYS) {
+    const value = localStorage.getItem(key)
+    if (value !== null) backup.local[key] = value
+  }
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  Object.assign(document.createElement('a'), { href: url, download: `dev-room-backup-${new Date().toISOString().slice(0, 10)}.json` }).click()
+  URL.revokeObjectURL(url)
+  dataError.value = false
+  dataMessage.value = 'Backup baixado.'
+}
+
+async function importData(event) {
+  const file = event.target.files[0]
+  event.target.value = ''
+  if (!file) return
+  try {
+    const backup = JSON.parse(await file.text())
+    const data = backup?.app === 'dev-room' ? backup.data : backup
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error()
+    if (!confirm('Restaurar este backup? Os dados atuais das ferramentas serão substituídos.')) return
+    const { _clock, lastModified, ...content } = data
+    setDevRoomData({ ...getDevRoomData(), ...content })
+    for (const [key, value] of Object.entries(backup.local || {})) {
+      if (LOCAL_KEYS.includes(key) && typeof value === 'string') localStorage.setItem(key, value)
+    }
+    dataError.value = false
+    dataMessage.value = 'Backup restaurado. Recarregando…'
+    setTimeout(() => window.location.reload(), 800)
+  } catch {
+    dataError.value = true
+    dataMessage.value = 'Arquivo inválido. Use um backup exportado pelo Dev Room.'
+  }
+}
 </script>

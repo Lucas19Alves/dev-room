@@ -38,6 +38,7 @@
 import { createApp } from 'vue'
 import './style.css'
 import './workspace.css'
+import './tools.css'
 import App from './App.vue'
 import { library } from '@fortawesome/fontawesome-svg-core'
 import {
@@ -49,7 +50,8 @@ import {
   faUpRightAndDownLeftFromCenter, faDownLeftAndUpRightToCenter, faPlus, faThLarge, faRightToBracket,
   faArrowRightFromBracket, faCubes, faUserLock, faGlobe, faUserAstronaut, faLightbulb, faGear, faRobot,
   faImage, faTableColumns, faKey, faCircleInfo, faPaperPlane, faCodePullRequest, faCodeCommit, faCircleExclamation, faDollarSign,
-  faLaptopCode,
+  faLaptopCode, faFileCode, faLock, faAsterisk, faCodeCompare, faCalendarDays, faThumbtack, faPen, faStop,
+  faRotateLeft, faArrowUpRightFromSquare, faDownload, faUpload, faCircleCheck, faForward, faBell, faEye, faStar,
 } from '@fortawesome/free-solid-svg-icons'
 import { faGithub } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
@@ -64,7 +66,8 @@ library.add(
   faArrowRightFromBracket, faCubes, faUserLock, faGlobe, faUserAstronaut, faLightbulb, faGear,
   faGithub, faRobot, faImage, faTableColumns, faKey, faCircleInfo, faPaperPlane, faCodePullRequest, faDollarSign,
   faCodeCommit, faCircleExclamation,
-  faLaptopCode,
+  faLaptopCode, faFileCode, faLock, faAsterisk, faCodeCompare, faCalendarDays, faThumbtack, faPen, faStop,
+  faRotateLeft, faArrowUpRightFromSquare, faDownload, faUpload, faCircleCheck, faForward, faBell, faEye, faStar,
 )
 
 const app = createApp(App)

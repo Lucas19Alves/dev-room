@@ -5,22 +5,23 @@ export function playSound(url) {
   })
 }
 
+// Mostra um aviso dentro do app (sempre) e uma notificação do sistema quando permitida.
+export function toast(message, type = 'info') {
+  window.dispatchEvent(new CustomEvent('devroom-toast', { detail: { message, type } }))
+}
+
+export function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {})
+  }
+}
+
 export function notify(title, options = {}) {
-  if ("Notification" in window) {
-    if (Notification.permission === "granted") {
-      new Notification(title, options)
-    } else if (Notification.permission !== "denied") {
-      Notification.requestPermission().then(permission => {
-        if (permission === "granted") {
-          new Notification(title, options)
-        } else {
-          alert(`${title}\n${options.body || ''}`)
-        }
-      })
-    } else {
-      alert(`${title}\n${options.body || ''}`)
-    }
-  } else {
-    alert(`${title}\n${options.body || ''}`)
+  toast(options.body ? `${title} ${options.body}` : title, 'alert')
+  if (!('Notification' in window)) return
+  if (Notification.permission === 'granted') {
+    try { new Notification(title, { icon: '/icons/icon-192x192.png', ...options }) } catch {}
+  } else if (Notification.permission === 'default') {
+    requestNotificationPermission()
   }
 }

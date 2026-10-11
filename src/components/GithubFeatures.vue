@@ -10,8 +10,11 @@
       <p>Conecte sua conta pelo botão Entrar para acompanhar seus repositórios.</p>
     </div>
     <div v-else>
-      <label class="block mb-2 font-semibold text-gray-300">Repositório:</label>
-      <select v-model="selectedRepo" class="mb-4 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 w-full">
+      <div class="flex items-center gap-2 mb-2">
+        <label class="font-semibold text-gray-300" for="gh-repo-select">Repositório:</label>
+        <a v-if="selectedRepo" :href="`https://github.com/${selectedRepo}`" target="_blank" rel="noopener" class="ml-auto text-xs gh-link">Abrir no GitHub ↗</a>
+      </div>
+      <select v-model="selectedRepo" id="gh-repo-select" class="mb-4 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 w-full">
         <option v-for="repo in repos" :key="repo.id" :value="repo.full_name">
           {{ repo.full_name }}
         </option>
@@ -27,7 +30,7 @@
             <ul class="space-y-1 max-h-48 overflow-auto">
               <li v-for="issue in issues" :key="issue.id" class="bg-gray-800 rounded px-2 py-1 text-sm flex items-center gap-2">
                 <span class="text-gray-400">#{{ issue.number }}</span>
-                <span>{{ issue.title }}</span>
+                <a :href="issue.html_url" target="_blank" rel="noopener" class="gh-link">{{ issue.title }}</a>
                 <span v-if="issue.state === 'open'" class="ml-auto text-green-400 text-xs">aberta</span>
                 <span v-else class="ml-auto text-red-400 text-xs">fechada</span>
               </li>
@@ -43,7 +46,7 @@
             <ul class="space-y-1 max-h-48 overflow-auto">
               <li v-for="pr in pullRequests" :key="pr.id" class="bg-gray-800 rounded px-2 py-1 text-sm flex items-center gap-2">
                 <span class="text-gray-400">#{{ pr.number }}</span>
-                <span>{{ pr.title }}</span>
+                <a :href="pr.html_url" target="_blank" rel="noopener" class="gh-link">{{ pr.title }}</a>
                 <span v-if="pr.state === 'open'" class="ml-auto text-green-400 text-xs">aberto</span>
                 <span v-else class="ml-auto text-red-400 text-xs">fechado</span>
               </li>
@@ -58,8 +61,9 @@
             </h3>
             <ul class="space-y-1 max-h-48 overflow-auto">
               <li v-for="commit in commits" :key="commit.sha" class="bg-gray-800 rounded px-2 py-1 text-xs">
-                <span class="font-mono text-gray-400">{{ commit.sha.slice(0, 7) }}</span>
-                <span class="ml-2">{{ commit.commit.message }}</span>
+                <a :href="commit.html_url" target="_blank" rel="noopener" class="font-mono text-gray-400 gh-link">{{ commit.sha.slice(0, 7) }}</a>
+                <span class="ml-2">{{ commit.commit.message.split('\n')[0] }}</span>
+                <span class="block text-gray-400 mt-0.5">{{ commit.commit.author?.name }} · {{ new Date(commit.commit.author?.date).toLocaleDateString('pt-BR') }}</span>
               </li>
               <li v-if="!commits.length" class="text-gray-500 text-xs">Nenhum commit</li>
             </ul>
@@ -121,3 +125,8 @@ watch(selectedRepo, async fullName => {
   } finally { if (id === requestId) loading.value = false }
 })
 </script>
+
+<style scoped>
+.gh-link { color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.gh-link:hover { color: var(--accent); text-decoration: underline; }
+</style>

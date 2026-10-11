@@ -1,289 +1,191 @@
 <template>
-  <!-- Container principal do Pomodoro -->
-  <div class="flex flex-col items-center justify-center w-full h-full p-4 min-w-[220px] min-h-[220px]" id="pomodoro-main">
-    <!-- Título -->
-    <h2 class="text-xl font-bold mb-4 text-red-400" id="pomodoro-title">Pomodoro</h2>
-    <!-- Formulário de configuração de foco e pausa -->
-    <form @submit.prevent="saveConfig" class="flex gap-2 mb-4 items-end" id="pomodoro-form">
+  <div class="tool" :style="{ '--app-accent-rgb': stage.rgb }" id="pomodoro-main">
+    <div class="tool-head">
       <div>
-        <label class="block text-xs text-gray-400 mb-1" id="pomodoro-label-focus">Foco (min)</label>
-        <input type="number" min="1" max="120" v-model.number="focusInput" class="w-16 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700" id="pomodoro-input-focus" />
+        <h2 class="tool-title">Pomodoro</h2>
+        <p class="tool-sub">{{ pomo.completedToday }} foco{{ pomo.completedToday === 1 ? '' : 's' }} concluído{{ pomo.completedToday === 1 ? '' : 's' }} hoje</p>
       </div>
-      <div>
-        <label class="block text-xs text-gray-400 mb-1" id="pomodoro-label-break">Pausa (min)</label>
-        <input type="number" min="1" max="60" v-model.number="breakInput" class="w-16 px-2 py-1 rounded bg-gray-800 text-gray-100 border border-gray-700" id="pomodoro-input-break" />
+      <div class="seg" role="group" aria-label="Etapa">
+        <button v-for="(item, id) in stages" :key="id" type="button" :class="{ on: pomo.stage === id }" @click="goTo(id)">{{ item.label }}</button>
       </div>
-      <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition text-xs" id="pomodoro-save-btn">Salvar</button>
-    </form>
-    <!-- Exibe se está em foco ou pausa -->
-    <div class="mb-2 text-lg text-gray-300" id="pomodoro-stage">
-      {{ isBreak ? 'Pausa' : 'Foco' }}
     </div>
-    <!-- Exibição do tempo formatado -->
-    <div class="text-5xl font-mono mb-4 text-red-300 select-none break-words w-full text-center" id="pomodoro-timer">
-      {{ formattedTime }}
+
+    <div class="display">
+      <svg viewBox="0 0 120 120" class="dial" aria-hidden="true">
+        <circle cx="60" cy="60" r="54" class="track" />
+        <circle cx="60" cy="60" r="54" class="bar" :style="{ strokeDashoffset: 339.3 * (1 - progress) }" />
+      </svg>
+      <div class="center">
+        <span class="stage-name">{{ stage.label }}</span>
+        <span class="time tool-mono">{{ display }}</span>
+        <span class="dots" :title="`Ciclo ${pomo.cycle} de ${pomo.config.rounds}`">
+          <i v-for="n in pomo.config.rounds" :key="n" :class="{ on: n < pomo.cycle || (n === pomo.cycle && pomo.stage !== 'focus') }"></i>
+        </span>
+      </div>
     </div>
-    <!-- Frase motivacional -->
-    <div class="mb-4 text-sm text-gray-400 italic text-center" id="pomodoro-motivation">
-      "{{ fraseMotivacional }}"
-    </div>
-    <!-- Botões de controle do Pomodoro -->
-    <div class="flex gap-2 mb-2 flex-wrap justify-center w-full" id="pomodoro-actions">
-      <button
-        class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition"
-        @click="toggleTimer"
-        id="pomodoro-toggle-btn"
-      >
-        {{ running ? 'Pausar' : (elapsed > 0 ? 'Continuar' : 'Iniciar') }}
+
+    <p class="motivation tool-muted">“{{ phrase }}”</p>
+
+    <div class="tool-row actions">
+      <button type="button" class="btn btn-primary" @click="toggle" id="pomodoro-toggle-btn">
+        <font-awesome-icon :icon="running ? 'fa-solid fa-pause' : 'fa-solid fa-play'" />
+        {{ running ? 'Pausar' : elapsedMs > 0 ? 'Continuar' : 'Iniciar' }}
       </button>
-      <button
-        class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded transition"
-        @click="resetTimer"
-        :disabled="elapsed === 0 && !running"
-        id="pomodoro-reset-btn"
-      >
-        Resetar
-      </button>
-      <button
-        class="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded transition"
-        @click="skip"
-        id="pomodoro-skip-btn"
-      >
-        Pular
-      </button>
+      <button type="button" class="btn" @click="reset" :disabled="!elapsedMs && !running"><font-awesome-icon icon="fa-solid fa-rotate-left" /> Zerar</button>
+      <button type="button" class="btn" @click="advance(false)"><font-awesome-icon icon="fa-solid fa-forward" /> Pular</button>
     </div>
-    <!-- Exibe o ciclo atual -->
-    <div class="mt-2 text-xs text-gray-400" id="pomodoro-cycle">
-      Ciclo: {{ cycle }} / 4
-    </div>
+
+    <details class="tool-card config">
+      <summary>Ajustes</summary>
+      <div class="config-grid">
+        <label>Foco <span><input type="number" min="1" max="120" v-model.number="pomo.config.focus" /> min</span></label>
+        <label>Pausa curta <span><input type="number" min="1" max="60" v-model.number="pomo.config.short" /> min</span></label>
+        <label>Pausa longa <span><input type="number" min="1" max="60" v-model.number="pomo.config.long" /> min</span></label>
+        <label>Ciclos até a longa <span><input type="number" min="2" max="8" v-model.number="pomo.config.rounds" /></span></label>
+      </div>
+      <label class="tool-row auto"><input type="checkbox" v-model="pomo.config.autoStart" /> Iniciar a próxima etapa automaticamente</label>
+      <label class="tool-row auto"><input type="checkbox" v-model="pomo.config.titleClock" /> Mostrar contagem no título da aba</label>
+    </details>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { playSound, notify } from '../utils/notify'
-import { getDevRoomData, setDevRoomData } from '../utils/storage'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { playSound, notify, requestNotificationPermission } from '../utils/notify'
+import { useAppStorage } from '../composables/useAppStorage'
 
-// Estado do Pomodoro
-const allData = getDevRoomData()
-const pomodoro = ref(allData.pomodoro || { state: {}, config: {} })
-
-// Salva pomodoro no localStorage ao alterar
-watch(pomodoro, (val) => {
-  const data = getDevRoomData()
-  data.pomodoro = val
-  setDevRoomData(data)
-}, { deep: true })
-
-// Atualiza pomodoro ao detectar alteração no localStorage
-function syncFromStorage(e) {
-  if (e.key === 'dev-room-data') {
-    const allData = getDevRoomData()
-    pomodoro.value = allData.pomodoro || { state: {}, config: {} }
-  }
+const stages = {
+  focus: { label: 'Foco', rgb: '255, 69, 58' },
+  short: { label: 'Pausa', rgb: '48, 209, 88' },
+  long: { label: 'Pausa longa', rgb: '10, 132, 255' }
 }
-onMounted(() => {
-  window.addEventListener('storage', syncFromStorage)
+const defaults = () => ({
+  config: { focus: 25, short: 5, long: 15, rounds: 4, autoStart: true, titleClock: true },
+  stage: 'focus', cycle: 1, startedAt: null, accumulated: 0, completedToday: 0, day: ''
 })
-onUnmounted(() => {
-  window.removeEventListener('storage', syncFromStorage)
-})
+const { state: pomo } = useAppStorage('pomodoro', defaults)
 
-// Chaves para localStorage
-const POMODORO_STATE_KEY = 'dev-room-pomodoro-state'
-const POMODORO_CONFIG_KEY = 'dev-room-pomodoro-config'
+// Migra as chaves antigas e completa campos ausentes.
+;(() => {
+  const base = defaults()
+  const current = pomo.value || {}
+  const next = { ...base, ...current, config: { ...base.config, ...(current.config || {}) } }
+  if (!stages[next.stage]) next.stage = 'focus'
+  try {
+    const oldConfig = JSON.parse(localStorage.getItem('dev-room-pomodoro-config'))
+    if (oldConfig?.focus) Object.assign(next.config, { focus: oldConfig.focus, short: oldConfig.break || 5 })
+  } catch {}
+  localStorage.removeItem('dev-room-pomodoro-config')
+  localStorage.removeItem('dev-room-pomodoro-state')
+  pomo.value = next
+})()
 
-// Frases motivacionais aleatórias
-const frases = [
-  'Foque no agora!',
-  'Você está mais perto do seu objetivo.',
-  'Continue, a pausa está chegando!',
-  'Cada ciclo é um passo a mais.',
-  'Respire fundo e mantenha o ritmo.'
-]
-const fraseMotivacional = frases[Math.floor(Math.random() * frases.length)]
-
-// Configuração editável de foco e pausa
-const focusInput = ref(25)
-const breakInput = ref(5)
-const focusTime = ref(25 * 60)
-const breakTime = ref(5 * 60)
-
-// Salva configuração de foco/pausa
-function saveConfig() {
-  focusTime.value = focusInput.value * 60
-  breakTime.value = breakInput.value * 60
-  localStorage.setItem(POMODORO_CONFIG_KEY, JSON.stringify({
-    focus: focusInput.value,
-    break: breakInput.value
-  }))
-  // Se estiver pausado, reseta o timer para novo tempo
-  if (!running.value) {
-    elapsed.value = 0
-    endTimestamp.value = null
-  }
-}
-
-// Carrega configuração salva
-function loadConfig() {
-  const saved = localStorage.getItem(POMODORO_CONFIG_KEY)
-  if (saved) {
-    const cfg = JSON.parse(saved)
-    focusInput.value = cfg.focus
-    breakInput.value = cfg.break
-    focusTime.value = cfg.focus * 60
-    breakTime.value = cfg.break * 60
-  }
-}
-
-// Estados do Pomodoro
-const elapsed = ref(0)
-const running = ref(false)
-const isBreak = ref(false)
-const cycle = ref(1)
-const endTimestamp = ref(null)
-let intervalId = null
-
-// Tempo formatado para exibição (mm:ss)
-const formattedTime = computed(() => {
-  const total = isBreak.value ? breakTime.value : focusTime.value
-  const remaining = Math.max(total - elapsed.value, 0)
-  const min = String(Math.floor(remaining / 60)).padStart(2, '0')
-  const sec = String(remaining % 60).padStart(2, '0')
-  return `${min}:${sec}`
+const phrases = ['Foque no agora!', 'Você está mais perto do seu objetivo.', 'Continue, a pausa está chegando!', 'Cada ciclo é um passo a mais.', 'Respire fundo e mantenha o ritmo.', 'Uma coisa de cada vez.']
+const phrase = phrases[Math.floor(Math.random() * phrases.length)]
+const now = ref(Date.now())
+const stage = computed(() => stages[pomo.value.stage])
+const durationMs = computed(() => Math.max(1, Number(pomo.value.config[pomo.value.stage]) || 1) * 60000)
+const running = computed(() => Boolean(pomo.value.startedAt))
+const elapsedMs = computed(() => pomo.value.accumulated + (pomo.value.startedAt ? now.value - pomo.value.startedAt : 0))
+const remainingMs = computed(() => Math.max(0, durationMs.value - elapsedMs.value))
+const progress = computed(() => Math.min(1, elapsedMs.value / durationMs.value))
+const display = computed(() => {
+  const total = Math.ceil(remainingMs.value / 1000)
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 })
 
-// Salva o estado atual do Pomodoro
-function saveState() {
-  localStorage.setItem(
-    POMODORO_STATE_KEY,
-    JSON.stringify({
-      elapsed: elapsed.value,
-      running: running.value,
-      isBreak: isBreak.value,
-      cycle: cycle.value,
-      endTimestamp: endTimestamp.value
-    })
-  )
-}
+const today = () => new Date().toDateString()
 
-// Carrega o estado salvo do Pomodoro
-function loadState() {
-  const saved = localStorage.getItem(POMODORO_STATE_KEY)
-  if (saved) {
-    const state = JSON.parse(saved)
-    elapsed.value = state.elapsed
-    running.value = state.running
-    isBreak.value = state.isBreak
-    cycle.value = state.cycle
-    endTimestamp.value = state.endTimestamp
-    const total = isBreak.value ? breakTime.value : focusTime.value
-    if (running.value && endTimestamp.value) {
-      const now = Date.now()
-      const remaining = Math.max(Math.floor((endTimestamp.value - now) / 1000), 0)
-      elapsed.value = total - remaining
-      if (remaining <= 0) {
-        elapsed.value = total
-        running.value = false
-        endTimestamp.value = null
-        playSound('/sounds/notify.mp3')
-        notify('Novo ciclo do Pomodoro', { body: 'Confira seu pomodoro' })
-        nextStage(true)
-      } else {
-        startTimer(true)
-      }
-    }
-  }
-}
-
-// Inicia o timer do Pomodoro
-function startTimer(fromLoad = false) {
-  if ((!running.value || fromLoad)) {
-    running.value = true
-    const total = isBreak.value ? breakTime.value : focusTime.value
-    if (!fromLoad) {
-      endTimestamp.value = Date.now() + (total - elapsed.value) * 1000
-    }
-    saveState()
-    clearInterval(intervalId)
-    intervalId = setInterval(() => {
-      const now = Date.now()
-      const total = isBreak.value ? breakTime.value : focusTime.value
-      const remaining = Math.max(Math.floor((endTimestamp.value - now) / 1000), 0)
-      elapsed.value = total - remaining
-      if (remaining <= 0) {
-        nextStage()
-      }
-    }, 1000)
-  }
-}
-
-// Pausa o timer do Pomodoro
-function pauseTimer() {
-  running.value = false
-  clearInterval(intervalId)
-  saveState()
-}
-
-// Reseta o timer do Pomodoro
-function resetTimer() {
-  pauseTimer()
-  elapsed.value = 0
-  endTimestamp.value = null
-  saveState()
-}
-
-// Alterna entre iniciar e pausar o timer
-function toggleTimer() {
+function toggle() {
   if (running.value) {
-    pauseTimer()
+    pomo.value.accumulated = elapsedMs.value
+    pomo.value.startedAt = null
   } else {
-    startTimer()
+    requestNotificationPermission()
+    now.value = Date.now()
+    pomo.value.startedAt = now.value
   }
 }
 
-// Avança para o próximo estágio (foco <-> pausa)
-function nextStage(fromLoad = false) {
-  pauseTimer()
-  elapsed.value = 0
-  endTimestamp.value = null
-  if (!isBreak.value) {
-    isBreak.value = true
+function reset() {
+  pomo.value.startedAt = null
+  pomo.value.accumulated = 0
+}
+
+function goTo(id) {
+  pomo.value.stage = id
+  reset()
+}
+
+// Avança para a próxima etapa; `finished` indica que o tempo acabou (conta o foco).
+function advance(finished) {
+  const p = pomo.value
+  if (p.stage === 'focus') {
+    if (finished) {
+      if (p.day !== today()) { p.day = today(); p.completedToday = 0 }
+      p.completedToday++
+    }
+    p.stage = p.cycle >= p.config.rounds ? 'long' : 'short'
   } else {
-    isBreak.value = false
-    cycle.value = cycle.value < 4 ? cycle.value + 1 : 1
+    if (p.stage === 'long') p.cycle = 1
+    else p.cycle++
+    p.stage = 'focus'
   }
-  if (!fromLoad) {
-    playSound('/sounds/notify.mp3')
-    notify('Novo ciclo do Pomodoro', { body: 'Confira seu pomodoro' })
-  }
-  startTimer()
+  p.accumulated = 0
+  p.startedAt = finished && p.config.autoStart ? Date.now() : null
 }
 
-// Pula para o próximo estágio manualmente
-function skip() {
-  nextStage()
-}
+watch(remainingMs, remaining => {
+  if (remaining > 0 || !running.value) return
+  const wasFocus = pomo.value.stage === 'focus'
+  advance(true)
+  playSound('/sounds/notify.mp3')
+  notify(wasFocus ? 'Foco concluído! Hora da pausa.' : 'Pausa encerrada. Bora focar!', { body: `Próxima etapa: ${stage.value.label}.` })
+}, { immediate: true })
 
-// Ciclo de vida: monta e desmonta o componente
+// Contagem no título da aba enquanto roda.
+const originalTitle = document.title
+watch([display, running, () => pomo.value.config.titleClock], ([time, isRunning, enabled]) => {
+  document.title = isRunning && enabled ? `${time} · ${stage.value.label} — Dev Room` : originalTitle
+})
+
+let tick = 0
+let pausedByBreak = false
+function pauseAll() { if (running.value) { pausedByBreak = true; toggle() } }
+function resumeAll() { if (pausedByBreak && !running.value) toggle(); pausedByBreak = false }
 onMounted(() => {
-  loadConfig()
-  loadState()
-  window.addEventListener('devroom-pause-all', pauseTimer)
-  window.addEventListener('devroom-resume-all', () => {
-    if (running.value) startTimer()
-  })
+  if (pomo.value.day !== today()) { pomo.value.day = today(); pomo.value.completedToday = 0 }
+  tick = setInterval(() => { now.value = Date.now() }, 250)
+  window.addEventListener('devroom-pause-all', pauseAll)
+  window.addEventListener('devroom-resume-all', resumeAll)
 })
-
 onUnmounted(() => {
-  clearInterval(intervalId)
-  saveState()
-  window.removeEventListener('devroom-pause-all', pauseTimer)
-  window.removeEventListener('devroom-resume-all', () => {
-    if (running.value) startTimer()
-  })
+  clearInterval(tick)
+  document.title = originalTitle
+  window.removeEventListener('devroom-pause-all', pauseAll)
+  window.removeEventListener('devroom-resume-all', resumeAll)
 })
-
-// Observa mudanças para salvar o estado automaticamente
-watch([elapsed, running, isBreak, cycle, endTimestamp], saveState)
 </script>
+
+<style scoped>
+.display { position: relative; display: grid; place-items: center; align-self: center; width: min(240px, 78%); aspect-ratio: 1; }
+.display > * { grid-area: 1 / 1; }
+.dial { width: 100%; height: 100%; transform: rotate(-90deg); }
+.dial circle { fill: none; stroke-width: 6; }
+.dial .track { stroke: var(--surface-soft); }
+.dial .bar { stroke: rgb(var(--app-accent-rgb)); stroke-linecap: round; stroke-dasharray: 339.3; transition: stroke-dashoffset .25s linear, stroke .3s; }
+.center { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.stage-name { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgb(var(--app-accent-rgb)); }
+.time { font-size: clamp(2.2rem, 12cqi, 3.2rem); font-weight: 700; letter-spacing: -.04em; }
+.dots { display: flex; gap: 5px; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--surface-soft); border: 1px solid var(--glass-border); }
+.dots i.on { background: rgb(var(--app-accent-rgb)); }
+.motivation { text-align: center; font-style: italic; font-size: 13px; }
+.actions { justify-content: center; }
+.config summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 10px 0; font-size: 12.5px; color: var(--text-secondary); }
+.config-grid label { display: flex; flex-direction: column; gap: 4px; }
+.config-grid span { display: flex; align-items: center; gap: 6px; }
+.config-grid input { width: 72px; }
+.auto { font-size: 12.5px; gap: 6px; margin-top: 4px; cursor: pointer; }
+</style>

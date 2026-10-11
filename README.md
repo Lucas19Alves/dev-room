@@ -1,6 +1,11 @@
 # Dev Room
 
-Um desktop de produtividade para desenvolvedores, feito com Vue 3 e Vite. Reúne tarefas, Kanban, notas, snippets, timers, Pomodoro, música, checklist de deploy, playground e ferramentas do GitHub.
+Um desktop de produtividade para desenvolvedores, feito com Vue 3 e Vite.
+
+- **Produtividade:** tarefas com prioridade, Kanban com etiquetas, notas fixáveis na área de trabalho, timer/cronômetro, Pomodoro com pausas longas, lembrete de água, player lo-fi e checklist de deploy com modelos.
+- **Utilitários de dev:** JSON (validar, formatar, gerar TypeScript), codificador (Base64, URL, HTML, JWT, SHA), Regex com grupos e substituição, Diff de texto, cores (HEX/RGB/HSL e contraste WCAG), Timestamp com fusos, snippets com destaque de sintaxe, playground HTML/CSS/JS com console, gerador de dados brasileiros e assistente de IA multi-provedor.
+- **Navegação:** `Ctrl+K` abre qualquer ferramenta; o alfinete fixa ou remove da dock; a busca procura em tarefas, notas, snippets e quadros.
+- **Dados:** salvos no navegador, com backup opcional no GitHub e exportação/importação em arquivo nas Configurações.
 
 [Usar o Dev Room](https://dev-room-three.vercel.app/) · [Repositório](https://github.com/Lucas19Alves/dev-room)
 
@@ -48,4 +53,4 @@ Funciona direto do navegador com a chave do próprio usuário: OpenAI, Anthropic
 
 ## Validação
 
-`npm test` cobre OAuth/PKCE, rejeição de callbacks inválidos, timestamps de persistência, mescla por chave, sincronização (envio único, 304 em ociosidade, mescla entre dispositivos), repos privados e recuperação de janelas corrompidas ou fora da tela. Os testes de autenticação usam respostas simuladas e não criam credenciais nem repositórios reais.
+`npm test` cobre OAuth/PKCE, rejeição de callbacks inválidos, timestamps de persistência, mescla por chave, utilitários de dev (JSON, codificação, JWT, cores, diff e timestamps), sincronização (envio único, 304 em ociosidade, mescla entre dispositivos), repos privados e recuperação de janelas corrompidas ou fora da tela. Os testes de autenticação usam respostas simuladas e não criam credenciais nem repositórios reais.

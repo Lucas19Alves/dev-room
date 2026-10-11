@@ -1,126 +1,100 @@
 <template>
-  <!-- Container principal das Notas Rápidas -->
-  <div class="flex flex-col w-full h-full p-4" id="quicknotes-main">
-    <!-- Título -->
-    <h2 class="text-xl font-bold mb-4 text-orange-300" id="quicknotes-title">Notas Rápidas</h2>
-    <!-- Formulário para adicionar nova nota -->
-    <form @submit.prevent="addNote(newNote)" class="flex gap-2 mb-4" id="quicknotes-form">
-      <input
-        v-model="newNote"
-        type="text"
-        autocomplete="off"
-        placeholder="Digite uma nota rápida..."
-        class="flex-1 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
-        id="quicknotes-input"
-      />
-      <button
-        type="submit"
-        class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded transition"
-        id="quicknotes-add-btn"
-      >
-        Adicionar
-      </button>
-    </form>
-    <!-- Grid de notas -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full overflow-y-auto flex-1 pr-2" id="quicknotes-list">
-      <div
-        v-for="(note, idx) in notes"
-        :key="note.id"
-        class="relative bg-yellow-100 rounded-lg shadow p-3 min-h-[80px] flex flex-col quicknotes-item"
-        :style="{ background: noteColors[idx % noteColors.length] }"
-        :id="`quicknotes-item-${note.id}`"
-      >
-        <!-- Área editável da nota -->
-        <textarea
-          v-model="note.text"
-          @input="saveNotes"
-          class="bg-transparent resize-none border-none text-gray-800 font-medium w-full h-full focus:outline-none quicknotes-textarea"
-          rows="4"
-          :id="`quicknotes-textarea-${note.id}`"
-        />
-        <!-- Botão para remover nota -->
-        <button
-          @click="removeNote(note.id)"
-          class="absolute top-2 right-2 text-red-400 hover:text-red-600 transition quicknotes-remove-btn"
-          title="Remover"
-          :id="`quicknotes-remove-btn-${note.id}`"
-        >
-          <font-awesome-icon icon="fa-solid fa-trash" />
-        </button>
-        <!-- Botão para desafixar nota (ícone) - só no desktop -->
-        <button
-          v-if="!isMobile"
-          @click="floatNote(note)"
-          class="absolute top-2 left-2 text-blue-400 hover:text-blue-600 transition quicknotes-float-btn"
-          title="Desafixar"
-          :id="`quicknotes-float-btn-${note.id}`"
-        >
-          <font-awesome-icon icon="fa-solid fa-up-right-and-down-left-from-center" />
-        </button>
+  <div class="tool" style="--app-accent-rgb: 255, 149, 0" id="quicknotes-main">
+    <div class="tool-head">
+      <div>
+        <h2 class="tool-title">Notas Rápidas</h2>
+        <p class="tool-sub">{{ notes.length }} nota{{ notes.length === 1 ? '' : 's' }}{{ floatingCount ? ` · ${floatingCount} na área de trabalho` : '' }}</p>
       </div>
-      <!-- Mensagem caso não haja notas -->
-      <div v-if="notes.length === 0" class="col-span-full text-gray-400 text-center" id="quicknotes-empty">
-        Nenhuma nota ainda.
-      </div>
+      <input v-if="notes.length > 3" v-model="filter" type="search" placeholder="Filtrar notas" class="filter-input" aria-label="Filtrar notas" />
+    </div>
+
+    <div class="tool-row">
+      <textarea v-model="newNote" rows="2" placeholder="Escreva uma nota… (Ctrl+Enter salva)" class="tool-grow new-note" @keydown.ctrl.enter="addNote" @keydown.meta.enter="addNote" id="quicknotes-input"></textarea>
+      <button type="button" class="btn btn-primary" :disabled="!newNote.trim()" @click="addNote" id="quicknotes-add-btn"><font-awesome-icon icon="fa-solid fa-plus" /> Nota</button>
+    </div>
+
+    <div class="grid" id="quicknotes-list">
+      <article v-for="note in visibleNotes" :key="note.id" class="note" :style="{ background: colorOf(note) }" :class="{ floating: note.floating }">
+        <div class="note-bar">
+          <button v-for="(color, i) in noteColors" :key="color" type="button" class="swatch" :style="{ background: color }" :class="{ on: colorOf(note) === color }" @click="note.color = i" :aria-label="`Cor ${i + 1}`"></button>
+          <span class="spacer"></span>
+          <button type="button" class="note-btn" @click="copy(note.text, note.id)" :title="copied === note.id ? 'Copiado!' : 'Copiar'"><font-awesome-icon :icon="copied === note.id ? 'fa-solid fa-check' : 'fa-solid fa-copy'" /></button>
+          <button v-if="!isMobile" type="button" class="note-btn" @click="toggleFloat(note)" :title="note.floating ? 'Recolher da área de trabalho' : 'Fixar na área de trabalho'"><font-awesome-icon icon="fa-solid fa-thumbtack" /></button>
+          <button type="button" class="note-btn danger" @click="removeNote(note.id)" title="Remover"><font-awesome-icon icon="fa-solid fa-trash" /></button>
+        </div>
+        <textarea v-model="note.text" rows="5" class="note-text" aria-label="Texto da nota"></textarea>
+        <span v-if="note.updatedAt || note.createdAt" class="note-date">{{ formatDate(note.updatedAt || note.createdAt) }}</span>
+      </article>
+      <p v-if="!visibleNotes.length" class="tool-empty empty">{{ notes.length ? 'Nenhuma nota corresponde ao filtro.' : 'Nenhuma nota ainda.' }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { notes, saveNotes, loadNotes, STORAGE_KEY } from '../stores/notesStore'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { notes, loadNotes } from '../stores/notesStore'
+import { useCopy } from '../utils/clipboard'
+import { noteColors, noteColor } from '../utils/noteColors'
 
 const newNote = ref('')
-const noteColors = [
-  '#FEF3C7', '#FDE68A', '#FCD34D', '#FFD6A5',
-  '#E0BBE4', '#B5EAD7', '#C7CEEA',
-]
+const filter = ref('')
 const isMobile = ref(false)
+const { copied, copy } = useCopy()
+const colorOf = note => noteColor(note, notes.value.indexOf(note))
+const floatingCount = computed(() => notes.value.filter(n => n.floating).length)
+const visibleNotes = computed(() => {
+  const q = filter.value.trim().toLowerCase()
+  const list = q ? notes.value.filter(n => (n.text || '').toLowerCase().includes(q)) : notes.value
+  return [...list].reverse()
+})
 
-// Atualiza o estado mobile e carrega notas ao montar
+function addNote() {
+  const text = newNote.value.trim()
+  if (!text) return
+  notes.value.push({ id: Date.now() + Math.random(), text, floating: false, x: 120, y: 120, color: notes.value.length % noteColors.length, createdAt: Date.now() })
+  newNote.value = ''
+}
+
+function removeNote(id) {
+  const note = notes.value.find(n => n.id === id)
+  if (note?.text.trim() && !confirm('Remover esta nota?')) return
+  notes.value = notes.value.filter(n => n.id !== id)
+}
+
+function toggleFloat(note) {
+  note.floating = !note.floating
+  if (note.floating) {
+    note.x = Math.min(window.innerWidth - 260, Math.max(20, note.x ?? 120))
+    note.y = Math.min(window.innerHeight - 200, Math.max(60, note.y ?? 120))
+  }
+}
+
+const formatDate = time => new Date(time).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+
+function checkMobile() { isMobile.value = window.matchMedia('(max-width: 768px)').matches }
 onMounted(() => {
   loadNotes()
-  const checkMobile = () => {
-    isMobile.value = window.matchMedia('(max-width: 640px)').matches
-  }
   checkMobile()
   window.addEventListener('resize', checkMobile)
-  window.addEventListener('storage', syncFromStorage)
 })
-onUnmounted(() => {
-  window.removeEventListener('resize', () => {})
-  window.removeEventListener('storage', syncFromStorage)
-})
-
-// Adiciona uma nova nota
-function addNote(text) {
-  if (text.trim() === '') return
-  notes.value.push({ text: text.trim(), id: Date.now() + Math.random(), floating: false, x: 100, y: 100 })
-  newNote.value = ''
-  saveNotes()
-}
-
-// Remove uma nota pelo id
-function removeNote(id) {
-  const idx = notes.value.findIndex(n => n.id === id)
-  if (idx !== -1) {
-    notes.value.splice(idx, 1)
-    saveNotes()
-  }
-}
-
-// Torna a nota móvel (sticky)
-function floatNote(note) {
-  note.floating = true
-  note.x = note.x ?? 100
-  note.y = note.y ?? 100
-  saveNotes()
-}
-
-// Sincroniza notas ao detectar alteração no localStorage
-function syncFromStorage(e) {
-  if (e.key === STORAGE_KEY || e.key === 'dev-room-data') {
-    loadNotes()
-  }
-}
+onUnmounted(() => window.removeEventListener('resize', checkMobile))
 </script>
+
+<style scoped>
+.filter-input { width: 160px; min-height: 30px !important; font-size: 12.5px; }
+.new-note { resize: vertical; min-height: 44px; }
+.grid { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; align-content: start; overflow-y: auto; padding: 2px; }
+.note { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 8px; border-radius: 14px; color: #2b2b2b; box-shadow: 0 8px 22px rgba(0, 0, 0, .1); }
+.note.floating { outline: 2px dashed rgba(0, 0, 0, .25); outline-offset: -4px; }
+.note-bar { display: flex; align-items: center; gap: 3px; }
+.spacer { flex: 1; }
+.tool .swatch { min-height: 0 !important; width: 11px; height: 11px; padding: 0 !important; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .25); cursor: pointer; }
+.tool .swatch.on { box-shadow: 0 0 0 2px rgba(0, 0, 0, .55); }
+.tool .note-btn { min-height: 0 !important; padding: 3px 5px !important; background: transparent; border: 0; color: rgba(0, 0, 0, .45); cursor: pointer; font-size: 12px !important; }
+.tool .note-btn:hover { color: rgba(0, 0, 0, .85); }
+.tool .note-btn.danger:hover { color: #d70015; }
+.tool .note-text { background: transparent !important; border: 0 !important; box-shadow: none !important; color: #222 !important; resize: vertical; padding: 0 !important; font-size: 13.5px; line-height: 1.5; min-height: 80px; }
+.note-text:focus { box-shadow: none !important; }
+.note-date { font-size: 10.5px; color: rgba(0, 0, 0, .45); text-align: right; }
+.empty { grid-column: 1 / -1; }
+</style>

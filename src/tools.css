@@ -1,0 +1,39 @@
+/* Base visual compartilhada pelas ferramentas. Cada ferramenta define --app-accent-rgb. */
+.tool { --app-accent-rgb: 10, 132, 255; position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 12px; min-height: 100%; min-width: 0; padding: 16px; color: var(--text-main); }
+.tool::before { content: ""; position: absolute; z-index: -1; top: 0; right: 0; width: min(18rem, 100%); height: 12rem; border-radius: 999px; background: radial-gradient(circle, rgba(var(--app-accent-rgb), .15), transparent 68%); pointer-events: none; }
+.tool-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.tool-title { font-size: 1.15rem; font-weight: 700; letter-spacing: -.025em; line-height: 1.2; }
+.tool-title::after { content: ""; display: block; width: 2rem; height: .18rem; margin-top: .45rem; border-radius: 999px; background: rgb(var(--app-accent-rgb)); box-shadow: 0 0 18px rgba(var(--app-accent-rgb), .42); }
+.tool-sub { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+.tool-card { border: 1px solid var(--glass-border); border-radius: 14px; background: var(--bg-panel-secondary); padding: 12px; min-width: 0; }
+.tool-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tool-grow { flex: 1; min-width: 0; }
+.tool-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+.tool-muted { color: var(--text-muted); }
+.tool-error { color: #ff5f57; font-size: 12.5px; }
+.tool-ok { color: #30d158; font-size: 12.5px; }
+.tool-mono, .tool .code-area { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.55; tab-size: 2; }
+.tool .code-area { width: 100%; resize: vertical; padding: 10px !important; white-space: pre; overflow: auto; }
+.tool .code-area.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tool .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--glass-border); background: var(--bg-panel-secondary); color: var(--text-main); cursor: pointer; white-space: nowrap; }
+.tool .btn:hover:not(:disabled) { border-color: rgb(var(--app-accent-rgb)); }
+.tool .btn-primary { background: rgb(var(--app-accent-rgb)); border-color: transparent; color: #fff; }
+.tool .btn-sm { min-height: 0 !important; padding: 4px 9px !important; font-size: 12px !important; }
+.tool .btn-icon { width: 34px; padding: 0 !important; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 12px; background: var(--bg-panel-secondary); border: 1px solid var(--glass-border); }
+.tool .seg button { min-height: 0 !important; padding: 5px 10px !important; font-size: 12px !important; font-weight: 600; border-radius: 9px; color: var(--text-secondary); background: transparent; border: 0; cursor: pointer; }
+.tool .seg button.on { background: rgb(var(--app-accent-rgb)); color: #fff; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(var(--app-accent-rgb), .14); color: var(--text-main); }
+.chip.ok { background: rgba(48, 209, 88, .16); }
+.chip.bad { background: rgba(255, 95, 87, .16); }
+.tool-empty { text-align: center; padding: 24px 12px; font-size: 13px; color: var(--text-muted); }
+.tool-list { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; }
+.tool-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: 12px; background: var(--bg-panel-secondary); min-width: 0; }
+.tool .icon-btn { min-height: 0 !important; padding: 4px 6px !important; background: transparent; color: var(--text-muted); border: 0; cursor: pointer; font-size: 13px !important; }
+.tool .icon-btn:hover { color: var(--text-main); }
+.tool .icon-btn.danger:hover { color: #ff5f57; }
+.kv { display: grid; grid-template-columns: minmax(80px, auto) minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; font-size: 13px; }
+.kv > dt { color: var(--text-muted); font-size: 12px; }
+.kv > dd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.progress { height: 8px; border-radius: 999px; background: var(--surface-soft); overflow: hidden; }
+.progress > span { display: block; height: 100%; border-radius: inherit; background: rgb(var(--app-accent-rgb)); transition: width .3s; }

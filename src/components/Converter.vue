@@ -5,7 +5,7 @@
     <h2 class="text-xl font-bold mb-4 text-green-300" id="currency-title">Conversor de moedas</h2>
 
     <!-- Seletor de moedas e valor -->
-    <form @submit.prevent class="flex flex-col gap-2 w-full max-w-sm" id="currency-form">
+    <form @submit.prevent="convertCurrency" class="flex flex-col gap-2 w-full max-w-sm" id="currency-form">
       <input v-model.number="amount" type="number" placeholder="Valor" min="0" step="any" aria-label="Valor para converter"
         class="px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none"
         id="currency-amount" />
@@ -14,21 +14,21 @@
         <select aria-label="Moeda de origem" v-model="selectedFrom"
           class="flex-1 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none">
           <option v-for="c in currencies" :key="c.code" :value="c.code">
-            {{ c.code }}
+            {{ c.code }} — {{ c.name }}
           </option>
         </select>
 
-        <span class="text-gray-400 flex items-center">→</span>
+        <button type="button" class="swap-btn" @click="swapCurrencies" title="Inverter moedas" aria-label="Inverter moedas">⇄</button>
 
         <select aria-label="Moeda de destino" v-model="selectedTo"
           class="flex-1 px-3 py-2 rounded bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none">
           <option v-for="c in currencies" :key="c.code" :value="c.code">
-            {{ c.code }}
+            {{ c.code }} — {{ c.name }}
           </option>
         </select>
       </div>
 
-      <button :disabled="loading" @click="convertCurrency"
+      <button type="submit" :disabled="loading"
         class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded transition mt-2" id="currency-convert-btn">
         {{ loading ? 'Convertendo…' : 'Converter' }}
       </button>
@@ -36,8 +36,9 @@
 
     <p v-if="error" role="alert" class="mt-3 text-sm">{{ error }}</p>
     <!-- Resultado da conversão -->
-    <div v-if="result !== null" class="mt-4 text-lg text-white font-medium" id="currency-result">
-      {{ convertedAmount }} {{ fromCurrency }} = {{ result }} {{ toCurrency }}
+    <div v-if="result !== null" class="mt-4 text-lg font-medium" id="currency-result">
+      {{ formatMoney(convertedAmount, fromCurrency) }} = <strong>{{ formatMoney(result, toCurrency) }}</strong>
+      <div v-if="rateDate" class="text-xs text-gray-400 mt-1">Cotação de {{ rateDate }} (Banco Central Europeu)</div>
     </div>
   </div>
 </template>
@@ -76,6 +77,19 @@ async function loadCurrencies() {
   }
 }
 
+function swapCurrencies() {
+  const from = selectedFrom.value
+  selectedFrom.value = selectedTo.value
+  selectedTo.value = from
+  if (result.value !== null) convertCurrency()
+}
+
+function formatMoney(value, currency) {
+  try { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(Number(value)) } catch { return `${value} ${currency}` }
+}
+
+const rateDate = ref('')
+
 // Converter
 async function convertCurrency() {
   if (loading.value) return
@@ -92,6 +106,7 @@ async function convertCurrency() {
       if (!response.ok) throw new Error('Cotação indisponível.')
       const data = await response.json()
       converted = data.rates?.[to]
+      rateDate.value = data.date ? new Date(`${data.date}T12:00:00`).toLocaleDateString('pt-BR') : ''
       if (!Number.isFinite(converted)) throw new Error('Cotação inválida.')
     }
     result.value = converted.toFixed(2)
@@ -130,3 +145,8 @@ onUnmounted(() => {
   window.removeEventListener('storage', syncFromStorage)
 })
 </script>
+
+<style scoped>
+.swap-btn { min-width: 2.5rem; font-size: 1.1rem !important; background: var(--bg-panel-secondary); border: 1px solid var(--glass-border); color: var(--text-main); cursor: pointer; }
+.swap-btn:hover { border-color: rgb(var(--app-accent-rgb)); }
+</style>

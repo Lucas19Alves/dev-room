@@ -1,23 +1,40 @@
 import { ref, watch } from 'vue'
-import { getDevRoomData, setDevRoomData } from '../utils/storage'
+import { getDevRoomData, setDevRoomData, DATA_KEY } from '../utils/storage'
 
-const STORAGE_KEY = 'dev-room-data'
+// Notas compartilhadas entre Notas Rápidas e as notas flutuantes da área de trabalho.
+const STORAGE_KEY = DATA_KEY
 const notes = ref(getDevRoomData().notes || [])
+let saveTimer = 0
+let applying = false
 
-// Carrega as notas do localStorage
 function loadNotes() {
-  const allData = getDevRoomData()
-  notes.value = allData.notes || []
+  applying = true
+  notes.value = getDevRoomData().notes || []
+  Promise.resolve().then(() => { applying = false })
 }
 
-// Salva as notas no localStorage
 function saveNotes() {
-  const allData = getDevRoomData()
-  allData.notes = notes.value
-  setDevRoomData(allData)
+  clearTimeout(saveTimer)
+  saveTimer = 0
+  const data = getDevRoomData()
+  data.notes = notes.value
+  setDevRoomData(data)
 }
 
-// Salva automaticamente ao alterar
-watch(notes, saveNotes, { deep: true })
+// Agrupa gravações (ex.: arrastar uma nota gera muitos eventos).
+watch(notes, () => {
+  if (applying) return
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(saveNotes, 300)
+}, { deep: true })
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', event => {
+    if (event.key !== DATA_KEY) return
+    if (saveTimer) { saveNotes(); return }
+    loadNotes()
+  })
+  window.addEventListener('pagehide', () => { if (saveTimer) saveNotes() })
+}
 
 export { notes, loadNotes, saveNotes, STORAGE_KEY }
