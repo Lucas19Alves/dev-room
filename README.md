@@ -54,3 +54,7 @@ Funciona direto do navegador com a chave do próprio usuário: OpenAI, Anthropic
 ## Validação
 
 `npm test` cobre OAuth/PKCE, rejeição de callbacks inválidos, timestamps de persistência, mescla por chave, utilitários de dev (JSON, codificação, JWT, cores, diff e timestamps), sincronização (envio único, 304 em ociosidade, mescla entre dispositivos), repos privados e recuperação de janelas corrompidas ou fora da tela. Os testes de autenticação usam respostas simuladas e não criam credenciais nem repositórios reais.
+
+## Licença
+
+Projeto open source sob a licença [MIT](LICENSE). Feito por [Lucas Alves](https://portfolio-lucasalves.vercel.app/).
